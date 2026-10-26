@@ -170,18 +170,37 @@ test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests",
     expect(conflictBody.error).toContain("BOOKING_CONFLICT");
   });
 
-  test("9. Public Booking Portal End-to-End: Attendee can view slots and complete booking to confirmation", async ({ page }) => {
+  test("9. Public Booking Portal End-to-End: Attendee can view slots and complete booking to confirmation", async ({ page, request }) => {
     await page.goto(`/book/${seedHostId}/${eventSlug}`);
 
     // Wait for event title to load
     await expect(page.locator("h1")).toContainText("30 Min Architecture Sync");
 
-    // Select future date (e.g. 7 days from now)
-    const futureDate = new Date();
-    futureDate.setDate(futureDate.getDate() + 7);
-    if (futureDate.getUTCDay() === 0) futureDate.setDate(futureDate.getDate() + 1);
-    if (futureDate.getUTCDay() === 6) futureDate.setDate(futureDate.getDate() + 2);
-    const dateStr = futureDate.toISOString().split("T")[0];
+    // Dynamically locate a future business date with verified open slot capacity
+    let dateStr = "";
+    const baseDate = new Date();
+    baseDate.setDate(baseDate.getDate() + 10 + Math.floor(Math.random() * 20));
+
+    for (let i = 0; i < 30; i++) {
+      const candidate = new Date(baseDate);
+      candidate.setDate(candidate.getDate() + i);
+      const day = candidate.getUTCDay();
+      if (day === 0 || day === 6) continue;
+
+      const candidateStr = candidate.toISOString().split("T")[0];
+      const res = await request.get(
+        `/api/schedule/slots?hostId=${seedHostId}&eventSlug=${eventSlug}&date=${candidateStr}&timezone=UTC`
+      );
+      if (res.status() === 200) {
+        const body = await res.json();
+        if (Array.isArray(body.slots) && body.slots.some((s: any) => s.available)) {
+          dateStr = candidateStr;
+          break;
+        }
+      }
+    }
+
+    expect(dateStr).not.toBe("");
 
     await page.fill("#booking-date-picker", dateStr);
 

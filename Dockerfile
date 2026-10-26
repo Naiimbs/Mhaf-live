@@ -10,7 +10,7 @@ WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
-RUN mkdir -p public && npm run build
+RUN npx prisma generate && mkdir -p public && npm run build
 
 FROM node:22-alpine AS runner
 WORKDIR /app
@@ -26,6 +26,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 COPY --from=builder --chown=nextjs:nodejs /app/next.config.mjs ./next.config.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 
 RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
 USER nextjs

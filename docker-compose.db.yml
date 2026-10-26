@@ -1,0 +1,36 @@
+# MHAF Live — PostgreSQL 16 Private Infrastructure
+# Strictly isolated on internal Docker network 'mhaf-network'.
+# No host port mappings (5432 is NOT exposed to public internet).
+# Persistent data stored in /opt/mhaf-live/postgres-data.
+
+services:
+  mhaf-db:
+    image: postgres:16-alpine
+    container_name: mhaf-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-mhaf_live}
+      POSTGRES_USER: ${POSTGRES_USER:-mhaf_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - /opt/mhaf-live/postgres-data:/var/lib/postgresql/data
+    networks:
+      - mhaf-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mhaf_app} -d ${POSTGRES_DB:-mhaf_live}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1024M
+        reservations:
+          memory: 256M
+
+networks:
+  mhaf-network:
+    name: mhaf-network
+    external: true

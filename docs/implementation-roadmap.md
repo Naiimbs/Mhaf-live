@@ -11,7 +11,26 @@
 1. **Clean Foundation First:** Avoid monolithic forks or blindly copying upstream templates. Build a tailored Next.js App Router architecture extracting proven primitives from each audited reference.
 2. **Strict Licensing Compliance:** Retain MIT notices for `shadcn-dashboard-landing-template`, `cal.diy`, and `morluto/rea`, and preserve Apache-2.0 notices for adapted `livekit-examples/meet` components.
 3. **Verified Milestones:** Every phase concludes with explicit, measurable acceptance criteria before proceeding. No feature (especially transcription or analytics) is deemed operational until verified in an end-to-end test.
-4. **Zero Unapproved Production Deployments:** All local developments operate against mockable or containerized environments (Docker PostgreSQL, MinIO S3, LiveKit Cloud development sandbox) before production cloud infrastructure is provisioned.
+4. **Zero Unapproved Production Deployments:** All local developments operate against containerized environments before production infrastructure is modified.
+5. **Factual Tracking:** Maintain an honest distinction between verified code, file-persisted prototypes, and purely simulated UI mockups.
+
+---
+
+## 1.1 Reality Verification Matrix (Current Status: Oct 2026)
+
+| Milestone / Component | Implementation State | Verification Level | Notes & Ground Truth |
+| :--- | :--- | :--- | :--- |
+| **Production Deployment** | Docker + Caddy on Debian VPS | **Verified Live** | `https://meet.naiimbsili.com` returns HTTP 200, TLS valid Let's Encrypt. Port `18083`. |
+| **Phase 0: Next.js 15 App Router** | Fully Implemented | **Verified** | Next.js 15.1, React 19, TypeScript 5.7, Tailwind CSS v3.4. Static build 16/16 pages passes. |
+| **Phase 1: Marketing Landing Page** | Fully Implemented | **Verified** | Tested across Desktop (1440px), Tablet (768px), Mobile (375px). 15/15 tests passing. |
+| **Phase 1: Request Demo Workflow** | Fully Implemented & Verified | **Verified API & UI** | Server-side Zod validation, sliding-window rate limiting, persistent reference generation, fallback JSON / PostgreSQL Prisma ready. 12/12 Playwright tests passing across all viewports. |
+| **Phase 2: Host Auth & Session** | Implemented (Local Store) | **Verified (JSON)** | Bcrypt password hashing, `jose` JWT cookies. Tested via 9/9 Playwright tests. |
+| **Phase 2: Availability & Slots** | Implemented (Local Store) | **Verified (JSON)** | Timezone conversion, past-slot filtering, atomic conflict protection. |
+| **Phase 2: PostgreSQL Infrastructure** | Compose & Migration Ready | **Staged (Preflight)** | `docker-compose.db.yml` (PostgreSQL 16 on private `mhaf-network`, no public port mapping), initial Prisma migration generated. Pending production execution approval. |
+| **Phase 3: LiveKit Video Rooms** | Interactive Mock Simulator | **Mocked / Visual Only** | UI visualizer in Hero section only. **No LiveKit SDK, no token minting, no SFU calls.** |
+| **Phase 4: Webhooks & Analytics** | Visual Shell Only | **Mocked** | UI presence heatmaps are static client visualizers; no webhook receiver. |
+| **Phase 5: Audio Egress & AI** | Specification Only | **Missing** | S3 egress, Whisper/Deepgram STT, and LLM summarization not yet built. |
+| **Phase 6: Production Hardening** | In Progress | **Partially Verified** | Non-root Docker container (UID 1001), healthcheck, rollback, dev-seed blocked in production. |
 
 ---
 

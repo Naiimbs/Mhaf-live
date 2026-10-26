@@ -75,6 +75,24 @@ jobs:
             "$VPS_USER@$VPS_HOST" \
             "docker login ghcr.io -u '$GHCR_PULL_USERNAME' --password-stdin"
 
+      - name: Copy Compose configuration to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+        run: |
+          set -eu
+          test -n "$VPS_HOST" || { echo "Missing VPS_HOST"; exit 1; }
+          test -n "$VPS_USER" || { echo "Missing VPS_USER"; exit 1; }
+          PORT="${VPS_PORT:-22}"
+          ssh -i ~/.ssh/id_ed25519 -p "$PORT" \
+            -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$VPS_USER@$VPS_HOST" "mkdir -p /opt/mhaf-live"
+          scp -i ~/.ssh/id_ed25519 -P "$PORT" \
+            -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            docker-compose.db.yml \
+            "$VPS_USER@$VPS_HOST:/opt/mhaf-live/docker-compose.db.yml"
+
       - name: Deploy and health-check on VPS
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -90,6 +108,7 @@ jobs:
           set -eu
           ENV_FILE=/opt/mhaf-live/.env
           DATA_DIR=/opt/mhaf-live/data
+          COMPOSE_FILE=/opt/mhaf-live/docker-compose.db.yml
           CONTAINER=mhaf-live
           ROLLBACK=mhaf-live-rollback
 
@@ -104,32 +123,116 @@ jobs:
           fi
 
           mkdir -p "$DATA_DIR"
-          docker pull "$IMAGE"
+          docker network inspect mhaf-network >/dev/null 2>&1 || docker network create mhaf-network
+
+          # PostgreSQL service lifecycle & pre-migration verification
+          if grep -q '^DATABASE_URL=' "$ENV_FILE"; then
+            echo "PostgreSQL configuration detected in environment file."
+
+            if [ ! -f "$COMPOSE_FILE" ]; then
+              echo "Missing Compose configuration at $COMPOSE_FILE; aborting."
+              exit 1
+            fi
+
+            # Consistency checks for database configuration without exposing secrets
+            PG_PASS="$(sed -n 's/^POSTGRES_PASSWORD=//p' "$ENV_FILE" | tail -n 1 | tr -d '"\047[:space:]\r')"
+            if [ -z "$PG_PASS" ]; then
+              echo "POSTGRES_PASSWORD must be configured in $ENV_FILE when DATABASE_URL is present."
+              exit 1
+            fi
+
+            if ! grep -qE '^DATABASE_URL=.*postgres(ql)?://' "$ENV_FILE"; then
+              echo "DATABASE_URL must be a valid PostgreSQL connection string starting with postgresql:// or postgres://"
+              exit 1
+            fi
+
+            if ! grep -qE '^DATABASE_URL=.*@mhaf-db(:[0-9]+)?/' "$ENV_FILE"; then
+              echo "DATABASE_URL must target internal Docker hostname 'mhaf-db' on mhaf-network."
+              exit 1
+            fi
+
+            echo "Database configuration syntax and hostname verified."
+
+            # Start or ensure PostgreSQL service is up
+            echo "Starting PostgreSQL service via Docker Compose..."
+            docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d
+
+            # Bounded health-check for PostgreSQL container
+            echo "Waiting for PostgreSQL (mhaf-db) to become healthy..."
+            DB_HEALTH=starting
+            for _ in $(seq 1 30); do
+              DB_HEALTH="$(docker inspect --format '{{.State.Health.Status}}' mhaf-db 2>/dev/null || echo missing)"
+              [ "$DB_HEALTH" = healthy ] && break
+              if [ "$DB_HEALTH" = unhealthy ]; then
+                echo "PostgreSQL container reported unhealthy status."
+                docker logs --tail 50 mhaf-db || true
+                exit 1
+              fi
+              sleep 2
+            done
+
+            if [ "$DB_HEALTH" != healthy ]; then
+              echo "Timed out waiting for PostgreSQL container to report healthy (status: $DB_HEALTH)."
+              docker logs --tail 50 mhaf-db || true
+              exit 1
+            fi
+            echo "PostgreSQL service is healthy and ready for migrations."
+
+            # Run Prisma migrations while the current production container is STILL RUNNING
+            echo "Applying database migrations before stopping current container..."
+            docker pull "$IMAGE"
+            if ! docker run --rm \
+              --network mhaf-network \
+              --env-file "$ENV_FILE" \
+              "$IMAGE" \
+              npx prisma migrate deploy; then
+              echo "Prisma migration failed; aborting deployment."
+              echo "The existing production container was not stopped and remains active."
+              exit 1
+            fi
+            echo "Database migrations applied successfully."
+          else
+            docker pull "$IMAGE"
+          fi
 
           if docker container inspect "$ROLLBACK" >/dev/null 2>&1; then
             echo "Rollback container already exists; refusing to overwrite it."
             exit 1
           fi
 
+          # Minimal-downtime container replacement after successful migrations
           HAD_OLD=0
           if docker container inspect "$CONTAINER" >/dev/null 2>&1; then
+            echo "Stopping current production container for replacement..."
             docker stop "$CONTAINER"
             docker rename "$CONTAINER" "$ROLLBACK"
             HAD_OLD=1
           fi
 
+          echo "Starting new container $CONTAINER..."
           if ! docker run -d --name "$CONTAINER" --restart unless-stopped \
+            --network mhaf-network \
             -p 127.0.0.1:18083:3000 \
             --env-file "$ENV_FILE" \
             -v "$DATA_DIR:/app/data" \
             "$IMAGE"; then
+            echo "Failed to start new container. Initiating rollback..."
             if [ "$HAD_OLD" -eq 1 ]; then
               docker rename "$ROLLBACK" "$CONTAINER"
               docker start "$CONTAINER"
+              if docker network inspect proxy >/dev/null 2>&1; then
+                docker network connect proxy "$CONTAINER" 2>/dev/null || true
+              fi
             fi
             exit 1
           fi
 
+          # Attach new container to Caddy proxy network
+          if docker network inspect proxy >/dev/null 2>&1; then
+            docker network connect proxy "$CONTAINER" 2>/dev/null || true
+          fi
+
+          # Bounded health-check for new container
           HEALTH=starting
           for _ in $(seq 1 30); do
             HEALTH="$(docker inspect --format '{{.State.Health.Status}}' "$CONTAINER" 2>/dev/null || echo missing)"
@@ -139,13 +242,18 @@ jobs:
           done
 
           if [ "$HEALTH" != healthy ]; then
+            echo "New container failed health check (status: $HEALTH). Capturing logs..."
             docker logs --tail 80 "$CONTAINER" || true
             docker rm -f "$CONTAINER" || true
             if [ "$HAD_OLD" -eq 1 ]; then
+              echo "Restoring previous production container..."
               docker rename "$ROLLBACK" "$CONTAINER"
               docker start "$CONTAINER"
+              if docker network inspect proxy >/dev/null 2>&1; then
+                docker network connect proxy "$CONTAINER" 2>/dev/null || true
+              fi
             fi
-            echo "New container failed health check; rollback attempted."
+            echo "Deployment aborted and previous container restored."
             exit 1
           fi
 

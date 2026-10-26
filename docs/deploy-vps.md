@@ -21,23 +21,50 @@ The repository workflow uses `GITHUB_TOKEN` to publish the image. Ensure the rep
 Run on the VPS, using an account with appropriate permissions:
 
 ```bash
-sudo install -d -o 1001 -g 1001 -m 0750 /opt/mhaf-live/data
+# 1. Base directory & application file storage (Node.js user uid 1001)
 sudo install -d -m 0750 /opt/mhaf-live
+sudo install -d -o 1001 -g 1001 -m 0750 /opt/mhaf-live/data
+
+# 2. PostgreSQL persistent volume provisioning (UID/GID 70 for postgres:16-alpine)
+# Verification: The official postgres:16-alpine image runs as uid 70, gid 70.
+# You can verify this independently with: docker run --rm postgres:16-alpine id -u postgres
+# Fresh directory creation:
+sudo install -d -o 70 -g 70 -m 0700 /opt/mhaf-live/postgres-data
+
+# If /opt/mhaf-live/postgres-data already exists, inspect first before modifying permissions:
+# sudo ls -la /opt/mhaf-live/postgres-data
+# stat -c '%u:%g %a %n' /opt/mhaf-live/postgres-data
+# DO NOT recursively chown if non-empty unless confirmed to be an existing PostgreSQL data cluster.
+# If empty:
+# sudo chown 70:70 /opt/mhaf-live/postgres-data && sudo chmod 0700 /opt/mhaf-live/postgres-data
+
+# 3. Dedicated internal Docker network for database isolation
+docker network inspect mhaf-network >/dev/null 2>&1 || docker network create mhaf-network
+
+# 4. Production environment configuration
 sudo install -m 0600 /dev/null /opt/mhaf-live/.env
-openssl rand -base64 48
+openssl rand -base64 48 # For NEXTAUTH_SECRET
+openssl rand -base64 32 # For POSTGRES_PASSWORD
 sudoedit /opt/mhaf-live/.env
 ```
 
-Put a newly generated secret in the env file and replace the placeholder before deployment:
+Configure the environment file with strong, uniquely generated secrets:
 
 ```dotenv
 NODE_ENV=production
-NEXTAUTH_SECRET=REPLACE_WITH_GENERATED_SECRET
+NEXTAUTH_SECRET=REPLACE_WITH_GENERATED_48_CHAR_SECRET
 NEXTAUTH_URL=https://meet.naiimbsili.com
 NEXT_PUBLIC_APP_URL=https://meet.naiimbsili.com
+
+# PostgreSQL Database Configuration (Private internal network mhaf-network)
+POSTGRES_DB=mhaf_live
+POSTGRES_USER=mhaf_app
+POSTGRES_PASSWORD=REPLACE_WITH_GENERATED_32_CHAR_PASSWORD
+DATABASE_URL=postgresql://mhaf_app:REPLACE_WITH_GENERATED_32_CHAR_PASSWORD@mhaf-db:5432/mhaf_live?schema=public
 ```
 
-The secret must be unique, at least 32 characters, and not the development fallback. Do not commit the env file or share its contents.
+The secrets must be unique and non-placeholder. The `DATABASE_URL` must point to internal host `mhaf-db:5432` on `mhaf-network`. Never commit or share the env file.
+
 
 ## Deploy
 

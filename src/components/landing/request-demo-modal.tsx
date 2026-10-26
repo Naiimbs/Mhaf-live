@@ -16,6 +16,16 @@ interface RequestDemoModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
+interface SubmittedData {
+  id: string;
+  fullName: string;
+  email: string;
+  organization: string;
+  useCase: string;
+  hours: string;
+  createdAt: string;
+}
+
 export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) {
   const [fullName, setFullName] = React.useState("");
   const [email, setEmail] = React.useState("");
@@ -24,35 +34,70 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
   const [hours, setHours] = React.useState("50-200 hours");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [submitted, setSubmitted] = React.useState(false);
+  const [submittedData, setSubmittedData] = React.useState<SubmittedData | null>(null);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
+  const [serverError, setServerError] = React.useState<string | null>(null);
 
   const validate = () => {
     const errs: Record<string, string> = {};
     if (!fullName.trim()) {
       errs.fullName = "Full name is required.";
+    } else if (fullName.trim().length < 2) {
+      errs.fullName = "Full name must be at least 2 characters.";
     }
+
     if (!email.trim()) {
       errs.email = "Work email is required.";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      errs.email = "Please enter a valid email address.";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      errs.email = "Please enter a valid work email address.";
     }
+
     if (!organization.trim()) {
       errs.organization = "Organization or company name is required.";
+    } else if (organization.trim().length < 2) {
+      errs.organization = "Organization name must be at least 2 characters.";
     }
+
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setServerError(null);
+
     if (!validate()) return;
 
     setIsSubmitting(true);
-    // Simulate honest submission processing
-    setTimeout(() => {
+
+    try {
+      const res = await fetch("/api/demo-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: fullName.trim(),
+          email: email.trim(),
+          organization: organization.trim(),
+          useCase,
+          hours,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.status === 201 && data.success) {
+        setSubmittedData(data.data);
+        setSubmitted(true);
+      } else if (res.status === 400 && data.details) {
+        setErrors(data.details);
+      } else {
+        setServerError(data.error || "Failed to submit demo request. Please try again.");
+      }
+    } catch {
+      setServerError("A network connection error occurred. Please verify your internet and try again.");
+    } finally {
       setIsSubmitting(false);
-      setSubmitted(true);
-    }, 600);
+    }
   };
 
   const handleReset = () => {
@@ -62,7 +107,9 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
     setUseCase("Enterprise Video Meetings");
     setHours("50-200 hours");
     setErrors({});
+    setServerError(null);
     setSubmitted(false);
+    setSubmittedData(null);
     onOpenChange(false);
   };
 
@@ -75,13 +122,20 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
           </DialogTitle>
           <DialogDescription className="text-sm">
             {submitted
-              ? "Your inquiry has been recorded successfully in this preview environment."
+              ? "Your inquiry has been recorded and assigned a persistent reference ID."
               : "Connect with our architecture team to evaluate MHAF Live deployment models."}
           </DialogDescription>
         </DialogHeader>
 
         {!submitted ? (
           <form onSubmit={handleSubmit} noValidate className="space-y-4 pt-2">
+            {serverError && (
+              <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-xs text-destructive flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>{serverError}</span>
+              </div>
+            )}
+
             {/* Full Name */}
             <div>
               <label
@@ -213,7 +267,7 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" /> Submitting Request...
+                    <Loader2 className="h-4 w-4 animate-spin" /> Recording Demo Request...
                   </>
                 ) : (
                   <>
@@ -232,7 +286,12 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
               Thank you, <strong>{fullName}</strong>. In this development preview, your
               inquiry for <strong>{organization}</strong> is staged locally without external email dispatch.
             </p>
-            <div className="rounded-lg border border-border bg-muted/30 p-3 font-mono text-xs text-muted-foreground text-left">
+            <div className="rounded-lg border border-border bg-muted/30 p-3 font-mono text-xs text-muted-foreground text-left space-y-1">
+              {submittedData?.id && (
+                <div className="text-[11px] text-primary/80 font-semibold truncate">
+                  Ref: {submittedData.id}
+                </div>
+              )}
               <div>Email: {email}</div>
               <div>Focus: {useCase}</div>
               <div>Estimated Scale: {hours}</div>

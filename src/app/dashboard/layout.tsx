@@ -54,10 +54,10 @@ export default async function DashboardLayout({
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="hidden md:flex items-center gap-2 text-xs font-mono text-muted-foreground bg-muted px-2.5 py-1 rounded-md border border-border">
+            <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground bg-muted px-2.5 py-1 rounded-md border border-border">
               <User className="h-3 w-3 text-primary" />
-              <span>{host.email}</span>
-              <span className="opacity-60">({host.timezone})</span>
+              <span className="truncate max-w-[120px] sm:max-w-none">{host.email}</span>
+              <span className="hidden sm:inline opacity-60">({host.timezone})</span>
             </div>
 
             <ThemeToggle id="dashboard-theme-toggle" />

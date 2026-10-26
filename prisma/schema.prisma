@@ -124,3 +124,18 @@ model AuditLog {
   @@index([actorId, timestamp])
   @@index([action])
 }
+
+model DemoRequest {
+  id           String   @id @default(cuid())
+  fullName     String
+  email        String
+  organization String
+  useCase      String
+  hours        String
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  @@index([email])
+  @@index([createdAt])
+}
