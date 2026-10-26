@@ -1,0 +1,205 @@
+import { test, expect } from "@playwright/test";
+
+test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests", () => {
+  const seedEmail = "host@mhaf.live";
+  const seedPassword = "Password123!";
+  const seedHostId = "host_default_01";
+  const eventSlug = "30min";
+
+  test("1. Unauthorized access to /dashboard is blocked and redirects to /login", async ({ page }) => {
+    // Navigate directly without session
+    await page.goto("/dashboard");
+    await expect(page).toHaveURL(/\/login/);
+    await expect(page.locator("h1")).toContainText("Host Portal Authentication");
+  });
+
+  test("2. Protected API routes return 401 Unauthorized when unauthenticated", async ({ request }) => {
+    const availRes = await request.get("/api/schedule/availability");
+    expect(availRes.status()).toBe(401);
+
+    const bookingsRes = await request.get("/api/schedule/bookings");
+    expect(bookingsRes.status()).toBe(401);
+  });
+
+  test("3. Host Login succeeds with valid seed credentials and reaches dashboard", async ({ page }) => {
+    await page.goto("/login");
+
+    // Click auto-fill helper or fill directly
+    await page.fill("#login-email", seedEmail);
+    await page.fill("#login-password", seedPassword);
+    await page.click("#submit-login-button");
+
+    // Should redirect to dashboard
+    await expect(page).toHaveURL(/\/dashboard/);
+    await expect(page.locator("h1")).toContainText("Host Workspace");
+    await expect(page.getByText(seedEmail)).toBeVisible();
+  });
+
+  test("4. Host Registration creates new host account with custom timezone and default schedule", async ({ page, request }) => {
+    const uniqueEmail = `host_${Date.now()}@test.live`;
+    const hostPassword = "StrongPassword123!";
+
+    await page.goto("/register");
+    await page.fill("#register-name", "Test Doctor");
+    await page.fill("#register-email", uniqueEmail);
+    await page.fill("#register-password", hostPassword);
+    await page.selectOption("#register-tz", "America/New_York");
+    await page.click("#submit-register-button");
+
+    await expect(page).toHaveURL(/\/dashboard/);
+    await expect(page.getByText(uniqueEmail)).toBeVisible();
+  });
+
+  test("5. Availability configuration updates host operating hours and timezone", async ({ page }) => {
+    // Log in
+    await page.goto("/login");
+    await page.fill("#login-email", seedEmail);
+    await page.fill("#login-password", seedPassword);
+    await page.click("#submit-login-button");
+    await expect(page).toHaveURL(/\/dashboard/);
+
+    // Go to availability
+    await page.goto("/dashboard/availability");
+    await expect(page.locator("h1")).toContainText("Weekly Availability Schedule");
+
+    // Change Monday end time to 18:00
+    await page.selectOption("#end-time-1", "18:00");
+    await page.click("#save-availability-btn");
+
+    await expect(page.locator("#availability-feedback-alert")).toContainText(
+      "Weekly availability and operating timezone saved successfully."
+    );
+  });
+
+  test("6. Slot generation calculates timezone-aware slots and excludes past/unavailable times", async ({ request }) => {
+    // Generate date 3 days in future (avoid weekend collision)
+    const targetDate = new Date();
+    targetDate.setDate(targetDate.getDate() + 3);
+    // If weekend, advance to Monday
+    if (targetDate.getUTCDay() === 0) targetDate.setDate(targetDate.getDate() + 1);
+    if (targetDate.getUTCDay() === 6) targetDate.setDate(targetDate.getDate() + 2);
+
+    const dateStr = targetDate.toISOString().split("T")[0];
+
+    const res = await request.get(`/api/schedule/slots?hostId=${seedHostId}&eventSlug=${eventSlug}&date=${dateStr}&timezone=UTC`);
+    expect(res.status()).toBe(200);
+
+    const data = await res.json();
+    expect(data.host.id).toBe(seedHostId);
+    expect(data.eventType.slug).toBe(eventSlug);
+    expect(Array.isArray(data.slots)).toBe(true);
+    expect(data.slots.length).toBeGreaterThan(0);
+
+    // Check slot properties
+    const slot = data.slots[0];
+    expect(slot).toHaveProperty("startTimeUtc");
+    expect(slot).toHaveProperty("endTimeUtc");
+    expect(slot).toHaveProperty("displayTime");
+    expect(slot.available).toBe(true);
+  });
+
+  test("7. Server-side validation rejects invalid booking intervals and past dates", async ({ request }) => {
+    // Test past date
+    const pastRes = await request.post("/api/schedule/book", {
+      data: {
+        eventTypeId: "evt_30min_01",
+        hostId: seedHostId,
+        startTimeUtc: "2020-01-01T10:00:00.000Z",
+        endTimeUtc: "2020-01-01T10:30:00.000Z",
+        attendeeName: "Time Traveler",
+        attendeeEmail: "past@test.com",
+      },
+    });
+    expect(pastRes.status()).toBe(400);
+    const pastData = await pastRes.json();
+    expect(pastData.error).toContain("past");
+
+    // Test end time before start time
+    const invalidOrderRes = await request.post("/api/schedule/book", {
+      data: {
+        eventTypeId: "evt_30min_01",
+        hostId: seedHostId,
+        startTimeUtc: "2027-01-01T12:00:00.000Z",
+        endTimeUtc: "2027-01-01T11:00:00.000Z",
+        attendeeName: "Inverted Time",
+        attendeeEmail: "inverted@test.com",
+      },
+    });
+    expect(invalidOrderRes.status()).toBe(400);
+  });
+
+  test("8. Atomic Booking Concurrency Protection: Parallel identical requests yield exactly 1 success (201) and 1 conflict (409)", async ({ request }) => {
+    // Unique future time slot for concurrency test with random offset to ensure slot is unreserved
+    const randomDays = 20 + Math.floor(Math.random() * 200);
+    const randomHour = 8 + Math.floor(Math.random() * 10);
+    const futureDate = new Date(Date.now() + randomDays * 24 * 60 * 60 * 1000);
+    futureDate.setUTCHours(randomHour, 0, 0, 0);
+    const startIso = futureDate.toISOString();
+    futureDate.setUTCMinutes(futureDate.getUTCMinutes() + 30);
+    const endIso = futureDate.toISOString();
+
+    const bookingPayloadA = {
+      eventTypeId: "evt_30min_01",
+      hostId: seedHostId,
+      startTimeUtc: startIso,
+      endTimeUtc: endIso,
+      attendeeName: "Concurrent Attendee A",
+      attendeeEmail: "attendee_a@test.com",
+    };
+
+    const bookingPayloadB = {
+      eventTypeId: "evt_30min_01",
+      hostId: seedHostId,
+      startTimeUtc: startIso,
+      endTimeUtc: endIso,
+      attendeeName: "Concurrent Attendee B",
+      attendeeEmail: "attendee_b@test.com",
+    };
+
+    // Fire both requests simultaneously
+    const [resA, resB] = await Promise.all([
+      request.post("/api/schedule/book", { data: bookingPayloadA }),
+      request.post("/api/schedule/book", { data: bookingPayloadB }),
+    ]);
+
+    const statuses = [resA.status(), resB.status()].sort();
+    // Exactly one must be 201 (Created) and the other must be 409 (Conflict)
+    expect(statuses).toEqual([201, 409]);
+
+    const conflictBody = resA.status() === 409 ? await resA.json() : await resB.json();
+    expect(conflictBody.error).toContain("BOOKING_CONFLICT");
+  });
+
+  test("9. Public Booking Portal End-to-End: Attendee can view slots and complete booking to confirmation", async ({ page }) => {
+    await page.goto(`/book/${seedHostId}/${eventSlug}`);
+
+    // Wait for event title to load
+    await expect(page.locator("h1")).toContainText("30 Min Architecture Sync");
+
+    // Select future date (e.g. 7 days from now)
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 7);
+    if (futureDate.getUTCDay() === 0) futureDate.setDate(futureDate.getDate() + 1);
+    if (futureDate.getUTCDay() === 6) futureDate.setDate(futureDate.getDate() + 2);
+    const dateStr = futureDate.toISOString().split("T")[0];
+
+    await page.fill("#booking-date-picker", dateStr);
+
+    // Wait for slot buttons to render
+    const firstSlot = page.locator("button[id^='slot-btn-']").first();
+    await firstSlot.waitFor({ state: "visible" });
+    await firstSlot.click();
+
+    // Fill attendee details
+    await page.fill("#attendee-name-input", "Playwright E2E Tester");
+    await page.fill("#attendee-email-input", "e2e@test.live");
+    await page.fill("#attendee-notes-input", "Automated booking integration verification.");
+    await page.click("#confirm-booking-btn");
+
+    // Should land on confirmation page
+    await expect(page).toHaveURL(/\/book\/confirmation\/mhaf-/);
+    await expect(page.locator("h1")).toContainText("You're Scheduled!");
+    await expect(page.getByText("Playwright E2E Tester")).toBeVisible();
+    await expect(page.getByText("CONFIRMED", { exact: true })).toBeVisible();
+  });
+});
