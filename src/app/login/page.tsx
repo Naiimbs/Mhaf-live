@@ -125,26 +125,29 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          {/* Quick seed account helper */}
-          <div className="mt-6 pt-5 border-t border-border">
-            <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-              <span>Local Dev Sandbox Host</span>
-              <button
-                type="button"
-                onClick={handleFillDemo}
-                className="font-medium text-primary hover:underline"
-                id="fill-demo-creds-btn"
-              >
-                Auto-fill credentials
-              </button>
+          {/* Quick seed account helper (Development & local staging only) */}
+          {(process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === "true" ||
+            process.env.NODE_ENV !== "production") && (
+            <div className="mt-6 pt-5 border-t border-border">
+              <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                <span>Local Dev Sandbox Host</span>
+                <button
+                  type="button"
+                  onClick={handleFillDemo}
+                  className="font-medium text-primary hover:underline"
+                  id="fill-demo-creds-btn"
+                >
+                  Auto-fill credentials
+                </button>
+              </div>
+              <div className="rounded-lg bg-muted/60 p-2.5 text-xs font-mono text-muted-foreground flex items-center justify-between">
+                <span>host@mhaf.live / Password123!</span>
+                <span className="text-[10px] uppercase font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                  Dev Only
+                </span>
+              </div>
             </div>
-            <div className="rounded-lg bg-muted/60 p-2.5 text-xs font-mono text-muted-foreground flex items-center justify-between">
-              <span>host@mhaf.live / Password123!</span>
-              <span className="text-[10px] uppercase font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded">
-                Seeded
-              </span>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Footer links */}

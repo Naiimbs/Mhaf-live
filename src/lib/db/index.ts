@@ -123,14 +123,37 @@ class DatabaseStore {
 
   private seedDefaultHostIfEmpty() {
     if (this.data.users.length === 0) {
-      const hostId = "host_default_01";
-      const passwordHash = bcrypt.hashSync("Password123!", 10);
+      const isProduction = process.env.NODE_ENV === "production";
+      const initialEmail = process.env.INITIAL_HOST_EMAIL?.trim();
+      const initialPassword = process.env.INITIAL_HOST_PASSWORD?.trim();
+      const allowDemoSeed = process.env.SEED_DEMO_HOST === "true" || !isProduction;
+
       const now = new Date();
+      let hostId = "host_default_01";
+      let hostName = "Amine L.";
+      let hostEmail = "host@mhaf.live";
+      let passwordHash = "";
+
+      if (initialEmail && initialPassword) {
+        // Production bootstrap with administrator-provided credentials from environment
+        hostId = "host_admin_01";
+        hostName = process.env.INITIAL_HOST_NAME?.trim() || "MHAF Administrator";
+        hostEmail = initialEmail;
+        passwordHash = bcrypt.hashSync(initialPassword, 12);
+      } else if (allowDemoSeed) {
+        // Local development sandbox only
+        passwordHash = bcrypt.hashSync("Password123!", 10);
+      } else {
+        console.log(
+          "[DatabaseStore] Production mode: Development demo host seeding skipped. Create your initial host account via /register."
+        );
+        return;
+      }
 
       const defaultHost: User = {
         id: hostId,
-        name: "Amine L.",
-        email: "host@mhaf.live",
+        name: hostName,
+        email: hostEmail,
         emailVerified: now,
         passwordHash,
         role: "HOST",
