@@ -222,24 +222,72 @@ jobs:
               docker start "$CONTAINER"
               if docker network inspect proxy >/dev/null 2>&1; then
                 docker network connect proxy "$CONTAINER" 2>/dev/null || true
+                RESTORED_PROXY=$(docker inspect "$CONTAINER" --format '{{if index .NetworkSettings.Networks "proxy"}}attached{{else}}missing{{end}}' 2>/dev/null || echo missing)
+                if [ "$RESTORED_PROXY" != "attached" ]; then
+                  echo "CRITICAL: Restored container is not attached to proxy network!"
+                else
+                  echo "Restored container verified attached to proxy network."
+                fi
               fi
             fi
             exit 1
           fi
 
-          # Attach new container to Caddy proxy network
+          # Attach new container to Caddy proxy network (if proxy network exists on VPS)
+          PROXY_EXPECTED=0
           if docker network inspect proxy >/dev/null 2>&1; then
-            docker network connect proxy "$CONTAINER" 2>/dev/null || true
+            PROXY_EXPECTED=1
+            echo "Connecting new container $CONTAINER to Caddy proxy network..."
+            if ! docker network connect proxy "$CONTAINER"; then
+              echo "CRITICAL: Failed to connect $CONTAINER to proxy network. Initiating rollback..."
+              docker logs --tail 80 "$CONTAINER" || true
+              docker rm -f "$CONTAINER" || true
+              if [ "$HAD_OLD" -eq 1 ]; then
+                echo "Restoring previous production container..."
+                docker rename "$ROLLBACK" "$CONTAINER"
+                docker start "$CONTAINER"
+                if docker network inspect proxy >/dev/null 2>&1; then
+                  docker network connect proxy "$CONTAINER" 2>/dev/null || true
+                  RESTORED_PROXY=$(docker inspect "$CONTAINER" --format '{{if index .NetworkSettings.Networks "proxy"}}attached{{else}}missing{{end}}' 2>/dev/null || echo missing)
+                  if [ "$RESTORED_PROXY" != "attached" ]; then
+                    echo "CRITICAL: Restored container is not attached to proxy network!"
+                  else
+                    echo "Restored container verified attached to proxy network."
+                  fi
+                fi
+              fi
+              echo "Deployment aborted and previous container restored due to proxy network connection failure."
+              exit 1
+            fi
+            echo "Connected $CONTAINER to proxy network successfully."
           fi
 
-          # Bounded health-check for new container
-          HEALTH=starting
-          for _ in $(seq 1 30); do
-            HEALTH="$(docker inspect --format '{{.State.Health.Status}}' "$CONTAINER" 2>/dev/null || echo missing)"
-            [ "$HEALTH" = healthy ] && break
-            [ "$HEALTH" = unhealthy ] && break
-            sleep 2
-          done
+          # Verify the new container is attached to all required networks
+          HEALTH=""
+          MHAF_NET_STATUS="$(docker inspect "$CONTAINER" --format '{{if index .NetworkSettings.Networks "mhaf-network"}}attached{{else}}missing{{end}}' 2>/dev/null || echo missing)"
+          if [ "$MHAF_NET_STATUS" != "attached" ]; then
+            echo "CRITICAL: Container $CONTAINER is not attached to required network 'mhaf-network'."
+            HEALTH="missing_mhaf_network"
+          fi
+
+          if [ "$PROXY_EXPECTED" -eq 1 ]; then
+            PROXY_NET_STATUS="$(docker inspect "$CONTAINER" --format '{{if index .NetworkSettings.Networks "proxy"}}attached{{else}}missing{{end}}' 2>/dev/null || echo missing)"
+            if [ "$PROXY_NET_STATUS" != "attached" ]; then
+              echo "CRITICAL: Container $CONTAINER is not attached to required network 'proxy'."
+              HEALTH="missing_proxy_network"
+            fi
+          fi
+
+          # Bounded health-check for new container (only if network verification passed)
+          if [ -z "$HEALTH" ]; then
+            HEALTH=starting
+            for _ in $(seq 1 30); do
+              HEALTH="$(docker inspect --format '{{.State.Health.Status}}' "$CONTAINER" 2>/dev/null || echo missing)"
+              [ "$HEALTH" = healthy ] && break
+              [ "$HEALTH" = unhealthy ] && break
+              sleep 2
+            done
+          fi
 
           if [ "$HEALTH" != healthy ]; then
             echo "New container failed health check (status: $HEALTH). Capturing logs..."
@@ -251,6 +299,12 @@ jobs:
               docker start "$CONTAINER"
               if docker network inspect proxy >/dev/null 2>&1; then
                 docker network connect proxy "$CONTAINER" 2>/dev/null || true
+                RESTORED_PROXY=$(docker inspect "$CONTAINER" --format '{{if index .NetworkSettings.Networks "proxy"}}attached{{else}}missing{{end}}' 2>/dev/null || echo missing)
+                if [ "$RESTORED_PROXY" != "attached" ]; then
+                  echo "CRITICAL: Restored container is not attached to proxy network!"
+                else
+                  echo "Restored container verified attached to proxy network."
+                fi
               fi
             fi
             echo "Deployment aborted and previous container restored."

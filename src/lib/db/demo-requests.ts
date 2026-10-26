@@ -41,12 +41,28 @@ export interface DemoRequestRecord extends DemoRequestInput {
   userAgent?: string | null;
   createdAt: Date;
   persistedIn: "postgresql" | "json_fallback";
+  isDuplicate?: boolean;
 }
 
-// In-memory sliding-window rate limiting map: key -> list of timestamps
-// Note on limitations: in-memory state is local to each Node process.
-// Across container restarts or in multi-instance horizontal scaling,
-// distributed rate limiting (e.g. PostgreSQL or Redis token buckets) is required.
+/**
+ * In-memory sliding-window rate limiting map: identifier -> array of request timestamps.
+ *
+ * ARCHITECTURAL LIMITATIONS & SCOPE:
+ * 1. Process-local scope:
+ *    Rate limit state is stored strictly in the memory heap of this Node.js process.
+ *    It is NOT shared across separate processes, threads, or horizontally scaled container replicas.
+ * 2. Volatile lifetime:
+ *    State resets on container restart, zero-downtime container swap, or process restart.
+ * 3. Scope & current thresholds:
+ *    - IP scope: 10 requests per 15-minute sliding window (`ip:<client_ip>`).
+ *    - Email scope: 3 requests per 15-minute sliding window (`email:<normalized_email>`).
+ * 4. Architectural justification:
+ *    For MHAF Live's single-container architecture on the VPS, an in-memory sliding window
+ *    provides immediate, zero-latency denial-of-service and form-stuffing protection without
+ *    adding an external Redis dependency or inflicting write amplification on PostgreSQL
+ *    for every incoming spam attempt. In a future multi-container cluster, distributed token
+ *    buckets in PostgreSQL or Redis can replace this map.
+ */
 const rateLimitMap = new Map<string, number[]>();
 
 export function resetRateLimits(): void {
@@ -111,8 +127,16 @@ export function getFallbackDemoRequests(): DemoRequestRecord[] {
   }
 }
 
-// Durable fallback staging persistence in JSON data directory when PostgreSQL is unavailable
-function appendToJsonFallback(record: DemoRequestRecord): void {
+/**
+ * Durable fallback staging persistence in JSON data directory when PostgreSQL is unavailable.
+ * If a submission with the same email exists within the 60-second deduplication window,
+ * this function returns the EXACT persisted record already stored on disk and does NOT
+ * write a duplicate or return an unwritten phantom record.
+ */
+export function appendToJsonFallback(record: DemoRequestRecord): {
+  record: DemoRequestRecord;
+  isDuplicate: boolean;
+} {
   if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
   }
@@ -126,23 +150,48 @@ function appendToJsonFallback(record: DemoRequestRecord): void {
     }
   }
 
-  // Deduplication check in fallback storage (60-second window)
-  const isDuplicate = existing.some(
-    (item) =>
-      item.email.toLowerCase() === record.email.toLowerCase() &&
-      Date.now() - new Date(item.createdAt).getTime() < 60000
-  );
+  const normalizedEmail = record.email.toLowerCase();
+  const sixtySecondsAgo = Date.now() - 60000;
 
-  if (isDuplicate) {
-    return;
+  // Deduplication check in fallback storage (60-second window)
+  const existingDuplicate = existing
+    .filter(
+      (item) =>
+        item.email.toLowerCase() === normalizedEmail &&
+        new Date(item.createdAt).getTime() >= sixtySecondsAgo
+    )
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )[0];
+
+  if (existingDuplicate) {
+    // Return the actual record stored on disk rather than returning an unwritten ghost ID
+    return {
+      record: {
+        ...existingDuplicate,
+        createdAt: new Date(existingDuplicate.createdAt),
+        persistedIn: "json_fallback",
+        isDuplicate: true,
+      },
+      isDuplicate: true,
+    };
   }
 
   existing.push(record);
 
   // Atomic write to avoid partial writes on power failure or concurrent write
-  const tmpFile = `${FALLBACK_FILE}.${Date.now()}.tmp`;
+  const tmpFile = `${FALLBACK_FILE}.${Date.now()}.${Math.random().toString(36).substring(2, 7)}.tmp`;
   fs.writeFileSync(tmpFile, JSON.stringify(existing, null, 2), "utf-8");
   fs.renameSync(tmpFile, FALLBACK_FILE);
+
+  return {
+    record: {
+      ...record,
+      isDuplicate: false,
+    },
+    isDuplicate: false,
+  };
 }
 
 export async function createDemoRequest(
@@ -177,6 +226,7 @@ export async function createDemoRequest(
           userAgent: existing.userAgent,
           createdAt: existing.createdAt,
           persistedIn: "postgresql",
+          isDuplicate: true,
         };
       }
 
@@ -203,6 +253,7 @@ export async function createDemoRequest(
         userAgent: record.userAgent,
         createdAt: record.createdAt,
         persistedIn: "postgresql",
+        isDuplicate: false,
       };
     } catch (dbErr) {
       console.error(
@@ -214,7 +265,7 @@ export async function createDemoRequest(
 
   // Durable fallback staging: must guarantee write or throw error
   try {
-    const fallbackRecord: DemoRequestRecord = {
+    const candidateRecord: DemoRequestRecord = {
       id: `dr_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
       fullName: validated.fullName,
       email: normalizedEmail,
@@ -227,8 +278,11 @@ export async function createDemoRequest(
       persistedIn: "json_fallback",
     };
 
-    appendToJsonFallback(fallbackRecord);
-    return fallbackRecord;
+    const result = appendToJsonFallback(candidateRecord);
+    return {
+      ...result.record,
+      isDuplicate: result.isDuplicate,
+    };
   } catch (fsErr) {
     console.error("[DemoRequests] FATAL: Failed to write to fallback storage:", fsErr);
     // Explicitly do not report silent success if storage failed
@@ -243,8 +297,16 @@ const SYNCED_ARCHIVE_FILE = path.join(DATA_DIR, "demo_requests_fallback.synced.j
 /**
  * Reconciliation helper to sync any leads captured in fallback storage to PostgreSQL.
  * Safe to run idempotently after database connectivity is established.
- * Successfully synced leads are atomically moved to an archive file so they are never lost,
- * while any failed leads remain in the pending fallback file for subsequent retry.
+ *
+ * CRASH-SAFETY & RECOVERY ARCHITECTURE:
+ * Note: POSIX and Windows filesystems do not support atomic multi-file transactions across separate files.
+ * To achieve crash resilience without risking data loss:
+ * 1. Processed leads are written to `SYNCED_ARCHIVE_FILE` FIRST using an atomic write-and-rename.
+ * 2. Deduplication by lead ID ensures idempotent reconciliation even if multiple runs occur.
+ * 3. Only after the archive is durable on disk, the pending `FALLBACK_FILE` is re-read and updated
+ *    by removing only the successfully processed lead IDs. This guarantees any new concurrent
+ *    leads that arrived during the sync run are completely preserved.
+ * 4. If any failure occurs during archive writing, `FALLBACK_FILE` is completely untouched.
  */
 export async function syncFallbackLeadsToPostgres(): Promise<{
   synced: number;
@@ -263,8 +325,7 @@ export async function syncFallbackLeadsToPostgres(): Promise<{
   let synced = 0;
   let skipped = 0;
   let failed = 0;
-  const remaining: DemoRequestRecord[] = [];
-  const archived: Array<DemoRequestRecord & { syncedAt: string; status: string }> = [];
+  const processedLeads: Array<DemoRequestRecord & { syncedAt: string; status: "synced" | "skipped_duplicate" }> = [];
 
   for (const lead of fallbackLeads) {
     try {
@@ -277,7 +338,7 @@ export async function syncFallbackLeadsToPostgres(): Promise<{
 
       if (existing) {
         skipped++;
-        archived.push({
+        processedLeads.push({
           ...lead,
           syncedAt: new Date().toISOString(),
           status: "skipped_duplicate",
@@ -290,15 +351,15 @@ export async function syncFallbackLeadsToPostgres(): Promise<{
           fullName: lead.fullName,
           email: lead.email.toLowerCase(),
           organization: lead.organization,
-          useCase: lead.useCase,
-          hours: lead.hours,
+          useCase: lead.useCase || "Enterprise Video Meetings",
+          hours: lead.hours || "50-200 hours",
           ipAddress: lead.ipAddress,
           userAgent: lead.userAgent,
           createdAt: new Date(lead.createdAt),
         },
       });
       synced++;
-      archived.push({
+      processedLeads.push({
         ...lead,
         syncedAt: new Date().toISOString(),
         status: "synced",
@@ -306,32 +367,58 @@ export async function syncFallbackLeadsToPostgres(): Promise<{
     } catch (err) {
       console.error(`[DemoRequests] Failed to sync fallback lead ${lead.id}:`, err);
       failed++;
-      remaining.push(lead);
+      // Not added to processedLeads, so remains in pending fallback for future retry
     }
   }
 
-  // Atomically update fallback file only if some leads were processed
-  if (archived.length > 0) {
-    try {
-      const tmpPending = `${FALLBACK_FILE}.${Date.now()}.tmp`;
-      fs.writeFileSync(tmpPending, JSON.stringify(remaining, null, 2), "utf-8");
-      fs.renameSync(tmpPending, FALLBACK_FILE);
+  // Crash-safe dual-file persistence:
+  if (processedLeads.length > 0) {
+    const processedIds = new Set(processedLeads.map((p) => p.id));
 
-      let existingArchive: Array<DemoRequestRecord & { syncedAt: string; status: string }> = [];
-      if (fs.existsSync(SYNCED_ARCHIVE_FILE)) {
+    // Step 1: Update archive file first
+    let existingArchive: Array<DemoRequestRecord & { syncedAt: string; status: string }> = [];
+    if (fs.existsSync(SYNCED_ARCHIVE_FILE)) {
+      try {
+        existingArchive = JSON.parse(fs.readFileSync(SYNCED_ARCHIVE_FILE, "utf-8"));
+      } catch (e) {
+        console.error("[DemoRequests] Warning: Corrupt archive file encountered, backing up:", e);
+        const corruptBackup = `${SYNCED_ARCHIVE_FILE}.corrupt.${Date.now()}`;
         try {
-          existingArchive = JSON.parse(fs.readFileSync(SYNCED_ARCHIVE_FILE, "utf-8"));
+          fs.copyFileSync(SYNCED_ARCHIVE_FILE, corruptBackup);
         } catch {
-          existingArchive = [];
+          // ignore backup failure
         }
+        existingArchive = [];
       }
-      existingArchive.push(...archived);
-      const tmpArchive = `${SYNCED_ARCHIVE_FILE}.${Date.now()}.tmp`;
-      fs.writeFileSync(tmpArchive, JSON.stringify(existingArchive, null, 2), "utf-8");
-      fs.renameSync(tmpArchive, SYNCED_ARCHIVE_FILE);
-    } catch (fsErr) {
-      console.error("[DemoRequests] Warning: Failed to update fallback archive files:", fsErr);
     }
+
+    // Deduplicate against existing archive entries by ID to preserve idempotency
+    const existingArchiveIds = new Set(existingArchive.map((a) => a.id));
+    for (const lead of processedLeads) {
+      if (!existingArchiveIds.has(lead.id)) {
+        existingArchive.push(lead);
+      }
+    }
+
+    const tmpArchive = `${SYNCED_ARCHIVE_FILE}.${Date.now()}.${Math.random().toString(36).substring(2, 7)}.tmp`;
+    fs.writeFileSync(tmpArchive, JSON.stringify(existingArchive, null, 2), "utf-8");
+    fs.renameSync(tmpArchive, SYNCED_ARCHIVE_FILE);
+
+    // Step 2: Now that archive is durable on disk, safely update pending fallback file.
+    // Re-read current pending file to avoid overwriting any concurrent leads that arrived during sync.
+    let currentPending: DemoRequestRecord[] = [];
+    if (fs.existsSync(FALLBACK_FILE)) {
+      try {
+        currentPending = JSON.parse(fs.readFileSync(FALLBACK_FILE, "utf-8"));
+      } catch {
+        currentPending = [];
+      }
+    }
+
+    const remainingPending = currentPending.filter((lead) => !processedIds.has(lead.id));
+    const tmpPending = `${FALLBACK_FILE}.${Date.now()}.${Math.random().toString(36).substring(2, 7)}.tmp`;
+    fs.writeFileSync(tmpPending, JSON.stringify(remainingPending, null, 2), "utf-8");
+    fs.renameSync(tmpPending, FALLBACK_FILE);
   }
 
   return { synced, skipped, failed };

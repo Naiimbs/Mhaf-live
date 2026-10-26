@@ -87,12 +87,11 @@ async function main() {
     }
   }
 
-  // Atomically update files
+  // Crash-safe dual-file persistence:
+  // Update archive file FIRST before removing processed leads from pending fallback
   if (archived.length > 0) {
     try {
-      const tmpPending = `${FALLBACK_FILE}.${Date.now()}.tmp`;
-      fs.writeFileSync(tmpPending, JSON.stringify(remaining, null, 2), "utf-8");
-      fs.renameSync(tmpPending, FALLBACK_FILE);
+      const processedIds = new Set(archived.map((a) => a.id));
 
       let existingArchive = [];
       if (fs.existsSync(ARCHIVE_FILE)) {
@@ -102,10 +101,34 @@ async function main() {
           existingArchive = [];
         }
       }
-      existingArchive.push(...archived);
-      const tmpArchive = `${ARCHIVE_FILE}.${Date.now()}.tmp`;
+
+      // Deduplicate against existing archive entries by ID to preserve idempotency
+      const existingArchiveIds = new Set(existingArchive.map((a) => a.id));
+      for (const lead of archived) {
+        if (!existingArchiveIds.has(lead.id)) {
+          existingArchive.push(lead);
+        }
+      }
+
+      const tmpArchive = `${ARCHIVE_FILE}.${Date.now()}.${Math.random().toString(36).substring(2, 7)}.tmp`;
       fs.writeFileSync(tmpArchive, JSON.stringify(existingArchive, null, 2), "utf-8");
       fs.renameSync(tmpArchive, ARCHIVE_FILE);
+
+      // Now that archive is durable on disk, safely update pending fallback file.
+      // Re-read current pending file to avoid overwriting any concurrent leads that arrived during sync.
+      let currentPending = [];
+      if (fs.existsSync(FALLBACK_FILE)) {
+        try {
+          currentPending = JSON.parse(fs.readFileSync(FALLBACK_FILE, "utf-8"));
+        } catch {
+          currentPending = [];
+        }
+      }
+
+      const remainingPending = currentPending.filter((lead) => !processedIds.has(lead.id));
+      const tmpPending = `${FALLBACK_FILE}.${Date.now()}.${Math.random().toString(36).substring(2, 7)}.tmp`;
+      fs.writeFileSync(tmpPending, JSON.stringify(remainingPending, null, 2), "utf-8");
+      fs.renameSync(tmpPending, FALLBACK_FILE);
     } catch (fsErr) {
       console.error("[Sync Leads] Warning: Failed to update archive file:", fsErr);
     }

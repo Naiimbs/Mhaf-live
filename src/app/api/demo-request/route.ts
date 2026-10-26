@@ -89,10 +89,14 @@ export async function POST(req: NextRequest) {
       userAgent,
     });
 
+    const message = record.isDuplicate
+      ? "Your demo inquiry has already been received and is being processed."
+      : "Your demo inquiry has been securely recorded.";
+
     return NextResponse.json(
       {
         success: true,
-        message: "Your demo inquiry has been securely recorded.",
+        message,
         data: {
           id: record.id,
           fullName: record.fullName,
@@ -101,6 +105,7 @@ export async function POST(req: NextRequest) {
           useCase: record.useCase,
           hours: record.hours,
           createdAt: record.createdAt,
+          isDuplicate: record.isDuplicate ?? false,
         },
       },
       { status: 201 }

@@ -59,7 +59,7 @@ test.describe("Demo Request Workflow & API", () => {
     });
     expect(res1.status()).toBe(201);
 
-    // 2nd request - should pass
+    // 2nd request - should pass as duplicate with existing record id
     const res2 = await request.post("/api/demo-request", {
       headers,
       data: {
@@ -69,8 +69,12 @@ test.describe("Demo Request Workflow & API", () => {
       },
     });
     expect(res2.status()).toBe(201);
+    const body2 = await res2.json();
+    expect(body2.success).toBe(true);
+    expect(body2.data.id).toBeDefined();
+    expect(body2.data.isDuplicate).toBe(true);
 
-    // 3rd request - should pass
+    // 3rd request - should pass as duplicate with existing record id
     const res3 = await request.post("/api/demo-request", {
       headers,
       data: {
@@ -80,6 +84,10 @@ test.describe("Demo Request Workflow & API", () => {
       },
     });
     expect(res3.status()).toBe(201);
+    const body3 = await res3.json();
+    expect(body3.success).toBe(true);
+    expect(body3.data.id).toBeDefined();
+    expect(body3.data.isDuplicate).toBe(true);
 
     // 4th request - should be blocked by rate limiter (429)
     const res4 = await request.post("/api/demo-request", {
@@ -94,6 +102,78 @@ test.describe("Demo Request Workflow & API", () => {
     const body4 = await res4.json();
     expect(body4.success).toBe(false);
     expect(body4.error).toContain("Multiple demo requests for this email");
+  });
+
+  test("API: returns exact stored record and reference ID on duplicate submission within 60s", async ({ request }) => {
+    const testIp = `10.${Math.floor(Math.random() * 200) + 10}.4.1`;
+    const email = `dup_verify_${Date.now()}_${Math.random().toString(36).substring(2, 6)}@enterprise-dup.com`;
+    const headers = { "x-forwarded-for": testIp };
+
+    const payload = {
+      fullName: "Marcus Aurelius",
+      email,
+      organization: "Stoic Enterprise",
+      useCase: "Executive Secure Sync",
+      hours: "50-200 hours",
+    };
+
+    // 1st request
+    const res1 = await request.post("/api/demo-request", {
+      headers,
+      data: payload,
+    });
+    expect(res1.status()).toBe(201);
+    const body1 = await res1.json();
+    expect(body1.success).toBe(true);
+    expect(body1.data.id).toBeDefined();
+    expect(body1.data.isDuplicate).toBe(false);
+    const firstId = body1.data.id;
+
+    // 2nd request within 60s
+    const res2 = await request.post("/api/demo-request", {
+      headers,
+      data: payload,
+    });
+    expect(res2.status()).toBe(201);
+    const body2 = await res2.json();
+    expect(body2.success).toBe(true);
+    // Verifies the stored reference ID is returned, NOT a new phantom record ID
+    expect(body2.data.id).toBe(firstId);
+    expect(body2.data.isDuplicate).toBe(true);
+    expect(body2.message).toContain("already been received");
+  });
+
+  test("API: enforces IP-based rate limiting on repeated requests from same network", async ({ request }) => {
+    const testIp = `10.${Math.floor(Math.random() * 200) + 10}.5.1`;
+    const headers = { "x-forwarded-for": testIp };
+
+    // 10 requests from same IP with different emails should pass (IP limit is 10)
+    for (let i = 1; i <= 10; i++) {
+      const email = `ip_limit_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 5)}@ip-test.com`;
+      const res = await request.post("/api/demo-request", {
+        headers,
+        data: {
+          fullName: `Employee ${i}`,
+          email,
+          organization: "Shared Network Org",
+        },
+      });
+      expect(res.status()).toBe(201);
+    }
+
+    // 11th request from same IP should be blocked with 429
+    const blockedRes = await request.post("/api/demo-request", {
+      headers,
+      data: {
+        fullName: "Employee 11",
+        email: `ip_limit_${Date.now()}_11@ip-test.com`,
+        organization: "Shared Network Org",
+      },
+    });
+    expect(blockedRes.status()).toBe(429);
+    const blockedBody = await blockedRes.json();
+    expect(blockedBody.success).toBe(false);
+    expect(blockedBody.error).toContain("Rate limit reached for your network");
   });
 
   test("UI: modal opens, submits valid form, and shows persistent confirmation", async ({ page }) => {
