@@ -1,0 +1,156 @@
+name: Deploy MHAF Live
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: mhaf-live-production
+  cancel-in-progress: false
+
+env:
+  IMAGE_NAME: ghcr.io/naiimbs/mhaf-live
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Configure SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          set -eu
+          test -n "$VPS_SSH_KEY" || { echo "Missing VPS_SSH_KEY"; exit 1; }
+          test -n "$VPS_KNOWN_HOSTS" || { echo "Missing VPS_KNOWN_HOSTS"; exit 1; }
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Log in to GHCR from VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          GHCR_PULL_USERNAME: ${{ secrets.GHCR_PULL_USERNAME }}
+          GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+        run: |
+          set -eu
+          test -n "$VPS_HOST" || { echo "Missing VPS_HOST"; exit 1; }
+          test -n "$VPS_USER" || { echo "Missing VPS_USER"; exit 1; }
+          test -n "$GHCR_PULL_USERNAME" || { echo "Missing GHCR_PULL_USERNAME"; exit 1; }
+          test -n "$GHCR_PULL_TOKEN" || { echo "Missing GHCR_PULL_TOKEN"; exit 1; }
+          PORT="${VPS_PORT:-22}"
+          printf '%s' "$GHCR_PULL_TOKEN" | ssh -i ~/.ssh/id_ed25519 -p "$PORT" \
+            -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$VPS_USER@$VPS_HOST" \
+            "docker login ghcr.io -u '$GHCR_PULL_USERNAME' --password-stdin"
+
+      - name: Deploy and health-check on VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          IMAGE: ${{ env.IMAGE_NAME }}:${{ github.sha }}
+        run: |
+          set -eu
+          PORT="${VPS_PORT:-22}"
+          ssh -i ~/.ssh/id_ed25519 -p "$PORT" \
+            -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$VPS_USER@$VPS_HOST" "IMAGE='$IMAGE' bash -s" <<'REMOTE'
+          set -eu
+          ENV_FILE=/opt/mhaf-live/.env
+          DATA_DIR=/opt/mhaf-live/data
+          CONTAINER=mhaf-live
+          ROLLBACK=mhaf-live-rollback
+
+          if [ ! -s "$ENV_FILE" ]; then
+            echo "Missing $ENV_FILE; create a production env file first."
+            exit 1
+          fi
+          SECRET="$(sed -n 's/^NEXTAUTH_SECRET=//p' "$ENV_FILE" | tail -n 1 | tr -d '"\047[:space:]\r')"
+          if [ "${#SECRET}" -lt 32 ] || echo "$SECRET" | grep -Eiq 'placeholder|replace_with|dev-secret|minimum_32'; then
+            echo "NEXTAUTH_SECRET must be a unique, non-placeholder secret of at least 32 characters."
+            exit 1
+          fi
+
+          mkdir -p "$DATA_DIR"
+          docker pull "$IMAGE"
+
+          if docker container inspect "$ROLLBACK" >/dev/null 2>&1; then
+            echo "Rollback container already exists; refusing to overwrite it."
+            exit 1
+          fi
+
+          HAD_OLD=0
+          if docker container inspect "$CONTAINER" >/dev/null 2>&1; then
+            docker stop "$CONTAINER"
+            docker rename "$CONTAINER" "$ROLLBACK"
+            HAD_OLD=1
+          fi
+
+          if ! docker run -d --name "$CONTAINER" --restart unless-stopped \
+            -p 127.0.0.1:18083:3000 \
+            --env-file "$ENV_FILE" \
+            -v "$DATA_DIR:/app/data" \
+            "$IMAGE"; then
+            if [ "$HAD_OLD" -eq 1 ]; then
+              docker rename "$ROLLBACK" "$CONTAINER"
+              docker start "$CONTAINER"
+            fi
+            exit 1
+          fi
+
+          HEALTH=starting
+          for _ in $(seq 1 30); do
+            HEALTH="$(docker inspect --format '{{.State.Health.Status}}' "$CONTAINER" 2>/dev/null || echo missing)"
+            [ "$HEALTH" = healthy ] && break
+            [ "$HEALTH" = unhealthy ] && break
+            sleep 2
+          done
+
+          if [ "$HEALTH" != healthy ]; then
+            docker logs --tail 80 "$CONTAINER" || true
+            docker rm -f "$CONTAINER" || true
+            if [ "$HAD_OLD" -eq 1 ]; then
+              docker rename "$ROLLBACK" "$CONTAINER"
+              docker start "$CONTAINER"
+            fi
+            echo "New container failed health check; rollback attempted."
+            exit 1
+          fi
+
+          if [ "$HAD_OLD" -eq 1 ]; then
+            docker rm "$ROLLBACK"
+          fi
+          echo "MHAF Live deployed and healthy on 127.0.0.1:18083."
+          REMOTE
