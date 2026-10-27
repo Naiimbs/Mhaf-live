@@ -176,6 +176,119 @@ test.describe("Demo Request Workflow & API", () => {
     expect(blockedBody.error).toContain("Rate limit reached for your network");
   });
 
+  test("API: prevents spoofed X-Forwarded-For headers from bypassing IP rate limiting", async ({ request }) => {
+    // Attack scenario: Attacker changes leftmost IP in X-Forwarded-For on every request,
+    // but the trusted reverse proxy appends the true client IP on the right.
+    const trueClientIp = `198.51.${Math.floor(Math.random() * 90) + 10}.${Math.floor(Math.random() * 200) + 10}`;
+
+    // Send 10 requests with varying spoofed leftmost IPs but identical proxy-appended rightmost IP
+    for (let i = 1; i <= 10; i++) {
+      const spoofedPrefix = `203.0.113.${i}`;
+      const res = await request.post("/api/demo-request", {
+        headers: {
+          "x-forwarded-for": `${spoofedPrefix}, ${trueClientIp}`,
+        },
+        data: {
+          fullName: `Target User ${i}`,
+          email: `spoof_test_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 5)}@target.com`,
+          organization: "Spoof Target Org",
+        },
+      });
+      expect(res.status()).toBe(201);
+    }
+
+    // 11th request: Even with a different spoofed leftmost IP, the true rightmost IP is rate-limited
+    const blockedRes = await request.post("/api/demo-request", {
+      headers: {
+        "x-forwarded-for": `192.0.2.99, ${trueClientIp}`,
+      },
+      data: {
+        fullName: "Target User 11",
+        email: `spoof_test_${Date.now()}_11@target.com`,
+        organization: "Spoof Target Org",
+      },
+    });
+
+    expect(blockedRes.status()).toBe(429);
+    const blockedBody = await blockedRes.json();
+    expect(blockedBody.success).toBe(false);
+    expect(blockedBody.error).toContain("Rate limit reached for your network");
+  });
+
+  test("API: does not trust spoofed X-Real-IP when X-Forwarded-For is absent, defaulting to safe fallback", async ({ request }) => {
+    const untrustedRealIp = `192.0.2.${Math.floor(Math.random() * 200) + 10}`;
+
+    const res = await request.post("/api/demo-request", {
+      headers: {
+        "x-real-ip": untrustedRealIp,
+      },
+      data: {
+        fullName: "Agent Smith",
+        email: `real_ip_test_${Date.now()}@matrix.org`,
+        organization: "Matrix Security",
+      },
+    });
+
+    expect(res.status()).toBe(201);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.data.id).toBeDefined();
+  });
+
+  test("API: prevents spoofed X-Real-IP from overriding proxy-appended rightmost X-Forwarded-For", async ({ request }) => {
+    const truePeerIp = `198.51.${Math.floor(Math.random() * 90) + 110}.${Math.floor(Math.random() * 200) + 10}`;
+
+    // Send 10 requests with varying spoofed X-Real-IP but identical X-Forwarded-For rightmost IP
+    for (let i = 1; i <= 10; i++) {
+      const spoofedRealIp = `203.0.113.${i}`;
+      const res = await request.post("/api/demo-request", {
+        headers: {
+          "x-real-ip": spoofedRealIp,
+          "x-forwarded-for": `10.0.0.1, ${truePeerIp}`,
+        },
+        data: {
+          fullName: `User ${i}`,
+          email: `realip_spoof_${Date.now()}_${i}@target.com`,
+          organization: "Target Org",
+        },
+      });
+      expect(res.status()).toBe(201);
+    }
+
+    // 11th request with yet another spoofed X-Real-IP is blocked because truePeerIp is rate-limited
+    const blockedRes = await request.post("/api/demo-request", {
+      headers: {
+        "x-real-ip": "1.2.3.4",
+        "x-forwarded-for": `10.0.0.1, ${truePeerIp}`,
+      },
+      data: {
+        fullName: "User 11",
+        email: `realip_spoof_${Date.now()}_11@target.com`,
+        organization: "Target Org",
+      },
+    });
+
+    expect(blockedRes.status()).toBe(429);
+    const blockedBody = await blockedRes.json();
+    expect(blockedBody.success).toBe(false);
+    expect(blockedBody.error).toContain("Rate limit reached for your network");
+  });
+
+  test("API: handles missing forwarding headers safely by falling back to local address", async ({ request }) => {
+    const res = await request.post("/api/demo-request", {
+      data: {
+        fullName: "Local Admin",
+        email: `missing_hdr_${Date.now()}@localhost.net`,
+        organization: "Local Net",
+      },
+    });
+
+    expect(res.status()).toBe(201);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.data.id).toBeDefined();
+  });
+
   test("UI: modal opens, submits valid form, and shows persistent confirmation", async ({ page }) => {
     await page.goto("/");
 

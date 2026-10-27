@@ -3,12 +3,37 @@ import fs from "fs";
 import path from "path";
 import {
   appendToJsonFallback,
+  getFallbackDemoRequests,
+  syncFallbackLeadsToPostgres,
   DemoRequestRecord,
 } from "../src/lib/db/demo-requests";
 
 test.describe("Fallback Persistence & Crash-Safety Unit Tests", () => {
   const dataDir = path.join(process.cwd(), "data");
   const fallbackFile = path.join(dataDir, "demo_requests_fallback.json");
+
+  function createMockPrisma() {
+    const records: any[] = [];
+    return {
+      records,
+      demoRequest: {
+        findFirst: async ({ where }: any) => {
+          return (
+            records.find(
+              (r) =>
+                r.email.toLowerCase() === where.email.toLowerCase() &&
+                r.organization === where.organization
+            ) || null
+          );
+        },
+        create: async ({ data }: any) => {
+          const record = { id: `pg_${Date.now()}_${records.length}`, ...data };
+          records.push(record);
+          return record;
+        },
+      },
+    };
+  }
 
   test("appendToJsonFallback: duplicate submission within 60s returns exact persisted record without adding duplicate to disk", () => {
     const uniqueEmail = `unit_dup_${Date.now()}_${Math.random().toString(36).substring(2, 6)}@test.com`;
@@ -59,79 +84,255 @@ test.describe("Fallback Persistence & Crash-Safety Unit Tests", () => {
     expect(matches2[0].id).toBe(initialRecord.id);
   });
 
-  test("Crash-Safety: simulated archive write failure does not delete or alter pending fallback leads", () => {
-    // Test the dual-file persistence order invariant:
-    // If writing the archive fails, pending fallback leads must NEVER be deleted.
-    const scratchPendingFile = path.join(dataDir, `test_scratch_pending_${Date.now()}.json`);
-    const scratchArchiveFile = path.join(dataDir, `test_scratch_archive_${Date.now()}.json`);
+  test("Archive write failure: pending leads remain completely untouched", async () => {
+    const scratchPending = path.join(dataDir, `test_archive_fail_pending_${Date.now()}.json`);
+    const scratchArchive = path.join(dataDir, `test_archive_fail_archive_${Date.now()}.json`);
+    const mockPrisma = createMockPrisma();
 
-    const initialPending = [
-      { id: "lead_A", email: "a@test.com", fullName: "Lead A" },
-      { id: "lead_B", email: "b@test.com", fullName: "Lead B" },
+    const leads: DemoRequestRecord[] = [
+      { id: "lead_A", email: "a@test.com", fullName: "Lead A", organization: "Org A", useCase: "Enterprise Video Meetings", hours: "50-200 hours", createdAt: new Date(), persistedIn: "json_fallback" },
+      { id: "lead_B", email: "b@test.com", fullName: "Lead B", organization: "Org B", useCase: "Enterprise Video Meetings", hours: "50-200 hours", createdAt: new Date(), persistedIn: "json_fallback" },
     ];
-    fs.writeFileSync(scratchPendingFile, JSON.stringify(initialPending, null, 2), "utf-8");
+    fs.writeFileSync(scratchPending, JSON.stringify(leads, null, 2), "utf-8");
 
-    const processedLeads = [
-      { id: "lead_A", email: "a@test.com", fullName: "Lead A", syncedAt: new Date().toISOString(), status: "synced" },
-    ];
+    // Execute production sync helper with simulated archive write failure
+    await expect(
+      syncFallbackLeadsToPostgres({
+        fallbackFile: scratchPending,
+        archiveFile: scratchArchive,
+        prismaClient: mockPrisma,
+        failAtStep: "archive_write",
+      })
+    ).rejects.toThrow("Simulated archive write failure");
 
-    // Simulate failure at Archive write stage (e.g. invalid directory or write fault)
-    let archiveWriteFailed = false;
-    try {
-      // Intentionally simulate an I/O error during archive write
-      throw new Error("Simulated I/O Disk Write Failure on Archive file");
-    } catch {
-      archiveWriteFailed = true;
-    }
+    // Pending leads must remain untouched on disk
+    const pendingAfter = getFallbackDemoRequests(scratchPending);
+    expect(pendingAfter.length).toBe(2);
+    expect(pendingAfter.map((l) => l.id)).toEqual(["lead_A", "lead_B"]);
+    // Archive file should not exist
+    expect(fs.existsSync(scratchArchive)).toBe(false);
 
-    expect(archiveWriteFailed).toBe(true);
-
-    // Invariant check: Pending file was NOT modified because archive step threw before pending step
-    const pendingAfterFailure = JSON.parse(fs.readFileSync(scratchPendingFile, "utf-8"));
-    expect(pendingAfterFailure.length).toBe(2);
-    expect(pendingAfterFailure.map((l: any) => l.id)).toEqual(["lead_A", "lead_B"]);
-
-    // Cleanup scratch file
-    if (fs.existsSync(scratchPendingFile)) fs.unlinkSync(scratchPendingFile);
-    if (fs.existsSync(scratchArchiveFile)) fs.unlinkSync(scratchArchiveFile);
+    // Cleanup
+    if (fs.existsSync(scratchPending)) fs.unlinkSync(scratchPending);
+    if (fs.existsSync(scratchArchive)) fs.unlinkSync(scratchArchive);
   });
 
-  test("Crash-Safety: concurrent leads added to fallback during reconciliation are strictly preserved", () => {
-    const scratchPendingFile = path.join(dataDir, `test_concurrent_pending_${Date.now()}.json`);
-    const scratchArchiveFile = path.join(dataDir, `test_concurrent_archive_${Date.now()}.json`);
+  test("Pending-file write failure after archive succeeds: retry is safe, deduplicates archive and DB", async () => {
+    const scratchPending = path.join(dataDir, `test_pending_fail_pending_${Date.now()}.json`);
+    const scratchArchive = path.join(dataDir, `test_pending_fail_archive_${Date.now()}.json`);
+    const mockPrisma = createMockPrisma();
 
-    // Initially 2 leads pending
-    const initialPending = [
-      { id: "lead_1", email: "1@test.com" },
-      { id: "lead_2", email: "2@test.com" },
+    const leads: DemoRequestRecord[] = [
+      { id: "lead_101", email: "user101@test.com", fullName: "User 101", organization: "Org 101", useCase: "Enterprise Video Meetings", hours: "50-200 hours", createdAt: new Date(), persistedIn: "json_fallback" },
     ];
-    fs.writeFileSync(scratchPendingFile, JSON.stringify(initialPending, null, 2), "utf-8");
+    fs.writeFileSync(scratchPending, JSON.stringify(leads, null, 2), "utf-8");
 
-    // Reconciliation begins processing lead_1
-    const processedIds = new Set(["lead_1"]);
+    // Run 1: Fails after archive write (at pending write step)
+    await expect(
+      syncFallbackLeadsToPostgres({
+        fallbackFile: scratchPending,
+        archiveFile: scratchArchive,
+        prismaClient: mockPrisma,
+        failAtStep: "pending_write",
+      })
+    ).rejects.toThrow("Simulated pending write failure");
 
-    // While reconciliation is running, concurrent lead_3 arrives and is written to disk
-    const currentOnDisk = [
-      ...initialPending,
-      { id: "lead_3", email: "3@test.com" }, // Arrived concurrently
-    ];
-    fs.writeFileSync(scratchPendingFile, JSON.stringify(currentOnDisk, null, 2), "utf-8");
+    // Archive has the record, DB has the record, but pending file still has the record
+    expect(fs.existsSync(scratchArchive)).toBe(true);
+    expect(getFallbackDemoRequests(scratchPending).length).toBe(1);
+    expect(mockPrisma.records.length).toBe(1);
 
-    // Reconciliation Step 1: writes archive
-    fs.writeFileSync(scratchArchiveFile, JSON.stringify([{ id: "lead_1", status: "synced" }]), "utf-8");
+    // Run 2: Retry sync without failure
+    const retryResult = await syncFallbackLeadsToPostgres({
+      fallbackFile: scratchPending,
+      archiveFile: scratchArchive,
+      prismaClient: mockPrisma,
+    });
 
-    // Reconciliation Step 2: re-reads disk and removes only processedIds
-    const diskSnapshot = JSON.parse(fs.readFileSync(scratchPendingFile, "utf-8"));
-    const updatedPending = diskSnapshot.filter((l: any) => !processedIds.has(l.id));
-    fs.writeFileSync(scratchPendingFile, JSON.stringify(updatedPending, null, 2), "utf-8");
+    expect(retryResult.skipped).toBe(1);
+    expect(retryResult.synced).toBe(0);
 
-    // Verify lead_3 was NOT wiped out and lead_2 remains
-    const finalPending = JSON.parse(fs.readFileSync(scratchPendingFile, "utf-8"));
-    expect(finalPending.length).toBe(2);
-    expect(finalPending.map((l: any) => l.id)).toEqual(["lead_2", "lead_3"]);
+    // Database still has only 1 record (no duplicate DB inserts)
+    expect(mockPrisma.records.length).toBe(1);
 
-    // Cleanup scratch files
-    if (fs.existsSync(scratchPendingFile)) fs.unlinkSync(scratchPendingFile);
-    if (fs.existsSync(scratchArchiveFile)) fs.unlinkSync(scratchArchiveFile);
+    // Archive still has only 1 entry (no duplicate archive entries)
+    const archiveRecords = JSON.parse(fs.readFileSync(scratchArchive, "utf-8"));
+    expect(archiveRecords.length).toBe(1);
+    expect(archiveRecords[0].id).toBe("lead_101");
+
+    // Pending file is now cleared
+    expect(getFallbackDemoRequests(scratchPending).length).toBe(0);
+
+    // Cleanup
+    if (fs.existsSync(scratchPending)) fs.unlinkSync(scratchPending);
+    if (fs.existsSync(scratchArchive)) fs.unlinkSync(scratchArchive);
+  });
+
+  test("Malformed pending/archive JSON: preserves recoverable source data and does not silently overwrite", async () => {
+    const scratchPending = path.join(dataDir, `test_corrupt_pending_${Date.now()}.json`);
+    const scratchArchive = path.join(dataDir, `test_corrupt_archive_${Date.now()}.json`);
+    const mockPrisma = createMockPrisma();
+
+    // Step A: Corrupt pending file
+    const corruptContent = `{"malformed_json": [missing_brackets`;
+    fs.writeFileSync(scratchPending, corruptContent, "utf-8");
+
+    // Reading corrupt pending leads returns empty array safely and creates .corrupt.<timestamp> backup
+    const loaded = getFallbackDemoRequests(scratchPending);
+    expect(loaded).toEqual([]);
+
+    // Verify backup exists with corrupt content preserved
+    const createdFiles = fs.readdirSync(dataDir);
+    const pendingCorruptBackups = createdFiles.filter((f) => f.startsWith(path.basename(scratchPending)) && f.includes(".corrupt."));
+    expect(pendingCorruptBackups.length).toBeGreaterThan(0);
+    const backupContent = fs.readFileSync(path.join(dataDir, pendingCorruptBackups[0]), "utf-8");
+    expect(backupContent).toBe(corruptContent);
+
+    // Step B: Corrupt archive file during sync
+    const corruptArchiveContent = `{"bad_archive": true, truncated`;
+    fs.writeFileSync(scratchArchive, corruptArchiveContent, "utf-8");
+
+    const validLead: DemoRequestRecord = {
+      id: "lead_valid_1",
+      email: "valid@test.com",
+      fullName: "Valid User",
+      organization: "Valid Org",
+      useCase: "Enterprise Video Meetings",
+      hours: "50-200 hours",
+      createdAt: new Date(),
+      persistedIn: "json_fallback",
+    };
+    fs.writeFileSync(scratchPending, JSON.stringify([validLead], null, 2), "utf-8");
+
+    // Run sync against corrupt archive
+    const syncRes = await syncFallbackLeadsToPostgres({
+      fallbackFile: scratchPending,
+      archiveFile: scratchArchive,
+      prismaClient: mockPrisma,
+    });
+
+    expect(syncRes.synced).toBe(1);
+
+    // Verify archive corrupt backup was created
+    const archiveFiles = fs.readdirSync(dataDir);
+    const archiveCorruptBackups = archiveFiles.filter((f) => f.startsWith(path.basename(scratchArchive)) && f.includes(".corrupt."));
+    expect(archiveCorruptBackups.length).toBeGreaterThan(0);
+    const archiveBackupContent = fs.readFileSync(path.join(dataDir, archiveCorruptBackups[0]), "utf-8");
+    expect(archiveBackupContent).toBe(corruptArchiveContent);
+
+    // Cleanup scratch and backup files
+    if (fs.existsSync(scratchPending)) fs.unlinkSync(scratchPending);
+    if (fs.existsSync(scratchArchive)) fs.unlinkSync(scratchArchive);
+    for (const f of [...pendingCorruptBackups, ...archiveCorruptBackups]) {
+      const p = path.join(dataDir, f);
+      if (fs.existsSync(p)) fs.unlinkSync(p);
+    }
+  });
+
+  test("Concurrent submissions during reconciliation: newly appended leads are strictly preserved", async () => {
+    const scratchPending = path.join(dataDir, `test_concurrent_pending_${Date.now()}.json`);
+    const scratchArchive = path.join(dataDir, `test_concurrent_archive_${Date.now()}.json`);
+
+    const initialLead: DemoRequestRecord = {
+      id: "lead_initial",
+      email: "initial@test.com",
+      fullName: "Initial Lead",
+      organization: "Initial Org",
+      useCase: "Enterprise Video Meetings",
+      hours: "50-200 hours",
+      createdAt: new Date(),
+      persistedIn: "json_fallback",
+    };
+    fs.writeFileSync(scratchPending, JSON.stringify([initialLead], null, 2), "utf-8");
+
+    const concurrentLead: DemoRequestRecord = {
+      id: "lead_concurrent",
+      email: "concurrent@test.com",
+      fullName: "Concurrent Lead",
+      organization: "Concurrent Org",
+      useCase: "Enterprise Video Meetings",
+      hours: "50-200 hours",
+      createdAt: new Date(),
+      persistedIn: "json_fallback",
+    };
+
+    // Custom mock prisma that appends concurrent lead to scratchPending during reconciliation query
+    let injected = false;
+    const mockPrisma = {
+      demoRequest: {
+        findFirst: async () => {
+          if (!injected) {
+            injected = true;
+            // Append concurrent lead to disk while sync is actively running
+            appendToJsonFallback(concurrentLead, scratchPending);
+          }
+          return null;
+        },
+        create: async ({ data }: any) => ({ id: `pg_${Date.now()}`, ...data }),
+      },
+    };
+
+    const res = await syncFallbackLeadsToPostgres({
+      fallbackFile: scratchPending,
+      archiveFile: scratchArchive,
+      prismaClient: mockPrisma,
+    });
+
+    expect(res.synced).toBe(1);
+
+    // Verify remaining pending on disk contains the concurrent lead
+    const remainingOnDisk = getFallbackDemoRequests(scratchPending);
+    expect(remainingOnDisk.length).toBe(1);
+    expect(remainingOnDisk[0].id).toBe("lead_concurrent");
+
+    // Cleanup
+    if (fs.existsSync(scratchPending)) fs.unlinkSync(scratchPending);
+    if (fs.existsSync(scratchArchive)) fs.unlinkSync(scratchArchive);
+  });
+
+  test("Repeated synchronization: operations remain idempotent", async () => {
+    const scratchPending = path.join(dataDir, `test_idempotent_pending_${Date.now()}.json`);
+    const scratchArchive = path.join(dataDir, `test_idempotent_archive_${Date.now()}.json`);
+    const mockPrisma = createMockPrisma();
+
+    const lead: DemoRequestRecord = {
+      id: "lead_idem_1",
+      email: "idempotent@test.com",
+      fullName: "Idem User",
+      organization: "Idem Org",
+      useCase: "Enterprise Video Meetings",
+      hours: "50-200 hours",
+      createdAt: new Date(),
+      persistedIn: "json_fallback",
+    };
+
+    // First sync
+    fs.writeFileSync(scratchPending, JSON.stringify([lead], null, 2), "utf-8");
+    const res1 = await syncFallbackLeadsToPostgres({
+      fallbackFile: scratchPending,
+      archiveFile: scratchArchive,
+      prismaClient: mockPrisma,
+    });
+    expect(res1.synced).toBe(1);
+    expect(res1.skipped).toBe(0);
+
+    // Second sync: re-add same lead to pending
+    fs.writeFileSync(scratchPending, JSON.stringify([lead], null, 2), "utf-8");
+    const res2 = await syncFallbackLeadsToPostgres({
+      fallbackFile: scratchPending,
+      archiveFile: scratchArchive,
+      prismaClient: mockPrisma,
+    });
+    expect(res2.synced).toBe(0);
+    expect(res2.skipped).toBe(1);
+
+    // Assert DB and archive have no duplicate entries
+    expect(mockPrisma.records.length).toBe(1);
+    const archiveData = JSON.parse(fs.readFileSync(scratchArchive, "utf-8"));
+    expect(archiveData.length).toBe(1);
+
+    // Cleanup
+    if (fs.existsSync(scratchPending)) fs.unlinkSync(scratchPending);
+    if (fs.existsSync(scratchArchive)) fs.unlinkSync(scratchArchive);
   });
 });

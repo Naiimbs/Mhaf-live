@@ -77,5 +77,19 @@ The workflow keeps the previous container available until the new container pass
 - The app currently stores data in a local JSON file, not PostgreSQL. Run only one app replica; the in-process lock is not shared between replicas.
 - The database currently seeds a host account with a known development password when its data file is empty. Remove or replace this development seed before public exposure, and verify registration/authentication security.
 - The session helper contains a development fallback for `NEXTAUTH_SECRET`; always set a strong secret in the production env file.
-- The Demo Request endpoint uses an in-process sliding-window rate limiter (10 requests/15m per IP, 3 requests/15m per email). Rate limits are held in Node.js process memory and reset on container restart. For the current single-container VPS deployment, this provides immediate abuse and spam protection without an external Redis dependency or PostgreSQL write amplification. If horizontally scaled across multiple containers in the future, migrate to distributed rate limiting (e.g. PostgreSQL or Redis token buckets).
-- This workflow does not edit Caddy. Only after the app is healthy and reviewed, configure the existing Caddy site for `meet.naiimbsili.com` to proxy to `127.0.0.1:18083`.
+- The Demo Request endpoint uses an in-process sliding-window rate limiter (10 requests/15m per IP, 3 requests/15m per email).
+- **Reverse Proxy, Network Boundaries & Client IP Trust:**
+  1. **Traffic Boundaries:** Public internet traffic reaches the application strictly through Caddy (ports 80/443). The application container publishes port 3000 solely to `127.0.0.1:18083` on the VPS host, preventing direct public access to port 3000. Note: Other containers attached to `mhaf-network` or `proxy` can reach `mhaf-live:3000` internally across the Docker bridge.
+  2. **Authoritative `X-Forwarded-For` Evaluation:** The application uses `extractClientIp` (`getClientIp`) to read `X-Forwarded-For` from right to left, selecting the rightmost syntactically valid IP. In Caddy reverse-proxy deployments, Caddy automatically appends the incoming TCP client address to the rightmost position in `X-Forwarded-For`, guaranteeing that client-injected prefixes on the left cannot bypass rate limits.
+  3. **No Silent `X-Real-IP` Trust:** Because default Caddy does not overwrite `X-Real-IP`, the application does NOT silently trust `X-Real-IP` when `X-Forwarded-For` is absent, preventing client spoofing. `X-Real-IP` is evaluated only if explicitly enabled via `TRUST_X_REAL_IP="true"` when Caddy is verified to overwrite it (`header_up X-Real-IP {remote_host}`).
+  4. **Fallback:** If all forwarding headers are missing or malformed, the application safely falls back to `"127.0.0.1"`, grouping requests into a monitored rate-limit bucket rather than allowing unmetered abuse.
+- **Caddy Reverse Proxy Configuration:**
+  ```caddy
+  meet.naiimbsili.com {
+      reverse_proxy mhaf-live:3000 {
+          header_up X-Real-IP {remote_host}
+      }
+  }
+  ```
+- **Network Prerequisites:** The Docker network `proxy` (used by Caddy) and `mhaf-network` (used by PostgreSQL and MHAF Live) must both exist on the VPS. Deployment preflight strictly verifies both networks and will fail before stopping or replacing the active container if either network is missing.
+- This workflow does not edit Caddy or connect to the production VPS directly. Only after the app is healthy and reviewed, ensure the Caddy site configuration is in place.

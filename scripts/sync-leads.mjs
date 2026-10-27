@@ -23,7 +23,12 @@ async function main() {
   try {
     leads = JSON.parse(fs.readFileSync(FALLBACK_FILE, "utf-8"));
   } catch (err) {
-    console.error("[Sync Leads] Error parsing fallback file:", err);
+    console.error("[Sync Leads] Error parsing fallback file, preserving corrupt source data:", err);
+    try {
+      const corruptBackup = `${FALLBACK_FILE}.corrupt.${Date.now()}`;
+      fs.copyFileSync(FALLBACK_FILE, corruptBackup);
+      console.warn(`[Sync Leads] Preserved corrupt source file to ${corruptBackup}`);
+    } catch {}
     process.exit(1);
   }
 
@@ -97,7 +102,13 @@ async function main() {
       if (fs.existsSync(ARCHIVE_FILE)) {
         try {
           existingArchive = JSON.parse(fs.readFileSync(ARCHIVE_FILE, "utf-8"));
-        } catch {
+        } catch (e) {
+          console.error("[Sync Leads] Warning: Corrupt archive file encountered, backing up:", e);
+          const corruptBackup = `${ARCHIVE_FILE}.corrupt.${Date.now()}`;
+          try {
+            fs.copyFileSync(ARCHIVE_FILE, corruptBackup);
+            console.warn(`[Sync Leads] Preserved corrupt archive file to ${corruptBackup}`);
+          } catch {}
           existingArchive = [];
         }
       }
@@ -120,7 +131,13 @@ async function main() {
       if (fs.existsSync(FALLBACK_FILE)) {
         try {
           currentPending = JSON.parse(fs.readFileSync(FALLBACK_FILE, "utf-8"));
-        } catch {
+        } catch (e) {
+          console.error("[Sync Leads] Warning: Corrupt pending fallback file encountered during reconciliation, backing up:", e);
+          const corruptBackup = `${FALLBACK_FILE}.corrupt.${Date.now()}`;
+          try {
+            fs.copyFileSync(FALLBACK_FILE, corruptBackup);
+            console.warn(`[Sync Leads] Preserved corrupt pending file to ${corruptBackup}`);
+          } catch {}
           currentPending = [];
         }
       }

@@ -74,8 +74,9 @@ test.describe("MHAF Live Landing Page & Verification Suite", () => {
     await expect(dialog.getByText("Organization or company name is required.")).toBeVisible();
 
     // Fill valid data
+    const testEmail = `avance_${Date.now()}_${Math.random().toString(36).substring(2, 6)}@healthcorp.org`;
     await dialog.locator("#demo-fullname").fill("Dr. Alexander Vance");
-    await dialog.locator("#demo-email").fill("avance@healthcorp.org");
+    await dialog.locator("#demo-email").fill(testEmail);
     await dialog.locator("#demo-org").fill("HealthCorp Innovations");
 
     // Submit form

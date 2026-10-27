@@ -4,6 +4,7 @@ import {
   checkRateLimit,
   createDemoRequest,
 } from "@/lib/db/demo-requests";
+import { extractClientIp } from "@/lib/client-ip";
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,9 +21,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Extract client IP and user agent
-    const forwarded = req.headers.get("x-forwarded-for");
-    const ip = forwarded ? forwarded.split(",")[0].trim() : "127.0.0.1";
+    // Safely extract client IP and user agent
+    const ip = extractClientIp(req);
     const userAgent = req.headers.get("user-agent") || undefined;
 
     // Rate limiting by IP (allow up to 10 requests per 15 min for corporate/shared networks)

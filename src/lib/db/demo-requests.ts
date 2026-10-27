@@ -114,15 +114,23 @@ export function checkRateLimit(
 const DATA_DIR = path.join(process.cwd(), "data");
 const FALLBACK_FILE = path.join(DATA_DIR, "demo_requests_fallback.json");
 
-export function getFallbackDemoRequests(): DemoRequestRecord[] {
-  if (!fs.existsSync(FALLBACK_FILE)) {
+export function getFallbackDemoRequests(filePath?: string): DemoRequestRecord[] {
+  const targetFile = filePath || FALLBACK_FILE;
+  if (!fs.existsSync(targetFile)) {
     return [];
   }
   try {
-    const raw = fs.readFileSync(FALLBACK_FILE, "utf-8");
+    const raw = fs.readFileSync(targetFile, "utf-8");
     return JSON.parse(raw);
   } catch (err) {
-    console.error("[DemoRequests] Failed to read fallback leads file:", err);
+    console.error("[DemoRequests] Failed to read fallback leads file, preserving corrupt data:", err);
+    try {
+      const corruptBackup = `${targetFile}.corrupt.${Date.now()}`;
+      fs.copyFileSync(targetFile, corruptBackup);
+      console.warn(`[DemoRequests] Corrupt file preserved to: ${corruptBackup}`);
+    } catch {
+      // ignore copy failure
+    }
     return [];
   }
 }
@@ -133,19 +141,32 @@ export function getFallbackDemoRequests(): DemoRequestRecord[] {
  * this function returns the EXACT persisted record already stored on disk and does NOT
  * write a duplicate or return an unwritten phantom record.
  */
-export function appendToJsonFallback(record: DemoRequestRecord): {
+export function appendToJsonFallback(
+  record: DemoRequestRecord,
+  targetFilePath?: string
+): {
   record: DemoRequestRecord;
   isDuplicate: boolean;
 } {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+  const targetFile = targetFilePath || FALLBACK_FILE;
+  const targetDir = path.dirname(targetFile);
+  if (!fs.existsSync(targetDir)) {
+    fs.mkdirSync(targetDir, { recursive: true });
   }
 
   let existing: DemoRequestRecord[] = [];
-  if (fs.existsSync(FALLBACK_FILE)) {
+  if (fs.existsSync(targetFile)) {
     try {
-      existing = JSON.parse(fs.readFileSync(FALLBACK_FILE, "utf-8"));
-    } catch {
+      existing = JSON.parse(fs.readFileSync(targetFile, "utf-8"));
+    } catch (err) {
+      console.error("[DemoRequests] Malformed JSON in fallback file, preserving corrupt data:", err);
+      try {
+        const corruptBackup = `${targetFile}.corrupt.${Date.now()}`;
+        fs.copyFileSync(targetFile, corruptBackup);
+        console.warn(`[DemoRequests] Corrupt file preserved to: ${corruptBackup}`);
+      } catch {
+        // ignore copy failure
+      }
       existing = [];
     }
   }
@@ -181,9 +202,9 @@ export function appendToJsonFallback(record: DemoRequestRecord): {
   existing.push(record);
 
   // Atomic write to avoid partial writes on power failure or concurrent write
-  const tmpFile = `${FALLBACK_FILE}.${Date.now()}.${Math.random().toString(36).substring(2, 7)}.tmp`;
+  const tmpFile = `${targetFile}.${Date.now()}.${Math.random().toString(36).substring(2, 7)}.tmp`;
   fs.writeFileSync(tmpFile, JSON.stringify(existing, null, 2), "utf-8");
-  fs.renameSync(tmpFile, FALLBACK_FILE);
+  fs.renameSync(tmpFile, targetFile);
 
   return {
     record: {
@@ -308,16 +329,25 @@ const SYNCED_ARCHIVE_FILE = path.join(DATA_DIR, "demo_requests_fallback.synced.j
  *    leads that arrived during the sync run are completely preserved.
  * 4. If any failure occurs during archive writing, `FALLBACK_FILE` is completely untouched.
  */
-export async function syncFallbackLeadsToPostgres(): Promise<{
+export async function syncFallbackLeadsToPostgres(options?: {
+  fallbackFile?: string;
+  archiveFile?: string;
+  prismaClient?: any;
+  failAtStep?: "archive_write" | "pending_write";
+}): Promise<{
   synced: number;
   skipped: number;
   failed: number;
 }> {
-  if (!process.env.DATABASE_URL) {
+  const fallbackFile = options?.fallbackFile || FALLBACK_FILE;
+  const archiveFile = options?.archiveFile || SYNCED_ARCHIVE_FILE;
+  const dbClient = options?.prismaClient || prisma;
+
+  if (!process.env.DATABASE_URL && !options?.prismaClient) {
     throw new Error("DATABASE_URL is required to sync fallback leads.");
   }
 
-  const fallbackLeads = getFallbackDemoRequests();
+  const fallbackLeads = getFallbackDemoRequests(fallbackFile);
   if (fallbackLeads.length === 0) {
     return { synced: 0, skipped: 0, failed: 0 };
   }
@@ -329,7 +359,7 @@ export async function syncFallbackLeadsToPostgres(): Promise<{
 
   for (const lead of fallbackLeads) {
     try {
-      const existing = await prisma.demoRequest.findFirst({
+      const existing = await dbClient.demoRequest.findFirst({
         where: {
           email: lead.email.toLowerCase(),
           organization: lead.organization,
@@ -346,7 +376,7 @@ export async function syncFallbackLeadsToPostgres(): Promise<{
         continue;
       }
 
-      await prisma.demoRequest.create({
+      await dbClient.demoRequest.create({
         data: {
           fullName: lead.fullName,
           email: lead.email.toLowerCase(),
@@ -375,16 +405,20 @@ export async function syncFallbackLeadsToPostgres(): Promise<{
   if (processedLeads.length > 0) {
     const processedIds = new Set(processedLeads.map((p) => p.id));
 
+    if (options?.failAtStep === "archive_write") {
+      throw new Error("Simulated archive write failure");
+    }
+
     // Step 1: Update archive file first
     let existingArchive: Array<DemoRequestRecord & { syncedAt: string; status: string }> = [];
-    if (fs.existsSync(SYNCED_ARCHIVE_FILE)) {
+    if (fs.existsSync(archiveFile)) {
       try {
-        existingArchive = JSON.parse(fs.readFileSync(SYNCED_ARCHIVE_FILE, "utf-8"));
+        existingArchive = JSON.parse(fs.readFileSync(archiveFile, "utf-8"));
       } catch (e) {
         console.error("[DemoRequests] Warning: Corrupt archive file encountered, backing up:", e);
-        const corruptBackup = `${SYNCED_ARCHIVE_FILE}.corrupt.${Date.now()}`;
+        const corruptBackup = `${archiveFile}.corrupt.${Date.now()}`;
         try {
-          fs.copyFileSync(SYNCED_ARCHIVE_FILE, corruptBackup);
+          fs.copyFileSync(archiveFile, corruptBackup);
         } catch {
           // ignore backup failure
         }
@@ -400,25 +434,44 @@ export async function syncFallbackLeadsToPostgres(): Promise<{
       }
     }
 
-    const tmpArchive = `${SYNCED_ARCHIVE_FILE}.${Date.now()}.${Math.random().toString(36).substring(2, 7)}.tmp`;
+    const archiveDir = path.dirname(archiveFile);
+    if (!fs.existsSync(archiveDir)) {
+      fs.mkdirSync(archiveDir, { recursive: true });
+    }
+    const tmpArchive = `${archiveFile}.${Date.now()}.${Math.random().toString(36).substring(2, 7)}.tmp`;
     fs.writeFileSync(tmpArchive, JSON.stringify(existingArchive, null, 2), "utf-8");
-    fs.renameSync(tmpArchive, SYNCED_ARCHIVE_FILE);
+    fs.renameSync(tmpArchive, archiveFile);
+
+    if (options?.failAtStep === "pending_write") {
+      throw new Error("Simulated pending write failure");
+    }
 
     // Step 2: Now that archive is durable on disk, safely update pending fallback file.
     // Re-read current pending file to avoid overwriting any concurrent leads that arrived during sync.
     let currentPending: DemoRequestRecord[] = [];
-    if (fs.existsSync(FALLBACK_FILE)) {
+    if (fs.existsSync(fallbackFile)) {
       try {
-        currentPending = JSON.parse(fs.readFileSync(FALLBACK_FILE, "utf-8"));
-      } catch {
+        currentPending = JSON.parse(fs.readFileSync(fallbackFile, "utf-8"));
+      } catch (err) {
+        console.error("[DemoRequests] Malformed JSON in fallback file during reconciliation, preserving corrupt data:", err);
+        try {
+          const corruptBackup = `${fallbackFile}.corrupt.${Date.now()}`;
+          fs.copyFileSync(fallbackFile, corruptBackup);
+        } catch {
+          // ignore copy failure
+        }
         currentPending = [];
       }
     }
 
     const remainingPending = currentPending.filter((lead) => !processedIds.has(lead.id));
-    const tmpPending = `${FALLBACK_FILE}.${Date.now()}.${Math.random().toString(36).substring(2, 7)}.tmp`;
+    const pendingDir = path.dirname(fallbackFile);
+    if (!fs.existsSync(pendingDir)) {
+      fs.mkdirSync(pendingDir, { recursive: true });
+    }
+    const tmpPending = `${fallbackFile}.${Date.now()}.${Math.random().toString(36).substring(2, 7)}.tmp`;
     fs.writeFileSync(tmpPending, JSON.stringify(remainingPending, null, 2), "utf-8");
-    fs.renameSync(tmpPending, FALLBACK_FILE);
+    fs.renameSync(tmpPending, fallbackFile);
   }
 
   return { synced, skipped, failed };

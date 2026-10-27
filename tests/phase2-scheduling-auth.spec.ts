@@ -129,31 +129,52 @@ test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests",
   });
 
   test("8. Atomic Booking Concurrency Protection: Parallel identical requests yield exactly 1 success (201) and 1 conflict (409)", async ({ request }) => {
-    // Unique future time slot for concurrency test with random offset to ensure slot is unreserved
-    const randomDays = 20 + Math.floor(Math.random() * 200);
-    const randomHour = 8 + Math.floor(Math.random() * 10);
-    const futureDate = new Date(Date.now() + randomDays * 24 * 60 * 60 * 1000);
-    futureDate.setUTCHours(randomHour, 0, 0, 0);
-    const startIso = futureDate.toISOString();
-    futureDate.setUTCMinutes(futureDate.getUTCMinutes() + 30);
-    const endIso = futureDate.toISOString();
+    // Dynamically locate a verified open slot to guarantee true unreserved state across repeated test runs
+    let slotToBook: { startTimeUtc: string; endTimeUtc: string } | null = null;
+    const baseDate = new Date();
+    baseDate.setDate(baseDate.getDate() + 15 + Math.floor(Math.random() * 30));
+
+    for (let i = 0; i < 40; i++) {
+      const candidate = new Date(baseDate);
+      candidate.setDate(candidate.getDate() + i);
+      const day = candidate.getUTCDay();
+      if (day === 0 || day === 6) continue;
+
+      const candidateStr = candidate.toISOString().split("T")[0];
+      const slotsRes = await request.get(
+        `/api/schedule/slots?hostId=${seedHostId}&eventSlug=${eventSlug}&date=${candidateStr}&timezone=UTC`
+      );
+      if (slotsRes.status() === 200) {
+        const body = await slotsRes.json();
+        const availableSlot = body.slots?.find((s: any) => s.available);
+        if (availableSlot) {
+          slotToBook = {
+            startTimeUtc: availableSlot.startTimeUtc,
+            endTimeUtc: availableSlot.endTimeUtc,
+          };
+          break;
+        }
+      }
+    }
+
+    expect(slotToBook).not.toBeNull();
 
     const bookingPayloadA = {
       eventTypeId: "evt_30min_01",
       hostId: seedHostId,
-      startTimeUtc: startIso,
-      endTimeUtc: endIso,
+      startTimeUtc: slotToBook!.startTimeUtc,
+      endTimeUtc: slotToBook!.endTimeUtc,
       attendeeName: "Concurrent Attendee A",
-      attendeeEmail: "attendee_a@test.com",
+      attendeeEmail: `attendee_a_${Date.now()}@test.com`,
     };
 
     const bookingPayloadB = {
       eventTypeId: "evt_30min_01",
       hostId: seedHostId,
-      startTimeUtc: startIso,
-      endTimeUtc: endIso,
+      startTimeUtc: slotToBook!.startTimeUtc,
+      endTimeUtc: slotToBook!.endTimeUtc,
       attendeeName: "Concurrent Attendee B",
-      attendeeEmail: "attendee_b@test.com",
+      attendeeEmail: `attendee_b_${Date.now()}@test.com`,
     };
 
     // Fire both requests simultaneously
