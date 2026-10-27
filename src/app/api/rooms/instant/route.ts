@@ -12,7 +12,7 @@ export async function POST(request: Request) {
 
     const body = await request.json().catch(() => ({}));
     const roomTitle = body.title || "Instant Meeting";
-    const attendeeName = body.attendeeName || undefined;
+    const attendeeName = body.attendeeName || body.userName || undefined;
 
     const booking = await db.createInstantRoom({
       hostId,

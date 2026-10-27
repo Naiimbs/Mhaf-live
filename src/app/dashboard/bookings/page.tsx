@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Calendar, Clock, User, Mail, AlertTriangle, CheckCircle, XCircle, ArrowUpRight, Video } from "lucide-react";
+import { Calendar, Clock, User, Mail, AlertTriangle, CheckCircle, XCircle, ArrowUpRight, Video, Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InstantMeetingButton } from "@/components/dashboard/instant-meeting-button";
 
@@ -24,6 +24,8 @@ export default function HostBookingsPage() {
   const [bookings, setBookings] = React.useState<BookingItem[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [cancellingId, setCancellingId] = React.useState<string | null>(null);
+  const [sendingEmailId, setSendingEmailId] = React.useState<string | null>(null);
+  const [emailStatus, setEmailStatus] = React.useState<{ id: string; success: boolean; message: string } | null>(null);
   const [filter, setFilter] = React.useState<"ALL" | "CONFIRMED" | "CANCELLED">("CONFIRMED");
 
   const loadBookings = async () => {
@@ -67,6 +69,28 @@ export default function HostBookingsPage() {
       alert(err.message || "An unexpected error occurred.");
     } finally {
       setCancellingId(null);
+    }
+  };
+
+  const handleSendConfirmationEmail = async (bookingId: string) => {
+    setSendingEmailId(bookingId);
+    setEmailStatus(null);
+    try {
+      const res = await fetch("/api/schedule/bookings/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setEmailStatus({ id: bookingId, success: false, message: data.error || "Échec de l'envoi." });
+      } else {
+        setEmailStatus({ id: bookingId, success: true, message: data.message || "Email de confirmation envoyé !" });
+      }
+    } catch (err: any) {
+      setEmailStatus({ id: bookingId, success: false, message: err.message || "Erreur réseau." });
+    } finally {
+      setSendingEmailId(null);
     }
   };
 
@@ -202,6 +226,23 @@ export default function HostBookingsPage() {
                       {b.attendeeNotes}
                     </div>
                   )}
+
+                  {emailStatus && emailStatus.id === b.id && (
+                    <div
+                      className={`rounded-lg p-2.5 text-xs font-medium flex items-center gap-2 max-w-xl ${
+                        emailStatus.success
+                          ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                          : "bg-destructive/10 text-destructive border border-destructive/20"
+                      }`}
+                    >
+                      {emailStatus.success ? (
+                        <CheckCircle className="h-3.5 w-3.5 shrink-0" />
+                      ) : (
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                      )}
+                      <span>{emailStatus.message}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -211,6 +252,28 @@ export default function HostBookingsPage() {
                         <Video className="h-3 w-3" /> Join Room
                       </Button>
                     </Link>
+                  )}
+
+                  {isConfirmed && b.attendeeEmail && b.attendeeEmail !== "instant@mhaf.live" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={sendingEmailId === b.id}
+                      onClick={() => handleSendConfirmationEmail(b.id)}
+                      className="text-xs gap-1.5 border-emerald-500/30 hover:bg-emerald-500/10 text-emerald-400 font-medium"
+                    >
+                      {sendingEmailId === b.id ? (
+                        <>
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          Envoi...
+                        </>
+                      ) : (
+                        <>
+                          <Mail className="h-3 w-3" />
+                          Envoyer Email
+                        </>
+                      )}
+                    </Button>
                   )}
 
                   <Link href={`/book/confirmation/${b.uid}`} target="_blank">

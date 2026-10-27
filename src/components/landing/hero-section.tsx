@@ -16,6 +16,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
+import { RoomLauncher } from "@/components/landing/room-launcher";
+
 interface HeroSectionProps {
   onRequestDemo: () => void;
 }
@@ -25,7 +27,7 @@ export function HeroSection({ onRequestDemo }: HeroSectionProps) {
   const [cameraOff, setCameraOff] = React.useState(false);
 
   return (
-    <section className="relative overflow-hidden pt-12 pb-20 md:pt-20 md:pb-28">
+    <section className="relative overflow-hidden pt-12 pb-20 md:pt-16 md:pb-28">
       {/* Background ambient lighting */}
       <div
         aria-hidden="true"
@@ -39,56 +41,38 @@ export function HeroSection({ onRequestDemo }: HeroSectionProps) {
           {/* Eyebrow Badge */}
           <div className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-muted/80 px-3.5 py-1 text-xs font-medium text-foreground backdrop-blur-md shadow-sm">
             <span className="flex h-2 w-2 rounded-full bg-emerald-500 radar-live" />
-            <span>WebRTC SFU Media Engine + Autonomous Scheduling</span>
+            <span>LiveKit Cloud SFU · Vidéo HD & Programmation Autonome</span>
           </div>
 
           {/* Main Headline */}
           <h1 className="mt-6 text-4xl font-extrabold tracking-tight text-foreground sm:text-6xl md:text-7xl">
-            Video meetings built for{" "}
-            <span className="underline decoration-border/60 underline-offset-8">
-              precision
+            Visioconférence ultra-rapide.{" "}
+            <span className="underline decoration-primary/40 underline-offset-8">
+              Zéro friction
             </span>
-            , privacy, and intelligence.
+            .
           </h1>
 
           {/* Subtext */}
           <p className="mt-6 max-w-2xl text-base text-muted-foreground sm:text-lg leading-relaxed">
-            Eliminate fragmented scheduling tools and bloated conferencing apps.
-            MHAF Live brings ultra-low-latency video, zero-login guest entry,
-            and automated post-meeting analytics together into a unified platform.
+            Créez une réunion instantanée en 1 seconde ou programmez un rendez-vous avec envoi automatique d&apos;invitation par email. Aucun compte invité requis, latence ultra-faible.
           </p>
 
-          {/* Hero CTAs */}
-          <div className="mt-8 flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
-            <Button
-              size="lg"
-              asChild
-              className="w-full sm:w-auto h-12 px-8 text-base shadow-md"
-            >
-              <a href="#preview" className="flex items-center gap-2">
-                Launch Interactive Demo <ArrowRight className="h-4 w-4" />
-              </a>
-            </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={onRequestDemo}
-              className="w-full sm:w-auto h-12 px-8 text-base border-border hover:bg-muted"
-            >
-              Request Enterprise Demo
-            </Button>
+          {/* Dynamic Room Launcher (Instant, Schedule, Join) */}
+          <div className="mt-8 w-full">
+            <RoomLauncher />
           </div>
 
           {/* Micro Assurance Signals */}
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-6 text-xs text-muted-foreground font-medium">
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-xs text-muted-foreground font-medium">
             <span className="flex items-center gap-1.5">
-              <Shield className="h-3.5 w-3.5 text-primary" /> Zero Guest Account Needed
+              <Shield className="h-3.5 w-3.5 text-primary" /> Aucun compte invité requis
             </span>
             <span className="flex items-center gap-1.5">
-              <Activity className="h-3.5 w-3.5 text-emerald-500" /> Sub-100ms SFU Latency Target
+              <Activity className="h-3.5 w-3.5 text-emerald-500" /> Latence LiveKit SFU &lt; 50ms
             </span>
             <span className="flex items-center gap-1.5">
-              <Users className="h-3.5 w-3.5 text-primary" /> Multi-Timezone Conflict Engine
+              <Users className="h-3.5 w-3.5 text-primary" /> Partage d&apos;écran & Chat en direct
             </span>
           </div>
         </div>

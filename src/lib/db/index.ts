@@ -366,6 +366,16 @@ class DatabaseStore {
     return booking || null;
   }
 
+  async findBookingById(id: string): Promise<Booking | null> {
+    const booking = this.data.bookings.find((b) => b.id === id);
+    return booking || null;
+  }
+
+  async findEventTypeById(id: string): Promise<EventType | null> {
+    const eventType = this.data.eventTypes.find((e) => e.id === id);
+    return eventType || null;
+  }
+
   async createBookingWithConflictLock(params: {
     eventTypeId: string;
     hostId: string;
