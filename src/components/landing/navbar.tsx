@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Menu, X, Video, Calendar, ShieldCheck, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -31,8 +32,15 @@ export function Navbar({ onRequestDemo }: NavbarProps) {
           href="/"
           className="flex items-center gap-2.5 font-bold tracking-tight text-foreground transition-opacity hover:opacity-90"
         >
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-            <Video className="h-4 w-4" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted/60 border border-border/80 overflow-hidden shadow-sm">
+            <Image
+              src="/mhaf-logo.webp"
+              alt="MHAF Live"
+              width={36}
+              height={36}
+              className="h-full w-full object-contain"
+              priority
+            />
           </div>
           <div className="flex flex-col">
             <span className="text-base font-extrabold leading-none tracking-tight">

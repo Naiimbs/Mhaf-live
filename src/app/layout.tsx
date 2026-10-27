@@ -13,6 +13,11 @@ export const metadata: Metadata = {
   title: "MHAF Live — High-Assurance Video Meetings & Autonomous Scheduling",
   description:
     "Low-latency WebRTC video conferencing, timezone-aware scheduling, and verifiable attendance analytics without mandatory guest accounts.",
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/favicon.ico",
+  },
   keywords: [
     "WebRTC",
     "LiveKit",

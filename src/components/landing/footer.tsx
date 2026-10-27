@@ -1,5 +1,6 @@
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Video, Github, Shield, Terminal, BookOpen } from "lucide-react";
 
 export function Footer() {
@@ -9,9 +10,15 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand Info */}
           <div className="md:col-span-1 space-y-3">
-            <Link href="/" className="flex items-center gap-2 font-bold tracking-tight">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-                <Video className="h-3.5 w-3.5" />
+            <Link href="/" className="flex items-center gap-2.5 font-bold tracking-tight">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted/60 border border-border/80 overflow-hidden shadow-sm">
+                <Image
+                  src="/mhaf-logo.webp"
+                  alt="MHAF Live"
+                  width={28}
+                  height={28}
+                  className="h-full w-full object-contain"
+                />
               </div>
               <span className="text-base font-extrabold tracking-tight">
                 MHAF <span className="text-muted-foreground font-medium">LIVE</span>

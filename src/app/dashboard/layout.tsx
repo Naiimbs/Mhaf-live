@@ -1,5 +1,6 @@
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { getCurrentHost, logoutHost } from "@/lib/auth/session";
 import { Video, Calendar, Clock, LogOut, ExternalLink, User } from "lucide-react";
@@ -22,9 +23,15 @@ export default async function DashboardLayout({
       <header className="sticky top-0 z-40 border-b border-border bg-card/90 backdrop-blur-md">
         <div className="container flex h-16 max-w-7xl items-center justify-between px-4 sm:px-8">
           <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center gap-2 font-bold tracking-tight">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-                <Video className="h-4 w-4" />
+            <Link href="/" className="flex items-center gap-2.5 font-bold tracking-tight">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted/60 border border-border/80 overflow-hidden shadow-sm">
+                <Image
+                  src="/mhaf-logo.webp"
+                  alt="MHAF Live"
+                  width={32}
+                  height={32}
+                  className="h-full w-full object-contain"
+                />
               </div>
               <span className="text-base font-extrabold tracking-tight">
                 MHAF <span className="text-muted-foreground font-medium">LIVE</span>

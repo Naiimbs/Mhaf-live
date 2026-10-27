@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import {
   Mic,
   MicOff,
@@ -368,8 +369,14 @@ export function ActiveRoom({
       {/* Top Session Bar */}
       <header className="h-14 border-b border-zinc-800 bg-zinc-900/90 px-4 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-xs">
-            ML
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden shadow-sm">
+            <Image
+              src="/mhaf-logo.webp"
+              alt="MHAF Live"
+              width={28}
+              height={28}
+              className="h-full w-full object-contain"
+            />
           </div>
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
