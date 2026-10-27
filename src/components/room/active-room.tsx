@@ -17,7 +17,16 @@ import {
   Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Room, RoomEvent, VideoPresets, createLocalTracks, LocalTrack } from "livekit-client";
+import {
+  Room,
+  RoomEvent,
+  VideoPresets,
+  createLocalTracks,
+  LocalTrack,
+  RemoteParticipant,
+  ParticipantEvent,
+  Track,
+} from "livekit-client";
 
 interface ActiveRoomProps {
   serverUrl: string;
@@ -37,6 +46,118 @@ interface ChatMessage {
   timestamp: string;
 }
 
+function RemoteParticipantTile({ participant }: { participant: RemoteParticipant }) {
+  const videoRef = React.useRef<HTMLVideoElement | null>(null);
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
+  const [hasVideo, setHasVideo] = React.useState(false);
+  const [isAudioMuted, setIsAudioMuted] = React.useState(false);
+  const [, forceUpdate] = React.useReducer((x) => x + 1, 0);
+
+  React.useEffect(() => {
+    let attachedVideoTrack: any = null;
+    let attachedAudioTrack: any = null;
+
+    const syncTracks = () => {
+      // Find latest subscribed video track (screen share prioritized, else camera)
+      const videoPubs = Array.from(participant.videoTrackPublications.values());
+      const screenPub = videoPubs.find((p) => p.source === Track.Source.ScreenShare && p.isSubscribed && p.track);
+      const cameraPub = videoPubs.find((p) => p.source === Track.Source.Camera && p.isSubscribed && p.track);
+      const activeVideoPub = screenPub || cameraPub || videoPubs.find((p) => p.isSubscribed && p.track);
+
+      if (activeVideoPub?.track && videoRef.current) {
+        if (attachedVideoTrack !== activeVideoPub.track) {
+          if (attachedVideoTrack) attachedVideoTrack.detach(videoRef.current);
+          activeVideoPub.track.attach(videoRef.current);
+          attachedVideoTrack = activeVideoPub.track;
+        }
+        setHasVideo(!activeVideoPub.isMuted);
+      } else {
+        if (attachedVideoTrack && videoRef.current) {
+          attachedVideoTrack.detach(videoRef.current);
+          attachedVideoTrack = null;
+        }
+        setHasVideo(false);
+      }
+
+      // Find subscribed audio track
+      const audioPub = Array.from(participant.audioTrackPublications.values()).find(
+        (p) => p.isSubscribed && p.track
+      );
+      if (audioPub?.track && audioRef.current) {
+        if (attachedAudioTrack !== audioPub.track) {
+          if (attachedAudioTrack) attachedAudioTrack.detach(audioRef.current);
+          audioPub.track.attach(audioRef.current);
+          attachedAudioTrack = audioPub.track;
+        }
+        setIsAudioMuted(audioPub.isMuted);
+      } else {
+        if (attachedAudioTrack && audioRef.current) {
+          attachedAudioTrack.detach(audioRef.current);
+          attachedAudioTrack = null;
+        }
+        setIsAudioMuted(true);
+      }
+    };
+
+    syncTracks();
+
+    const handleUpdate = () => {
+      syncTracks();
+      forceUpdate();
+    };
+
+    participant.on(ParticipantEvent.TrackSubscribed, handleUpdate);
+    participant.on(ParticipantEvent.TrackUnsubscribed, handleUpdate);
+    participant.on(ParticipantEvent.TrackMuted, handleUpdate);
+    participant.on(ParticipantEvent.TrackUnmuted, handleUpdate);
+
+    return () => {
+      participant.off(ParticipantEvent.TrackSubscribed, handleUpdate);
+      participant.off(ParticipantEvent.TrackUnsubscribed, handleUpdate);
+      participant.off(ParticipantEvent.TrackMuted, handleUpdate);
+      participant.off(ParticipantEvent.TrackUnmuted, handleUpdate);
+      if (attachedVideoTrack && videoRef.current) {
+        attachedVideoTrack.detach(videoRef.current);
+      }
+      if (attachedAudioTrack && audioRef.current) {
+        attachedAudioTrack.detach(audioRef.current);
+      }
+    };
+  }, [participant]);
+
+  const pName = participant.name || participant.identity || "Guest";
+
+  return (
+    <div className="relative aspect-video w-full max-h-[70vh] rounded-2xl border border-zinc-800 bg-zinc-900 overflow-hidden shadow-md flex items-center justify-center">
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        className={`h-full w-full object-cover transition-opacity duration-300 ${
+          hasVideo ? "opacity-100" : "opacity-0"
+        }`}
+      />
+      <audio ref={audioRef} autoPlay />
+
+      {!hasVideo && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-400 space-y-2">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-800 text-zinc-400 border border-zinc-700 shadow-sm">
+            <Users className="h-7 w-7 text-primary" />
+          </div>
+          <span className="text-xs font-semibold text-zinc-200">{pName}</span>
+          <span className="text-[11px] text-zinc-500 font-mono">Camera Off</span>
+        </div>
+      )}
+
+      {/* Participant Name Badge */}
+      <div className="absolute bottom-3 left-3 flex items-center gap-2 bg-zinc-950/80 backdrop-blur-md px-2.5 py-1 rounded-md text-xs font-mono text-zinc-300 border border-zinc-800 shadow-sm">
+        <span>{pName}</span>
+        {isAudioMuted && <MicOff className="h-3 w-3 text-destructive" />}
+      </div>
+    </div>
+  );
+}
+
 export function ActiveRoom({
   serverUrl,
   token,
@@ -53,6 +174,7 @@ export function ActiveRoom({
   const [screenSharing, setScreenSharing] = React.useState(false);
   const [chatOpen, setChatOpen] = React.useState(false);
   const [participantsCount, setParticipantsCount] = React.useState(1);
+  const [remoteParticipants, setRemoteParticipants] = React.useState<RemoteParticipant[]>([]);
   const [isLocked, setIsLocked] = React.useState(false);
 
   const [chatMessages, setChatMessages] = React.useState<ChatMessage[]>([
@@ -86,11 +208,17 @@ export function ActiveRoom({
       try {
         setConnectionState("connecting");
 
+        const updateRemoteParticipants = () => {
+          if (!mounted) return;
+          setRemoteParticipants(Array.from(room.remoteParticipants.values()));
+          setParticipantsCount(room.numParticipants + 1);
+        };
+
         // Set up event listeners
         room.on(RoomEvent.Connected, () => {
           if (!mounted) return;
           setConnectionState("connected");
-          setParticipantsCount(room.numParticipants + 1);
+          updateRemoteParticipants();
         });
 
         room.on(RoomEvent.Disconnected, () => {
@@ -103,15 +231,12 @@ export function ActiveRoom({
           setConnectionState("reconnecting");
         });
 
-        room.on(RoomEvent.ParticipantConnected, () => {
-          if (!mounted) return;
-          setParticipantsCount(room.numParticipants + 1);
-        });
-
-        room.on(RoomEvent.ParticipantDisconnected, () => {
-          if (!mounted) return;
-          setParticipantsCount(room.numParticipants + 1);
-        });
+        room.on(RoomEvent.ParticipantConnected, updateRemoteParticipants);
+        room.on(RoomEvent.ParticipantDisconnected, updateRemoteParticipants);
+        room.on(RoomEvent.TrackSubscribed, updateRemoteParticipants);
+        room.on(RoomEvent.TrackUnsubscribed, updateRemoteParticipants);
+        room.on(RoomEvent.TrackMuted, updateRemoteParticipants);
+        room.on(RoomEvent.TrackUnmuted, updateRemoteParticipants);
 
         room.on(RoomEvent.DataReceived, (payload: Uint8Array, participant: any) => {
           if (!mounted) return;
@@ -305,18 +430,24 @@ export function ActiveRoom({
             </div>
           </div>
 
-          {/* Remote Peer Placeholder / Active Speaker Box */}
-          <div className="relative aspect-video w-full max-h-[70vh] rounded-2xl border border-zinc-800/80 bg-zinc-900/50 overflow-hidden shadow-md flex flex-col items-center justify-center text-zinc-500 p-6 text-center space-y-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-800/80 text-zinc-500 border border-zinc-700">
-              <Users className="h-6 w-6" />
+          {/* Remote Participants or Waiting Placeholder */}
+          {remoteParticipants.length > 0 ? (
+            remoteParticipants.map((p) => (
+              <RemoteParticipantTile key={p.identity} participant={p} />
+            ))
+          ) : (
+            <div className="relative aspect-video w-full max-h-[70vh] rounded-2xl border border-zinc-800/80 bg-zinc-900/50 overflow-hidden shadow-md flex flex-col items-center justify-center text-zinc-500 p-6 text-center space-y-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-800/80 text-zinc-500 border border-zinc-700">
+                <Users className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-zinc-400">Waiting for other participants</p>
+                <p className="text-[11px] text-zinc-500 mt-0.5">
+                  Share room UID <span className="font-mono text-zinc-300">{roomName}</span> to join.
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs font-medium text-zinc-400">Waiting for other participants</p>
-              <p className="text-[11px] text-zinc-500 mt-0.5">
-                Share room UID <span className="font-mono text-zinc-300">{roomName}</span> to join.
-              </p>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Slide-out In-Meeting Chat Drawer */}
