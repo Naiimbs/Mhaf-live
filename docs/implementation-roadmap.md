@@ -30,7 +30,7 @@ Ces vérifications ne démontrent ni l’unicité des créneaux entre plusieurs 
 ## Étapes recommandées avant release
 
 1. Revue de la PR et validation des décisions de contenu encore ouvertes, notamment la présence éventuelle d’un CTA « Request a demo ».
-2. Le repli SMTP codé en dur a été retiré; configurer `SMTP_HOST`, `SMTP_USER` et `SMTP_PASS` comme secrets de déploiement. Faire tourner auprès du fournisseur tout credential précédemment présent dans l’historique Git avant la mise en production.
+2. Le repli SMTP codé en dur a été retiré et l’ancien mot de passe de boîte exposé dans l’historique a été réinitialisé auprès du fournisseur le 28 octobre 2026. Installer le nouveau `SMTP_PASS` dans l’environnement du VPS, vérifier les paramètres SMTP, puis tester l’envoi avant la mise en production.
 3. Confirmer les variables LiveKit, SMTP, URL publique et politique de fenêtre d’accès dans l’environnement cible sans publier leurs valeurs.
 4. Décider si le déploiement reste strictement mono-processus ou migrer réservations/réunions vers une base avec transactions/contraintes adaptées avant d’ajouter des réplicas.
 5. Exécuter les tests smoke de staging sur des données non sensibles, puis suivre la procédure de release et de rollback documentée dans `deploy-vps.md`.
