@@ -6,6 +6,7 @@ import { Calendar, Clock, ExternalLink, Users, PlusCircle, CheckCircle2 } from "
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { InstantMeetingButton } from "@/components/dashboard/instant-meeting-button";
 
 export default async function DashboardPage() {
   const host = await requireHostAuth();
@@ -27,11 +28,12 @@ export default async function DashboardPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <InstantMeetingButton />
           <Badge variant="outline" className="font-mono text-xs py-1">
             IANA Timezone: {host.timezone}
           </Badge>
-          <Button size="sm" asChild>
+          <Button size="sm" variant="outline" asChild>
             <Link href="/dashboard/availability">Edit Working Hours</Link>
           </Button>
         </div>

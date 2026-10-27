@@ -13,7 +13,19 @@ export default async function RoomPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const booking = await db.getBookingByUid(slug);
+  let booking = await db.getBookingByUid(slug);
+
+  // Auto-provision instant room if requested via instant-* slug
+  if (!booking && slug.startsWith("instant-")) {
+    const defaultHost =
+      (await db.findUserByEmail("host@mhaf.live")) ||
+      (await db.findUserById("host_default_01"));
+    booking = await db.createInstantRoom({
+      hostId: defaultHost?.id || "host_default_01",
+      roomName: "Instant Video Meeting",
+      uid: slug,
+    });
+  }
 
   // 1. Not Found State
   if (!booking) {

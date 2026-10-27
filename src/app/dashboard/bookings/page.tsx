@@ -2,8 +2,9 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Calendar, Clock, User, Mail, AlertTriangle, CheckCircle, XCircle, ArrowUpRight } from "lucide-react";
+import { Calendar, Clock, User, Mail, AlertTriangle, CheckCircle, XCircle, ArrowUpRight, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { InstantMeetingButton } from "@/components/dashboard/instant-meeting-button";
 
 interface BookingItem {
   id: string;
@@ -97,21 +98,25 @@ export default function HostBookingsPage() {
           </p>
         </div>
 
-        {/* Filter buttons */}
-        <div className="inline-flex rounded-lg border border-border bg-card p-1 text-xs">
-          {(["CONFIRMED", "CANCELLED", "ALL"] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setFilter(tab)}
-              className={`px-3 py-1.5 rounded-md font-medium transition-colors ${
-                filter === tab
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {tab === "CONFIRMED" ? "Active" : tab === "CANCELLED" ? "Cancelled" : "All"}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-3">
+          <InstantMeetingButton />
+
+          {/* Filter buttons */}
+          <div className="inline-flex rounded-lg border border-border bg-card p-1 text-xs">
+            {(["CONFIRMED", "CANCELLED", "ALL"] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setFilter(tab)}
+                className={`px-3 py-1.5 rounded-md font-medium transition-colors ${
+                  filter === tab
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {tab === "CONFIRMED" ? "Active" : tab === "CANCELLED" ? "Cancelled" : "All"}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -199,10 +204,18 @@ export default function HostBookingsPage() {
                   )}
                 </div>
 
-                <div className="flex items-center gap-3 shrink-0">
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  {isConfirmed && (
+                    <Link href={`/rooms/${b.uid}`} target="_blank">
+                      <Button size="sm" className="text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
+                        <Video className="h-3 w-3" /> Join Room
+                      </Button>
+                    </Link>
+                  )}
+
                   <Link href={`/book/confirmation/${b.uid}`} target="_blank">
                     <Button variant="outline" size="sm" className="text-xs gap-1.5">
-                      View Confirmation <ArrowUpRight className="h-3 w-3" />
+                      Confirmation <ArrowUpRight className="h-3 w-3" />
                     </Button>
                   </Link>
 
@@ -215,7 +228,7 @@ export default function HostBookingsPage() {
                       className="text-xs"
                       id={`cancel-btn-${b.id}`}
                     >
-                      {cancellingId === b.id ? "Cancelling..." : "Cancel Meeting"}
+                      {cancellingId === b.id ? "Cancelling..." : "Cancel"}
                     </Button>
                   )}
                 </div>

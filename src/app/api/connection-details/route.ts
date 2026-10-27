@@ -6,10 +6,11 @@ import { getCurrentHost } from "@/lib/auth/session";
 interface TokenMintRequest {
   roomUid: string;
   requestedName?: string;
+  enforceTime?: boolean;
 }
 
 async function handleConnectionDetails(params: TokenMintRequest) {
-  const { roomUid, requestedName } = params;
+  const { roomUid, requestedName, enforceTime } = params;
 
   if (!roomUid) {
     return NextResponse.json(
@@ -19,7 +20,19 @@ async function handleConnectionDetails(params: TokenMintRequest) {
   }
 
   // 1. Authoritative Booking Validation
-  const booking = await db.getBookingByUid(roomUid);
+  let booking = await db.getBookingByUid(roomUid);
+
+  if (!booking && roomUid.startsWith("instant-")) {
+    const defaultHost =
+      (await db.findUserByEmail("host@mhaf.live")) ||
+      (await db.findUserById("host_default_01"));
+    booking = await db.createInstantRoom({
+      hostId: defaultHost?.id || "host_default_01",
+      roomName: "Instant Video Meeting",
+      uid: roomUid,
+    });
+  }
+
   if (!booking) {
     return NextResponse.json(
       { error: "Meeting room not found. Invalid or unrecognized reservation UID." },
@@ -36,35 +49,45 @@ async function handleConnectionDetails(params: TokenMintRequest) {
   }
 
   // 3. Joining Window Time Enforcement
-  const now = Date.now();
-  const startTimeMs = new Date(booking.startTime).getTime();
-  const endTimeMs = new Date(booking.endTime).getTime();
+  const isInstantMeeting =
+    booking.uid.startsWith("instant-") ||
+    booking.attendeeNotes?.includes("[instant]");
+  const enforceTimeWindow =
+    (enforceTime === true ||
+      (process.env.ENFORCE_MEETING_TIME_WINDOW !== "false" && enforceTime !== false)) &&
+    !isInstantMeeting;
 
-  // Allow joining up to 15 minutes before scheduled start
-  const EARLY_JOIN_BUFFER_MS = 15 * 60 * 1000;
-  // Room stays open until 60 minutes after scheduled end
-  const LATE_JOIN_BUFFER_MS = 60 * 60 * 1000;
+  if (enforceTimeWindow) {
+    const now = Date.now();
+    const startTimeMs = new Date(booking.startTime).getTime();
+    const endTimeMs = new Date(booking.endTime).getTime();
 
-  if (now < startTimeMs - EARLY_JOIN_BUFFER_MS) {
-    const allowedAt = new Date(startTimeMs - EARLY_JOIN_BUFFER_MS).toISOString();
-    return NextResponse.json(
-      {
-        error: "Meeting room is not open yet. Participants may join starting 15 minutes prior to the scheduled start time.",
-        joinableAt: allowedAt,
-        scheduledStart: booking.startTime,
-      },
-      { status: 403 }
-    );
-  }
+    // Allow joining up to 15 minutes before scheduled start
+    const EARLY_JOIN_BUFFER_MS = 15 * 60 * 1000;
+    // Room stays open until 60 minutes after scheduled end
+    const LATE_JOIN_BUFFER_MS = 60 * 60 * 1000;
 
-  if (now > endTimeMs + LATE_JOIN_BUFFER_MS) {
-    return NextResponse.json(
-      {
-        error: "This meeting session has concluded and the room is closed.",
-        scheduledEnd: booking.endTime,
-      },
-      { status: 410 }
-    );
+    if (now < startTimeMs - EARLY_JOIN_BUFFER_MS) {
+      const allowedAt = new Date(startTimeMs - EARLY_JOIN_BUFFER_MS).toISOString();
+      return NextResponse.json(
+        {
+          error: "Meeting room is not open yet. Participants may join starting 15 minutes prior to the scheduled start time.",
+          joinableAt: allowedAt,
+          scheduledStart: booking.startTime,
+        },
+        { status: 403 }
+      );
+    }
+
+    if (now > endTimeMs + LATE_JOIN_BUFFER_MS) {
+      return NextResponse.json(
+        {
+          error: "This meeting session has concluded and the room is closed.",
+          scheduledEnd: booking.endTime,
+        },
+        { status: 410 }
+      );
+    }
   }
 
   // 4. Participant Role & Identity Resolution
@@ -134,8 +157,11 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const roomUid = searchParams.get("room") || searchParams.get("uid") || "";
     const requestedName = searchParams.get("name") || undefined;
+    const enforceParam = searchParams.get("enforceTime");
+    const enforceTime =
+      enforceParam !== null ? enforceParam === "true" : undefined;
 
-    return handleConnectionDetails({ roomUid, requestedName });
+    return handleConnectionDetails({ roomUid, requestedName, enforceTime });
   } catch (err: any) {
     return NextResponse.json(
       { error: err.message || "Failed to process connection details request." },
@@ -149,8 +175,10 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({}));
     const roomUid = body.room || body.uid || body.roomUid || "";
     const requestedName = body.name || undefined;
+    const enforceTime =
+      typeof body.enforceTime === "boolean" ? body.enforceTime : undefined;
 
-    return handleConnectionDetails({ roomUid, requestedName });
+    return handleConnectionDetails({ roomUid, requestedName, enforceTime });
   } catch (err: any) {
     return NextResponse.json(
       { error: err.message || "Failed to process connection details request." },

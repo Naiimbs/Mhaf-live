@@ -92,7 +92,7 @@ test.describe("Phase 3 — LiveKit Video Rooms, PreJoin & Token Minting", () => 
     const futureBooking = await bookRes.json();
 
     const tokenRes = await request.get(
-      `/api/connection-details?room=${futureBooking.booking.uid}`
+      `/api/connection-details?room=${futureBooking.booking.uid}&enforceTime=true`
     );
     expect(tokenRes.status()).toBe(403);
     const tokenBody = await tokenRes.json();

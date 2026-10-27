@@ -439,6 +439,36 @@ class DatabaseStore {
       return booking;
     });
   }
+
+  async createInstantRoom(params: {
+    hostId: string;
+    roomName?: string;
+    attendeeName?: string;
+    uid?: string;
+  }): Promise<Booking> {
+    return globalLock.acquire(async () => {
+      const now = new Date();
+      const endTime = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      const booking: Booking = {
+        id: `bkg_instant_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        uid: params.uid || `instant-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`,
+        eventTypeId: "evt_instant",
+        hostId: params.hostId,
+        attendeeName: params.attendeeName || "Guest",
+        attendeeEmail: "instant@mhaf.live",
+        attendeeNotes: `[instant] ${params.roomName || "Instant Meeting"}`,
+        startTime: now,
+        endTime,
+        status: "CONFIRMED",
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      this.data.bookings.push(booking);
+      this.persist();
+      return booking;
+    });
+  }
 }
 
 // Global singleton instance
