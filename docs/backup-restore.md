@@ -13,7 +13,7 @@ This document defines the operational procedures for backing up and restoring MH
 MHAF Live currently maintains two persistent storage layers on the VPS:
 
 1. **File-Based JSON Application Storage (`/opt/mhaf-live/data`)**
-   - **Contents**: `mhaf_live_db.json` (users, sessions, event types, availability schedules, confirmed bookings) and `demo_requests_fallback.json` (un-synced demo inquiries staged during database outages).
+   - **Contents**: `mhaf_live_db.json` (users, sessions, event types, availability schedules, bookings, and linked/manual/instant meetings) and `demo_requests_fallback.json` (un-synced demo inquiries staged during database outages).
    - **Permissions**: Owned by host user UID `1001` (Node.js container user `nextjs`), directory permissions `0750`.
    - **Concurrency Model**: Single container process with in-memory mutex write serialization and atomic `.tmp` file renames.
 

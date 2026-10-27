@@ -43,13 +43,13 @@ export default async function DashboardLayout({
                 href="/dashboard"
                 className="px-3 py-1.5 rounded-md text-sm font-medium text-foreground hover:bg-muted transition-colors"
               >
-                Overview
+                Calendar
               </Link>
               <Link
                 href="/dashboard/availability"
                 className="px-3 py-1.5 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
               >
-                Availability & Schedule
+                Availability
               </Link>
               <Link
                 href="/dashboard/bookings"
@@ -86,7 +86,7 @@ export default async function DashboardLayout({
         {/* Mobile secondary tab strip */}
         <div className="flex sm:hidden overflow-x-auto border-t border-border px-4 py-2 gap-2 text-xs bg-muted/30">
           <Link href="/dashboard" className="px-2.5 py-1 rounded bg-card font-medium">
-            Overview
+            Calendar
           </Link>
           <Link href="/dashboard/availability" className="px-2.5 py-1 rounded text-muted-foreground">
             Availability

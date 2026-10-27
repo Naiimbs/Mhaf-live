@@ -1,380 +1,44 @@
-# MHAF Live — Database Schema & Data Model Specification
-
-**Document Version:** 1.0.0  
-**Database Engine:** PostgreSQL 15+  
-**ORM / Data Layer:** Prisma Client  
-**Status:** Approved for Implementation  
-
----
-
-## 1. Entity Relationship Overview
-
-The MHAF Live data architecture models five cohesive domains:
-1. **Identity & Authentication:** Users, accounts, roles, and profiles.
-2. **Scheduling Infrastructure:** Event types, working availability, and booking records.
-3. **Real-Time Video Rooms:** Static room configurations, active sessions, and live state.
-4. **Attendance & Event Logging:** Granular participant lifecycles, join/leave timestamps, and duration heatmaps.
-5. **Meeting Intelligence:** Cloud recording assets, transcripts, and structured AI summaries.
-
-```mermaid
-erDiagram
-    User ||--o{ Account : has
-    User ||--o{ EventType : owns
-    User ||--o{ Availability : defines
-    User ||--o{ Booking : hosts
-    User ||--o{ MeetingRoom : owns
-    User ||--o{ AuditLog : performs
-
-    EventType ||--o{ Booking : instantiates
-    Booking ||--o| MeetingRoom : assigns
-
-    MeetingRoom ||--o{ MeetingSession : instances
-    MeetingSession ||--o{ ParticipantEvent : records
-    MeetingSession ||--o| Transcript : produces
-    MeetingSession ||--o| MeetingSummary : generates
-
-    MeetingRoom {
-        string id PK
-        string slug UK
-        string name
-        string hostId FK
-        boolean isLocked
-        boolean recordingEnabled
-    }
-
-    MeetingSession {
-        string id PK
-        string livekitSid UK
-        string meetingRoomId FK
-        datetime startedAt
-        datetime endedAt
-        string status
-    }
-
-    ParticipantEvent {
-        string id PK
-        string sessionId FK
-        string participantIdentity
-        string eventType
-        datetime timestamp
-        int durationSeconds
-    }
-```
-
----
-
-## 2. Complete Prisma Schema (`prisma/schema.prisma`)
-
-```prisma
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
-generator client {
-  provider = "prisma-client-js"
-}
-
-// ==========================================
-// 1. Identity & Access Control Domain
-// ==========================================
-
-enum UserRole {
-  ADMIN
-  HOST
-  MEMBER
-}
-
-model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  emailVerified DateTime?
-  image         String?
-  passwordHash  String?
-  role          UserRole  @default(HOST)
-  timezone      String    @default("UTC")
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  accounts      Account[]
-  sessions      Session[]
-  eventTypes    EventType[]
-  availabilities Availability[]
-  hostedBookings Booking[]       @relation("HostBookings")
-  meetingRooms  MeetingRoom[]   @relation("HostRooms")
-  auditLogs     AuditLog[]      @relation("UserAuditLogs")
-
-  @@index([email])
-}
-
-model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String? @db.Text
-  session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
-  @@index([userId])
-}
-
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-}
-
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-
-  @@unique([identifier, token])
-}
-
-// ==========================================
-// 2. Scheduling & Booking Domain (Cal.diy Pattern)
-// ==========================================
-
-model EventType {
-  id              String   @id @default(cuid())
-  slug            String
-  title           String
-  description     String?  @db.Text
-  durationMinutes Int      @default(30)
-  bufferBeforeMin Int      @default(0)
-  bufferAfterMin  Int      @default(10)
-  isActive        Boolean  @default(true)
-  hostId          String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  host     User      @relation(fields: [hostId], references: [id], onDelete: Cascade)
-  bookings Booking[]
-
-  @@unique([hostId, slug])
-  @@index([hostId, isActive])
-}
-
-model Availability {
-  id           String   @id @default(cuid())
-  userId       String
-  dayOfWeek    Int      // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-  startTime    String   // Format "HH:mm" e.g. "09:00"
-  endTime      String   // Format "HH:mm" e.g. "17:00"
-  timezone     String   @default("UTC")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, dayOfWeek])
-}
-
-enum BookingStatus {
-  PENDING
-  CONFIRMED
-  CANCELLED
-  COMPLETED
-}
-
-model Booking {
-  id             String        @id @default(cuid())
-  uid            String        @unique @default(cuid())
-  eventTypeId    String
-  hostId         String
-  attendeeName   String
-  attendeeEmail  String
-  attendeeNotes  String?       @db.Text
-  startTime      DateTime
-  endTime        DateTime
-  status         BookingStatus @default(CONFIRMED)
-  meetingRoomId  String?       @unique
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-
-  eventType   EventType    @relation(fields: [eventTypeId], references: [id], onDelete: Restrict)
-  host        User         @relation("HostBookings", fields: [hostId], references: [id], onDelete: Cascade)
-  meetingRoom MeetingRoom? @relation(fields: [meetingRoomId], references: [id], onDelete: SetNull)
-
-  @@index([hostId, startTime, endTime])
-  @@index([attendeeEmail])
-  @@index([status])
-}
-
-// ==========================================
-// 3. Real-Time Meeting Room Domain (LiveKit)
-// ==========================================
-
-model MeetingRoom {
-  id               String   @id @default(cuid())
-  slug             String   @unique
-  name             String
-  hostId           String
-  isLocked         Boolean  @default(false)
-  recordingEnabled Boolean  @default(false)
-  emptyTimeoutSec  Int      @default(300)
-  maxParticipants  Int      @default(50)
-  livekitRoomName  String   @unique
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  host     User             @relation("HostRooms", fields: [hostId], references: [id], onDelete: Cascade)
-  booking  Booking?
-  sessions MeetingSession[]
-
-  @@index([hostId])
-  @@index([slug])
-}
-
-enum SessionStatus {
-  ACTIVE
-  FINISHED
-  FAILED
-}
-
-model MeetingSession {
-  id             String        @id @default(cuid())
-  meetingRoomId  String
-  livekitSid     String        @unique // LiveKit Room SID
-  startedAt      DateTime      @default(now())
-  endedAt        DateTime?
-  status         SessionStatus @default(ACTIVE)
-  recordingUrl   String?       @db.Text
-  egressId       String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-
-  meetingRoom       MeetingRoom        @relation(fields: [meetingRoomId], references: [id], onDelete: Cascade)
-  participantEvents ParticipantEvent[]
-  transcript        Transcript?
-  summary           MeetingSummary?
-
-  @@index([meetingRoomId, startedAt])
-  @@index([status])
-}
-
-// ==========================================
-// 4. Attendance & Event Logging Domain
-// ==========================================
-
-enum ParticipantEventType {
-  JOINED
-  LEFT
-  RECONNECTED
-  MUTED_BY_HOST
-  DISCONNECTED
-}
-
-model ParticipantEvent {
-  id                  String               @id @default(cuid())
-  sessionId           String
-  participantIdentity String               // User ID or Guest UUID
-  participantName     String
-  isHost              Boolean              @default(false)
-  eventType           ParticipantEventType
-  timestamp           DateTime             @default(now())
-  durationSeconds     Int?                 // Populated on LEFT event
-  metadataJson        Json?                // Browser info, network quality metrics
-
-  session MeetingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-
-  @@index([sessionId, participantIdentity])
-  @@index([sessionId, eventType])
-  @@index([timestamp])
-}
-
-// ==========================================
-// 5. Intelligence, Transcript & Summary Domain
-// ==========================================
-
-model Transcript {
-  id             String   @id @default(cuid())
-  sessionId      String   @unique
-  rawAudioUrl    String?
-  rawText        String   @db.Text
-  segmentsJson   Json     // Array of { speaker, startMs, endMs, text }
-  wordCount      Int
-  confidenceRate Float
-  createdAt      DateTime @default(now())
-
-  session MeetingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-}
-
-model MeetingSummary {
-  id             String   @id @default(cuid())
-  sessionId      String   @unique
-  overview       String   @db.Text
-  keyTakeaways   Json     // String array of points
-  actionItems    Json     // Array of { item, assignee, priority }
-  sentimentScore Float?
-  metricsJson    Json     // Heatmap data & participation distribution stats
-  createdAt      DateTime @default(now())
-
-  session MeetingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-}
-
-// ==========================================
-// 6. Security & Audit Logging
-// ==========================================
-
-model AuditLog {
-  id             String   @id @default(cuid())
-  actorId        String?
-  action         String   // e.g. "ROOM_LOCKED", "TOKEN_MINTED", "RECORDING_DOWNLOADED"
-  targetResource String   // e.g. "MeetingRoom:cuid123"
-  ipAddress      String?
-  userAgent      String?
-  timestamp      DateTime @default(now())
-
-  actor User? @relation("UserAuditLogs", fields: [actorId], references: [id], onDelete: SetNull)
-
-  @@index([actorId, timestamp])
-  @@index([action])
-}
-```
-
----
-
-## 3. Database Indexes & Query Optimization Strategy
-
-1. **High-Frequency Booking Queries:**
-   - Query: Checking available slots and detecting booking collisions.
-   - Index: `@@index([hostId, startTime, endTime])` on `Booking` enables sub-millisecond B-tree interval lookups during schedule resolution.
-2. **Real-Time Attendance Reconciliation:**
-   - Query: Aggregating participant events when generating heatmaps.
-   - Index: `@@index([sessionId, participantIdentity])` on `ParticipantEvent` ensures rapid timeline segment grouping.
-3. **Room Token Authorization:**
-   - Query: Resolving room permissions by slug on incoming WebRTC requests.
-   - Index: `@@unique([slug])` on `MeetingRoom` provides instantaneous $O(1)$ lookups.
-
----
-
-## 4. Authorization & Row-Level Access Matrix
-
-| Resource / Action | Anonymous Guest | Authenticated Attendee | Meeting Host | Admin |
-| :--- | :--- | :--- | :--- | :--- |
-| **View Landing & Schedule Demo** | ✓ Read / Submit | ✓ Read / Submit | ✓ Read / Submit | ✓ Read / Submit |
-| **View Host Public Booking Page** | ✓ View Slots | ✓ View Slots | ✓ View Slots | ✓ View Slots |
-| **Book Time Slot** | ✓ (Supply name/email) | ✓ Confirmed | ✓ Confirmed | ✓ Confirmed |
-| **Enter PreJoin Room** | ✓ (With invite link) | ✓ (With invite link) | ✓ Full Control | ✓ Full Control |
-| **Mint LiveKit Token** | ✓ (`canPublish: true`) | ✓ (`canPublish: true`) | ✓ (`roomAdmin: true`)| ✓ (`roomAdmin: true`)|
-| **Mute / Kick Participant** | ✗ Denied | ✗ Denied | ✓ Allowed | ✓ Allowed |
-| **Access In-Meeting Chat** | ✓ Ephemeral | ✓ Ephemeral | ✓ Ephemeral | ✓ Ephemeral |
-| **View Attendance Heatmap** | ✗ Denied | ✗ Denied | ✓ Own Meetings | ✓ All Meetings |
-| **View Transcripts & Summaries**| ✗ Denied | Optional (if shared) | ✓ Full Access | ✓ Full Access |
-| **Manage Event Types / Avail** | ✗ Denied | ✗ Denied | ✓ Own Schedules | ✓ All Schedules |
+# MHAF Live — modèle de données actif
+
+**État :** décrit le magasin JSON utilisé par les parcours de réservation et de réunion.
+**Important :** `prisma/schema.prisma` n’est pas le magasin faisant autorité pour ces opérations dans l’application actuelle.
+
+## Stockage et compatibilité
+
+`src/lib/db/` charge et persiste `data/mhaf_live_db.json`. Les champs Date sont sérialisés sous forme de chaînes ISO et reconstitués en objets `Date` au chargement. Les anciennes données sans clé `meetings` sont chargées avec une collection de réunions vide afin de préserver la compatibilité.
+
+Le magasin garde les collections `users`, `sessions`, `eventTypes`, `availabilities`, `bookings`, `meetings` et `auditLogs`.
+
+## Entités actives
+
+### Booking
+
+Une réservation représente le créneau confirmé d’un invité pour un type de rendez-vous. Elle comprend `id`, `uid`, `eventTypeId`, `hostId`, `attendeeName`, `attendeeEmail`, `attendeeNotes`, `startTime`, `endTime`, `status`, `createdAt` et `updatedAt`.
+
+États de réservation : `PENDING`, `CONFIRMED`, `CANCELLED`, `COMPLETED`. Une réservation publique acceptée conserve son identifiant de salle historique (`uid`) pour maintenir la compatibilité des liens existants.
+
+### Meeting
+
+Une réunion est l’événement qui apparaît dans le calendrier et qui résout un lien de salle. Elle comprend `id`, `uid`, `hostId`, `title`, `source`, `bookingId`, `attendeeName`, `attendeeEmail`, `startTime`, `endTime`, `status`, `createdAt` et `updatedAt`.
+
+- `source`: `BOOKING`, `MANUAL` ou `INSTANT`.
+- `status`: `SCHEDULED`, `LIVE`, `CANCELLED` ou `COMPLETED`.
+- `bookingId`: identifiant de la réservation associée, ou `null` pour une réunion sans réservation.
+- Pour une réservation publique, le `Meeting` lié partage l’UID de la réservation; les identifiants `Booking` historiques continuent donc à fonctionner.
+- Les réunions manuelles et instantanées possèdent leur propre UID et n’ajoutent pas de ligne artificielle dans `bookings`.
+
+### Autres collections
+
+`User` porte notamment le rôle et le fuseau horaire IANA de l’hôte. `EventType` définit la durée et les marges avant/après. `Availability` stocke les plages hebdomadaires et leur fuseau. `Session` et `AuditLog` sont conservés dans le magasin existant.
+
+## Relations et conflits
+
+Un `Booking` peut être représenté par un `Meeting` de source `BOOKING`; `bookingId` est la relation explicite. Le calendrier agrège les réunions puis ajoute les réservations historiques qui n’ont pas de réunion liée, ce qui évite les doublons tout en conservant les anciens enregistrements.
+
+La création de réservation vérifie de nouveau côté serveur l’hôte, le type actif, la durée, le fuseau, l’avance et la disponibilité. Le chemin de mutation sous verrou vérifie les conflits avec les autres réservations et réunions puis sauvegarde les enregistrements liés. La création manuelle vérifie aussi les chevauchements; les réunions instantanées ont une durée bornée.
+
+**Limite opérationnelle :** le verrou est en mémoire et partagé uniquement à l’intérieur d’un processus. Le fichier JSON et ce verrou ne procurent pas de transactions ACID distribuées, de coordination entre réplicas ou de garantie de concurrence multi-processus. Une évolution vers PostgreSQL doit ajouter des contraintes/transactions et migrer les données avant toute architecture multi-écrivain.
+
+## Prisma/PostgreSQL
+
+Le schéma Prisma présent dans le dépôt est une référence séparée; il ne faut pas déduire de son existence que les bookings et meetings actifs sont écrits en PostgreSQL. Toute migration du modèle actif doit documenter la source de vérité, la compatibilité des UIDs de salle, les relations `Booking`–`Meeting`, la stratégie de migration des dates et les contraintes d’unicité/conflit.

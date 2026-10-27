@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
 import {
   User,
@@ -7,6 +8,8 @@ import {
   EventType,
   Availability,
   Booking,
+  Meeting,
+  MeetingSource,
   AuditLog,
 } from "./types";
 
@@ -16,6 +19,7 @@ interface DatabaseSchema {
   eventTypes: EventType[];
   availabilities: Availability[];
   bookings: Booking[];
+  meetings: Meeting[];
   auditLogs: AuditLog[];
 }
 
@@ -90,6 +94,13 @@ class DatabaseStore {
             createdAt: new Date(b.createdAt),
             updatedAt: new Date(b.updatedAt),
           })),
+          meetings: (parsed.meetings || []).map((m: any) => ({
+            ...m,
+            startTime: new Date(m.startTime),
+            endTime: new Date(m.endTime),
+            createdAt: new Date(m.createdAt),
+            updatedAt: new Date(m.updatedAt),
+          })),
           auditLogs: (parsed.auditLogs || []).map((l: any) => ({
             ...l,
             timestamp: new Date(l.timestamp),
@@ -106,18 +117,36 @@ class DatabaseStore {
       eventTypes: [],
       availabilities: [],
       bookings: [],
+      meetings: [],
       auditLogs: [],
     };
   }
 
   private persist() {
+    let tempFile: string | null = null;
     try {
       if (!fs.existsSync(DATA_DIR)) {
         fs.mkdirSync(DATA_DIR, { recursive: true });
       }
-      fs.writeFileSync(DB_FILE, JSON.stringify(this.data, null, 2), "utf-8");
+      tempFile = `${DB_FILE}.${process.pid}.${randomUUID()}.tmp`;
+      const fd = fs.openSync(tempFile, "w", 0o600);
+      try {
+        fs.writeFileSync(fd, JSON.stringify(this.data, null, 2), "utf-8");
+        fs.fsyncSync(fd);
+      } finally {
+        fs.closeSync(fd);
+      }
+      fs.renameSync(tempFile, DB_FILE);
     } catch (err) {
+      if (tempFile) {
+        try {
+          fs.unlinkSync(tempFile);
+        } catch {
+          // The temporary file may not have been created or may already be renamed.
+        }
+      }
       console.error("[DatabaseStore] Error persisting database file:", err);
+      throw new Error("The application data could not be saved. Please retry.");
     }
   }
 
@@ -376,14 +405,31 @@ class DatabaseStore {
     return eventType || null;
   }
 
+  async getMeetingsByHostId(hostId: string): Promise<Meeting[]> {
+    return this.data.meetings
+      .filter((meeting) => meeting.hostId === hostId)
+      .sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+  }
+
+  async getMeetingByUid(uid: string): Promise<Meeting | null> {
+    return this.data.meetings.find((meeting) => meeting.uid === uid) || null;
+  }
+
+  async findMeetingById(id: string): Promise<Meeting | null> {
+    return this.data.meetings.find((meeting) => meeting.id === id) || null;
+  }
+
   async createBookingWithConflictLock(params: {
     eventTypeId: string;
     hostId: string;
+    meetingTitle?: string;
     attendeeName: string;
     attendeeEmail: string;
     attendeeNotes: string | null;
     startTime: Date;
     endTime: Date;
+    bufferBeforeMin?: number;
+    bufferAfterMin?: number;
   }): Promise<{ success: true; booking: Booking } | { success: false; error: string }> {
     return globalLock.acquire(async () => {
       const newStartMs = params.startTime.getTime();
@@ -397,17 +443,26 @@ class DatabaseStore {
         return { success: false, error: "Cannot book a time slot in the past." };
       }
 
-      // Authoritative conflict check against all existing confirmed bookings for this host
-      // Overlap condition: (existingStart < newEnd) && (existingEnd > newStart)
-      const conflictingBooking = this.data.bookings.find(
-        (b) =>
-          b.hostId === params.hostId &&
-          b.status !== "CANCELLED" &&
-          b.startTime.getTime() < newEndMs &&
-          b.endTime.getTime() > newStartMs
+      const requestedStartMs = newStartMs - Math.max(0, params.bufferBeforeMin || 0) * 60_000;
+      const requestedEndMs = newEndMs + Math.max(0, params.bufferAfterMin || 0) * 60_000;
+      const conflictingBooking = this.data.bookings.find((booking) => {
+        if (booking.hostId !== params.hostId || booking.status === "CANCELLED") return false;
+        const existingType = this.data.eventTypes.find((item) => item.id === booking.eventTypeId);
+        const existingStartMs = booking.startTime.getTime() - Math.max(0, existingType?.bufferBeforeMin || 0) * 60_000;
+        const existingEndMs = booking.endTime.getTime() + Math.max(0, existingType?.bufferAfterMin || 0) * 60_000;
+        return existingStartMs < requestedEndMs && existingEndMs > requestedStartMs;
+      });
+      const conflictingMeeting = this.data.meetings.find(
+        (meeting) =>
+          meeting.hostId === params.hostId &&
+          meeting.source !== "BOOKING" &&
+          meeting.status !== "CANCELLED" &&
+          meeting.status !== "COMPLETED" &&
+          meeting.startTime.getTime() < requestedEndMs &&
+          meeting.endTime.getTime() > requestedStartMs
       );
 
-      if (conflictingBooking) {
+      if (conflictingBooking || conflictingMeeting) {
         return {
           success: false,
           error: "BOOKING_CONFLICT: The selected time slot has already been reserved. Please select another time.",
@@ -430,8 +485,30 @@ class DatabaseStore {
         updatedAt: now,
       };
 
+      const linkedMeeting: Meeting = {
+        id: `meet_${randomUUID()}`,
+        uid: booking.uid,
+        hostId: params.hostId,
+        title: params.meetingTitle || "Booked meeting",
+        source: "BOOKING",
+        bookingId: booking.id,
+        attendeeName: booking.attendeeName,
+        attendeeEmail: booking.attendeeEmail,
+        startTime: booking.startTime,
+        endTime: booking.endTime,
+        status: "SCHEDULED",
+        createdAt: now,
+        updatedAt: now,
+      };
       this.data.bookings.push(booking);
-      this.persist();
+      this.data.meetings.push(linkedMeeting);
+      try {
+        this.persist();
+      } catch (error) {
+        this.data.bookings = this.data.bookings.filter((item) => item.id !== booking.id);
+        this.data.meetings = this.data.meetings.filter((item) => item.id !== linkedMeeting.id);
+        throw error;
+      }
 
       return { success: true, booking };
     });
@@ -443,40 +520,116 @@ class DatabaseStore {
       if (!booking) {
         throw new Error("Booking not found or you are not authorized to cancel it.");
       }
+      const oldStatus = booking.status;
+      const oldUpdatedAt = booking.updatedAt;
+      const linkedMeeting = this.data.meetings.find((meeting) => meeting.bookingId === booking.id);
+      const oldMeetingStatus = linkedMeeting?.status;
+      const oldMeetingUpdatedAt = linkedMeeting?.updatedAt;
       booking.status = "CANCELLED";
       booking.updatedAt = new Date();
-      this.persist();
+      if (linkedMeeting) {
+        linkedMeeting.status = "CANCELLED";
+        linkedMeeting.updatedAt = booking.updatedAt;
+      }
+      try {
+        this.persist();
+      } catch (error) {
+        booking.status = oldStatus;
+        booking.updatedAt = oldUpdatedAt;
+        if (linkedMeeting && oldMeetingStatus && oldMeetingUpdatedAt) {
+          linkedMeeting.status = oldMeetingStatus;
+          linkedMeeting.updatedAt = oldMeetingUpdatedAt;
+        }
+        throw error;
+      }
       return booking;
     });
   }
 
-  async createInstantRoom(params: {
+  async createMeetingWithConflictLock(params: {
     hostId: string;
-    roomName?: string;
-    attendeeName?: string;
-    uid?: string;
-  }): Promise<Booking> {
+    title: string;
+    source: Exclude<MeetingSource, "BOOKING">;
+    startTime: Date;
+    endTime: Date;
+    attendeeName?: string | null;
+    attendeeEmail?: string | null;
+  }): Promise<{ success: true; meeting: Meeting } | { success: false; error: string }> {
     return globalLock.acquire(async () => {
       const now = new Date();
-      const endTime = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-      const booking: Booking = {
-        id: `bkg_instant_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-        uid: params.uid || `instant-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`,
-        eventTypeId: "evt_instant",
+      const startMs = params.startTime.getTime();
+      const endMs = params.endTime.getTime();
+      if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
+        return { success: false, error: "The meeting time range is invalid." };
+      }
+      if (params.source === "MANUAL" && startMs <= now.getTime()) {
+        return { success: false, error: "A scheduled meeting must start in the future." };
+      }
+
+      const bookingConflict = this.data.bookings.some((booking) => {
+        if (booking.hostId !== params.hostId || booking.status === "CANCELLED") return false;
+        const existingType = this.data.eventTypes.find((item) => item.id === booking.eventTypeId);
+        const existingStartMs = booking.startTime.getTime() - Math.max(0, existingType?.bufferBeforeMin || 0) * 60_000;
+        const existingEndMs = booking.endTime.getTime() + Math.max(0, existingType?.bufferAfterMin || 0) * 60_000;
+        return existingStartMs < endMs && existingEndMs > startMs;
+      });
+      const meetingConflict = this.data.meetings.some(
+        (meeting) =>
+          meeting.hostId === params.hostId &&
+          meeting.source !== "BOOKING" &&
+          meeting.status !== "CANCELLED" &&
+          meeting.status !== "COMPLETED" &&
+          meeting.startTime.getTime() < endMs &&
+          meeting.endTime.getTime() > startMs
+      );
+      if (bookingConflict || meetingConflict) {
+        return { success: false, error: "MEETING_CONFLICT: This time overlaps another booking or meeting." };
+      }
+
+      const meeting: Meeting = {
+        id: `meet_${randomUUID()}`,
+        uid: `meet-${randomUUID()}`,
         hostId: params.hostId,
-        attendeeName: params.attendeeName || "Guest",
-        attendeeEmail: "instant@mhaf.live",
-        attendeeNotes: `[instant] ${params.roomName || "Instant Meeting"}`,
-        startTime: now,
-        endTime,
-        status: "CONFIRMED",
+        title: params.title.trim(),
+        source: params.source,
+        bookingId: null,
+        attendeeName: params.attendeeName?.trim() || null,
+        attendeeEmail: params.attendeeEmail?.trim().toLowerCase() || null,
+        startTime: params.startTime,
+        endTime: params.endTime,
+        status: "SCHEDULED",
         createdAt: now,
         updatedAt: now,
       };
+      this.data.meetings.push(meeting);
+      try {
+        this.persist();
+      } catch (error) {
+        this.data.meetings = this.data.meetings.filter((item) => item.id !== meeting.id);
+        throw error;
+      }
+      return { success: true, meeting };
+    });
+  }
 
-      this.data.bookings.push(booking);
-      this.persist();
-      return booking;
+  async cancelMeeting(meetingId: string, hostId: string): Promise<Meeting> {
+    return globalLock.acquire(async () => {
+      const meeting = this.data.meetings.find(
+        (item) => item.id === meetingId && item.hostId === hostId && item.source !== "BOOKING"
+      );
+      if (!meeting) throw new Error("Meeting not found or you are not authorized to cancel it.");
+      const oldStatus = meeting.status;
+      const oldUpdatedAt = meeting.updatedAt;
+      meeting.status = "CANCELLED";
+      meeting.updatedAt = new Date();
+      try {
+        this.persist();
+      } catch (error) {
+        meeting.status = oldStatus;
+        meeting.updatedAt = oldUpdatedAt;
+        throw error;
+      }
+      return meeting;
     });
   }
 }

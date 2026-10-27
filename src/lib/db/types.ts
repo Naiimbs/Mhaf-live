@@ -62,6 +62,25 @@ export interface Booking {
   updatedAt: Date;
 }
 
+export type MeetingSource = "BOOKING" | "MANUAL" | "INSTANT";
+export type MeetingStatus = "SCHEDULED" | "LIVE" | "CANCELLED" | "COMPLETED";
+
+export interface Meeting {
+  id: string;
+  uid: string;
+  hostId: string;
+  title: string;
+  source: MeetingSource;
+  bookingId: string | null;
+  attendeeName: string | null;
+  attendeeEmail: string | null;
+  startTime: Date;
+  endTime: Date;
+  status: MeetingStatus;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface AuditLog {
   id: string;
   actorId: string | null;

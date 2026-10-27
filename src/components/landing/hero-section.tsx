@@ -1,216 +1,77 @@
-"use client";
-
-import * as React from "react";
-import {
-  Video,
-  Mic,
-  MicOff,
-  VideoOff,
-  Share2,
-  Users,
-  Shield,
-  Activity,
-  ArrowRight,
-  Sparkles,
-} from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, CalendarDays, Clock3, Globe2, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 
-import { RoomLauncher } from "@/components/landing/room-launcher";
+const previewEvents = [
+  { time: "09:30", title: "Product consultation", person: "Maya Laurent", tone: "bg-sky-500/10 border-sky-500/30 text-sky-700 dark:text-sky-300" },
+  { time: "11:00", title: "Project check-in", person: "Team planning", tone: "bg-violet-500/10 border-violet-500/30 text-violet-700 dark:text-violet-300" },
+  { time: "14:00", title: "Quick sync", person: "Instant meeting", tone: "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300" },
+];
 
-interface HeroSectionProps {
-  onRequestDemo: () => void;
-}
-
-export function HeroSection({ onRequestDemo }: HeroSectionProps) {
-  const [micMuted, setMicMuted] = React.useState(false);
-  const [cameraOff, setCameraOff] = React.useState(false);
-
+export function HeroSection() {
   return (
-    <section className="relative overflow-hidden pt-12 pb-20 md:pt-16 md:pb-28">
-      {/* Background ambient lighting */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -top-40 left-1/2 -z-10 -translate-x-1/2 transform-gpu overflow-hidden blur-3xl sm:-top-80 max-w-[100vw]"
-      >
-        <div className="aspect-[1155/678] w-[68.4375rem] max-w-full bg-gradient-to-tr from-primary/10 to-primary/5 opacity-50 dark:opacity-20" />
-      </div>
-
+    <section className="relative overflow-hidden pb-20 pt-16 md:pb-28 md:pt-24">
+      <div aria-hidden="true" className="pointer-events-none absolute -top-48 left-1/2 -z-10 h-[32rem] w-[55rem] -translate-x-1/2 rounded-full bg-primary/5 blur-3xl" />
       <div className="container max-w-7xl px-4 sm:px-8">
-        <div className="mx-auto flex max-w-4xl flex-col items-center text-center">
-          {/* Eyebrow Badge */}
-          <div className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-muted/80 px-3.5 py-1 text-xs font-medium text-foreground backdrop-blur-md shadow-sm">
-            <span className="flex h-2 w-2 rounded-full bg-emerald-500 radar-live" />
-            <span>LiveKit Cloud SFU · Vidéo HD & Programmation Autonome</span>
-          </div>
-
-          {/* Main Headline */}
-          <h1 className="mt-6 text-4xl font-extrabold tracking-tight text-foreground sm:text-6xl md:text-7xl">
-            Visioconférence ultra-rapide.{" "}
-            <span className="underline decoration-primary/40 underline-offset-8">
-              Zéro friction
-            </span>
-            .
-          </h1>
-
-          {/* Subtext */}
-          <p className="mt-6 max-w-2xl text-base text-muted-foreground sm:text-lg leading-relaxed">
-            Créez une réunion instantanée en 1 seconde ou programmez un rendez-vous avec envoi automatique d&apos;invitation par email. Aucun compte invité requis, latence ultra-faible.
-          </p>
-
-          {/* Dynamic Room Launcher (Instant, Schedule, Join) */}
-          <div className="mt-8 w-full">
-            <RoomLauncher />
-          </div>
-
-          {/* Micro Assurance Signals */}
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-xs text-muted-foreground font-medium">
-            <span className="flex items-center gap-1.5">
-              <Shield className="h-3.5 w-3.5 text-primary" /> Aucun compte invité requis
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Activity className="h-3.5 w-3.5 text-emerald-500" /> Latence LiveKit SFU &lt; 50ms
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Users className="h-3.5 w-3.5 text-primary" /> Partage d&apos;écran & Chat en direct
-            </span>
-          </div>
-        </div>
-
-        {/* Hero Interactive Visual: Conference Room Mockup */}
-        <div className="mt-14 sm:mt-18 relative mx-auto max-w-5xl rounded-2xl border border-border/80 bg-card p-3 shadow-2xl backdrop-blur-xl sm:p-4">
-          {/* Mock Browser / Room Header */}
-          <div className="flex items-center justify-between border-b border-border/60 pb-3 px-2">
-            <div className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-full bg-red-500/80" />
-              <span className="h-3 w-3 rounded-full bg-yellow-500/80" />
-              <span className="h-3 w-3 rounded-full bg-green-500/80" />
-              <span className="ml-2 font-mono text-xs text-muted-foreground">
-                mhaf.live/rooms/exec-strategy-sync
-              </span>
+        <div className="grid items-center gap-12 lg:grid-cols-[0.95fr_1.05fr] lg:gap-16">
+          <div className="max-w-xl">
+            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-sm">
+              <CalendarDays className="h-3.5 w-3.5 text-primary" />
+              One calendar for bookings and meetings
             </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="live" className="text-[11px] gap-1 font-mono">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                SFU LIVE · 18ms
-              </Badge>
-              <span className="hidden sm:inline-flex items-center gap-1 text-xs text-muted-foreground font-mono">
-                <Users className="h-3.5 w-3.5" /> 4 participants
-              </span>
+            <h1 className="mt-6 text-4xl font-extrabold leading-[1.08] tracking-tight text-foreground sm:text-5xl md:text-6xl">
+              Plan the time.<br /><span className="text-primary">Meet when it matters.</span>
+            </h1>
+            <p className="mt-6 max-w-lg text-base leading-7 text-muted-foreground sm:text-lg">
+              MHAF Live brings your appointment calendar and video meetings into one simple workspace. Share booking availability, schedule a meeting directly, or start an instant call from inside your account.
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Button size="lg" asChild className="gap-2 shadow-sm">
+                <Link href="/register">Create your account <ArrowRight className="h-4 w-4" /></Link>
+              </Button>
+              <Button size="lg" variant="outline" asChild>
+                <Link href="/login">Sign in</Link>
+              </Button>
             </div>
+            <p className="mt-4 text-xs text-muted-foreground">Guests book through your dedicated booking link. Meeting controls stay in your host workspace.</p>
           </div>
 
-          {/* Conference Tiles Grid */}
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 min-h-[300px] sm:min-h-[380px]">
-            {/* Tile 1: Active Speaker (Host) */}
-            <div className="relative flex flex-col justify-between overflow-hidden rounded-xl border border-primary/30 bg-muted/40 p-4 shadow-inner">
-              <div className="flex items-center justify-between">
-                <span className="rounded bg-background/80 px-2 py-0.5 text-xs font-semibold backdrop-blur text-foreground">
-                  Amine (Lead Architect) · Host
-                </span>
-                <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                  Active Speaker
-                </span>
+          <div id="calendar" className="relative rounded-2xl border border-border bg-card p-4 shadow-xl shadow-black/5 sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Host workspace</p>
+                <h2 className="mt-1 text-xl font-bold tracking-tight">Your week, at a glance</h2>
               </div>
-
-              {/* Centered Avatar Placeholder / Waveform */}
-              <div className="my-auto flex flex-col items-center justify-center">
-                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 text-primary border border-border/80 text-xl font-bold">
-                  AL
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/60 px-2.5 py-1 text-[11px] font-medium text-muted-foreground"><Globe2 className="h-3 w-3" /> Africa/Tunis</span>
+            </div>
+            <div className="mt-5 grid grid-cols-7 gap-1 text-center text-[10px] text-muted-foreground sm:gap-2 sm:text-xs">
+              {["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"].map((day, index) => (
+                <div key={day} className={`rounded-lg py-2 ${index === 1 ? "bg-primary text-primary-foreground" : "bg-muted/40"}`}>
+                  <span className="block font-semibold">{day}</span><span className="mt-1 block opacity-80">{20 + index}</span>
                 </div>
-                {/* Audio Waveform Simulation */}
-                <div className="mt-4 flex items-center gap-1 h-5">
-                  <span className="w-1 bg-emerald-500 rounded-full h-2 animate-pulse" />
-                  <span className="w-1 bg-emerald-500 rounded-full h-5 animate-pulse" />
-                  <span className="w-1 bg-emerald-500 rounded-full h-3 animate-pulse" />
-                  <span className="w-1 bg-emerald-500 rounded-full h-4 animate-pulse" />
-                  <span className="w-1 bg-emerald-500 rounded-full h-2 animate-pulse" />
+              ))}
+            </div>
+            <div className="mt-4 grid grid-cols-[48px_1fr] gap-3 sm:grid-cols-[58px_1fr]">
+              <div className="flex flex-col justify-between pb-1 pt-1 text-[10px] text-muted-foreground sm:text-xs"><span>09:00</span><span>11:00</span><span>13:00</span><span>15:00</span></div>
+              <div className="relative min-h-[228px] overflow-hidden rounded-xl border border-border bg-background/70 p-3">
+                <div className="absolute inset-x-0 top-[25%] border-t border-dashed border-border" />
+                <div className="absolute inset-x-0 top-1/2 border-t border-dashed border-border" />
+                <div className="absolute inset-x-0 top-[75%] border-t border-dashed border-border" />
+                <div className="relative ml-[17%] space-y-3">
+                  {previewEvents.map((event) => (
+                    <div key={event.title} className={`rounded-lg border px-3 py-2.5 ${event.tone}`}>
+                      <div className="flex items-center gap-2 text-[10px] font-semibold sm:text-xs"><Clock3 className="h-3 w-3" />{event.time}<span className="h-1 w-1 rounded-full bg-current opacity-50" /><span className="truncate">{event.title}</span></div>
+                      <p className="mt-1 truncate text-[10px] opacity-80 sm:text-[11px]">{event.person}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
-
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span className="font-mono">1080p · 60fps</span>
-                <span className="flex items-center gap-1 text-emerald-500 font-medium">
-                  <Mic className="h-3 w-3" /> Audio Unmuted
-                </span>
-              </div>
             </div>
-
-            {/* Tile 2: Remote Guest Participant */}
-            <div className="relative flex flex-col justify-between overflow-hidden rounded-xl border border-border bg-muted/20 p-4">
-              <div className="flex items-center justify-between">
-                <span className="rounded bg-background/80 px-2 py-0.5 text-xs font-semibold backdrop-blur text-foreground">
-                  Sarah K. (Product Lead) · Guest
-                </span>
-                <span className="text-[10px] text-muted-foreground font-mono">
-                  Joined via link
-                </span>
-              </div>
-
-              <div className="my-auto flex flex-col items-center justify-center">
-                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-secondary text-secondary-foreground border border-border text-xl font-bold">
-                  SK
-                </div>
-                <span className="mt-3 text-xs text-muted-foreground">
-                  Listening
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span className="font-mono">720p · Simulcast</span>
-                <span className="flex items-center gap-1 text-muted-foreground">
-                  <MicOff className="h-3 w-3" /> Muted
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Real-time Diarized Transcript Simulation Pill */}
-          <div className="mt-3 rounded-lg border border-border/80 bg-background/90 p-2.5 px-4 text-xs backdrop-blur-md">
-            <div className="flex items-center gap-2">
-              <span className="flex h-2 w-2 rounded-full bg-primary" />
-              <span className="font-semibold text-foreground">Live Transcript Preview:</span>
-              <span className="text-muted-foreground truncate">
-                "The LiveKit WebRTC pipeline gives us deterministic latency without custom mesh saturation..."
-              </span>
-            </div>
-          </div>
-
-          {/* Interactive In-Meeting Control Bar Mock */}
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/80 bg-muted/40 p-2 px-4">
-            <div className="flex items-center gap-2">
-              <Button
-                variant={micMuted ? "destructive" : "outline"}
-                size="sm"
-                onClick={() => setMicMuted(!micMuted)}
-                aria-label={micMuted ? "Unmute microphone" : "Mute microphone"}
-                className="h-9 gap-1.5 text-xs"
-              >
-                {micMuted ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
-                {micMuted ? "Unmute" : "Mute"}
-              </Button>
-              <Button
-                variant={cameraOff ? "destructive" : "outline"}
-                size="sm"
-                onClick={() => setCameraOff(!cameraOff)}
-                aria-label={cameraOff ? "Start camera" : "Stop camera"}
-                className="h-9 gap-1.5 text-xs"
-              >
-                {cameraOff ? <VideoOff className="h-3.5 w-3.5" /> : <Video className="h-3.5 w-3.5" />}
-                {cameraOff ? "Start Video" : "Stop Video"}
-              </Button>
-              <Button variant="outline" size="sm" className="h-9 gap-1.5 text-xs hidden sm:inline-flex">
-                <Share2 className="h-3.5 w-3.5" /> Share Screen
-              </Button>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-mono text-muted-foreground hidden md:inline">
-                Host Controls Active
-              </span>
-              <Button variant="destructive" size="sm" className="h-8 text-xs">
-                Leave
-              </Button>
+            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-border pt-4 text-[11px] text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-sky-500" />Bookings</span>
+              <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-violet-500" />Scheduled meetings</span>
+              <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-amber-500" />Instant meetings</span>
+              <span className="ml-auto inline-flex items-center gap-1.5"><Video className="h-3.5 w-3.5" />Static preview</span>
             </div>
           </div>
         </div>

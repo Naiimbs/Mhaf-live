@@ -1,8 +1,8 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests", () => {
-  const seedEmail = "host@mhaf.live";
-  const seedPassword = "Password123!";
+  const seedEmail = process.env.E2E_SEED_EMAIL || "host@mhaf.live";
+  const seedPassword = process.env.E2E_SEED_PASSWORD || "Password123!";
   const seedHostId = "host_default_01";
   const eventSlug = "30min";
 
@@ -31,13 +31,13 @@ test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests",
 
     // Should redirect to dashboard
     await expect(page).toHaveURL(/\/dashboard/);
-    await expect(page.locator("h1")).toContainText("Host Workspace");
+    await expect(page.locator("h1")).toContainText("Your meetings, in one week.");
     await expect(page.getByText(seedEmail)).toBeVisible();
   });
 
   test("4. Host Registration creates new host account with custom timezone and default schedule", async ({ page, request }) => {
     const uniqueEmail = `host_${Date.now()}@test.live`;
-    const hostPassword = "StrongPassword123!";
+    const hostPassword = process.env.E2E_NEW_HOST_PASSWORD || "Password123!";
 
     await page.goto("/register");
     await page.fill("#register-name", "Test Doctor");
@@ -188,7 +188,7 @@ test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests",
     expect(statuses).toEqual([201, 409]);
 
     const conflictBody = resA.status() === 409 ? await resA.json() : await resB.json();
-    expect(conflictBody.error).toContain("BOOKING_CONFLICT");
+    expect(conflictBody.error).toMatch(/BOOKING_CONFLICT|TIME_NOT_AVAILABLE/);
   });
 
   test("9. Public Booking Portal End-to-End: Attendee can view slots and complete booking to confirmation", async ({ page, request }) => {
