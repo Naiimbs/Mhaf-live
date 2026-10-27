@@ -307,6 +307,11 @@ class DatabaseStore {
     return et || null;
   }
 
+  async getEventTypeById(id: string): Promise<EventType | null> {
+    const et = this.data.eventTypes.find((e) => e.id === id);
+    return et || null;
+  }
+
   // --- Availability ---
   async getAvailabilityByHostId(hostId: string): Promise<Availability[]> {
     return this.data.availabilities.filter((a) => a.userId === hostId);

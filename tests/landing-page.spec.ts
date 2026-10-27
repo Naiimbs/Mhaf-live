@@ -56,6 +56,13 @@ test.describe("MHAF Live Landing Page & Verification Suite", () => {
   });
 
   test("validates and submits the Request Demo form honestly", async ({ page }) => {
+    // Isolate UI test from production loopback IP rate limit bucket
+    await page.route("**/api/demo-request", async (route) => {
+      const uniqueIp = `10.151.${Math.floor(Math.random() * 200) + 1}.1`;
+      const headers = { ...route.request().headers(), "x-forwarded-for": uniqueIp };
+      await route.continue({ headers });
+    });
+
     // Open demo modal via Hero button
     const openBtn = page.getByRole("button", { name: "Request Enterprise Demo" }).first();
     await openBtn.click();

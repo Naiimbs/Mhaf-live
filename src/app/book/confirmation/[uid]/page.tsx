@@ -132,6 +132,22 @@ export default async function BookingConfirmationPage({
             </div>
           </div>
 
+          {/* Join Meeting Action */}
+          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <h2 className="text-sm font-bold text-foreground">Ready for your call?</h2>
+              <p className="text-xs text-muted-foreground">
+                Enter the PreJoin room to test your camera, microphone, and audio levels.
+              </p>
+            </div>
+            <Button asChild size="default" className="gap-2 shadow-sm shrink-0 font-bold" id="enter-room-btn">
+              <Link href={`/rooms/${booking.uid}`}>
+                <Video className="h-4 w-4" />
+                <span>Enter PreJoin Room</span>
+              </Link>
+            </Button>
+          </div>
+
           {/* Action buttons */}
           <div className="flex items-center justify-between pt-4 border-t border-border">
             <Button asChild variant="outline" size="sm" className="gap-1.5 text-xs">

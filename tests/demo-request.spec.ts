@@ -290,6 +290,13 @@ test.describe("Demo Request Workflow & API", () => {
   });
 
   test("UI: modal opens, submits valid form, and shows persistent confirmation", async ({ page }) => {
+    // Isolate UI test from production loopback IP rate limit bucket
+    await page.route("**/api/demo-request", async (route) => {
+      const uniqueIp = `10.150.${Math.floor(Math.random() * 200) + 1}.1`;
+      const headers = { ...route.request().headers(), "x-forwarded-for": uniqueIp };
+      await route.continue({ headers });
+    });
+
     await page.goto("/");
 
     // Open Demo Modal via landing hero button (always visible across desktop, tablet, and mobile)
