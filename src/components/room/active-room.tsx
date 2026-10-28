@@ -73,7 +73,17 @@ interface ChatMessage {
   timestamp: string;
 }
 
-function RemoteParticipantTile({ participant }: { participant: RemoteParticipant }) {
+function RemoteParticipantTile({
+  participant,
+  isTwoPersonLayout,
+  isPinned,
+  onTogglePin,
+}: {
+  participant: RemoteParticipant;
+  isTwoPersonLayout?: boolean;
+  isPinned?: boolean;
+  onTogglePin?: () => void;
+}) {
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const [hasVideo, setHasVideo] = React.useState(false);
