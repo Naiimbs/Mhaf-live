@@ -116,6 +116,14 @@ jobs:
             local target="$1"
             local max_attempts=5
             local delay=5
+            echo "Checking VPS container storage before pulling the deployment image..."
+            df -h /var/lib/containerd || true
+            docker system df || true
+            echo "Pruning only Docker images not referenced by any container..."
+            if ! docker image prune --all --force; then
+              echo "Could not prune unused Docker images; aborting before replacing the current container."
+              return 1
+            fi
             for attempt in $(seq 1 "$max_attempts"); do
               echo "Pulling image $target (attempt $attempt of $max_attempts)..."
               if docker pull "$target"; then
