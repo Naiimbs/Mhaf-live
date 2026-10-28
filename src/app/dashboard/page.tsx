@@ -7,12 +7,14 @@ export default async function DashboardPage() {
   const eventTypes = await db.getEventTypesByHostId(host.id);
   return (
     <CalendarWorkspace
+      hostId={host.id}
       hostTimeZone={host.timezone || "UTC"}
-      eventTypes={eventTypes.filter((eventType) => eventType.isActive).map(({ id, slug, title, durationMinutes }) => ({
+      eventTypes={eventTypes.filter((eventType) => eventType.isActive).map(({ id, slug, title, durationMinutes, description }) => ({
         id,
         slug,
         title,
         durationMinutes,
+        description,
       }))}
     />
   );

@@ -342,6 +342,53 @@ class DatabaseStore {
     return et || null;
   }
 
+  async createEventType(params: {
+    hostId: string;
+    title: string;
+    slug?: string;
+    description?: string | null;
+    durationMinutes: number;
+    bufferBeforeMin?: number;
+    bufferAfterMin?: number;
+  }): Promise<EventType> {
+    return globalLock.acquire(async () => {
+      const now = new Date();
+      let slug = (params.slug || params.title)
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      if (!slug) slug = `${params.durationMinutes}min`;
+
+      let uniqueSlug = slug;
+      let counter = 1;
+      while (
+        this.data.eventTypes.some(
+          (e) => e.hostId === params.hostId && e.slug.toLowerCase() === uniqueSlug.toLowerCase() && e.isActive
+        )
+      ) {
+        uniqueSlug = `${slug}-${counter++}`;
+      }
+
+      const eventType: EventType = {
+        id: `evt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        slug: uniqueSlug,
+        title: params.title.trim(),
+        description: params.description?.trim() || null,
+        durationMinutes: params.durationMinutes,
+        bufferBeforeMin: params.bufferBeforeMin || 0,
+        bufferAfterMin: params.bufferAfterMin ?? 10,
+        isActive: true,
+        hostId: params.hostId,
+        createdAt: now,
+        updatedAt: now,
+      };
+      this.data.eventTypes.push(eventType);
+      this.persist();
+      return eventType;
+    });
+  }
+
   // --- Availability ---
   async getAvailabilityByHostId(hostId: string): Promise<Availability[]> {
     return this.data.availabilities.filter((a) => a.userId === hostId);

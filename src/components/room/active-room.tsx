@@ -63,11 +63,10 @@ function RemoteParticipantTile({ participant }: { participant: RemoteParticipant
     let attachedAudioTrack: any = null;
 
     const syncTracks = () => {
-      // Find latest subscribed video track (screen share prioritized, else camera)
+      // Prioritize camera track for participant tile
       const videoPubs = Array.from(participant.videoTrackPublications.values());
-      const screenPub = videoPubs.find((p) => p.source === Track.Source.ScreenShare && p.isSubscribed && p.track);
       const cameraPub = videoPubs.find((p) => p.source === Track.Source.Camera && p.isSubscribed && p.track);
-      const activeVideoPub = screenPub || cameraPub || videoPubs.find((p) => p.isSubscribed && p.track);
+      const activeVideoPub = cameraPub || videoPubs.find((p) => p.source !== Track.Source.ScreenShare && p.isSubscribed && p.track);
 
       if (activeVideoPub?.track && videoRef.current) {
         if (attachedVideoTrack !== activeVideoPub.track) {
@@ -163,6 +162,152 @@ function RemoteParticipantTile({ participant }: { participant: RemoteParticipant
   );
 }
 
+function ScreenShareStage({
+  track,
+  presenterName,
+  isLocal,
+  onStopShare,
+}: {
+  track: any;
+  presenterName: string;
+  isLocal: boolean;
+  onStopShare?: () => void;
+}) {
+  const videoRef = React.useRef<HTMLVideoElement | null>(null);
+
+  React.useEffect(() => {
+    let attachedTrack: any = null;
+    if (track && videoRef.current) {
+      track.attach(videoRef.current);
+      attachedTrack = track;
+    }
+    return () => {
+      if (attachedTrack && videoRef.current) {
+        attachedTrack.detach(videoRef.current);
+      }
+    };
+  }, [track]);
+
+  return (
+    <div className="relative h-full w-full bg-zinc-950 flex items-center justify-center overflow-hidden">
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted={isLocal}
+        className="max-h-full max-w-full w-auto h-auto object-contain rounded-lg shadow-2xl"
+      />
+      {/* Top Banner / Indicator */}
+      <div className="absolute top-4 left-4 z-10 flex items-center gap-2 rounded-full border border-zinc-700/80 bg-zinc-900/90 backdrop-blur-md px-3.5 py-1.5 text-xs font-mono text-zinc-200 shadow-xl">
+        <ScreenShare className="h-3.5 w-3.5 text-emerald-400" />
+        <span>{isLocal ? "You are presenting your screen" : `Screen shared by ${presenterName}`}</span>
+        {isLocal && onStopShare && (
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={onStopShare}
+            className="ml-2 h-6 px-2.5 text-[10px] rounded-full"
+          >
+            Stop sharing
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RemoteCameraPiPTile({ participant }: { participant: RemoteParticipant }) {
+  const videoRef = React.useRef<HTMLVideoElement | null>(null);
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
+  const [hasVideo, setHasVideo] = React.useState(false);
+  const [isAudioMuted, setIsAudioMuted] = React.useState(false);
+
+  React.useEffect(() => {
+    let attachedVideoTrack: any = null;
+    let attachedAudioTrack: any = null;
+
+    const syncTracks = () => {
+      const videoPubs = Array.from(participant.videoTrackPublications.values());
+      const cameraPub = videoPubs.find((p) => p.source === Track.Source.Camera && p.isSubscribed && p.track);
+      const activeVideoPub = cameraPub || videoPubs.find((p) => p.source !== Track.Source.ScreenShare && p.isSubscribed && p.track);
+
+      if (activeVideoPub?.track && videoRef.current) {
+        if (attachedVideoTrack !== activeVideoPub.track) {
+          if (attachedVideoTrack) attachedVideoTrack.detach(videoRef.current);
+          activeVideoPub.track.attach(videoRef.current);
+          attachedVideoTrack = activeVideoPub.track;
+        }
+        setHasVideo(!activeVideoPub.isMuted);
+      } else {
+        if (attachedVideoTrack && videoRef.current) {
+          attachedVideoTrack.detach(videoRef.current);
+          attachedVideoTrack = null;
+        }
+        setHasVideo(false);
+      }
+
+      const audioPub = Array.from(participant.audioTrackPublications.values()).find(
+        (p) => p.isSubscribed && p.track
+      );
+      if (audioPub?.track && audioRef.current) {
+        if (attachedAudioTrack !== audioPub.track) {
+          if (attachedAudioTrack) attachedAudioTrack.detach(audioRef.current);
+          audioPub.track.attach(audioRef.current);
+          attachedAudioTrack = audioPub.track;
+        }
+        setIsAudioMuted(audioPub.isMuted);
+      } else {
+        if (attachedAudioTrack && audioRef.current) {
+          attachedAudioTrack.detach(audioRef.current);
+          attachedAudioTrack = null;
+        }
+        setIsAudioMuted(true);
+      }
+    };
+
+    syncTracks();
+    participant.on(ParticipantEvent.TrackSubscribed, syncTracks);
+    participant.on(ParticipantEvent.TrackUnsubscribed, syncTracks);
+    participant.on(ParticipantEvent.TrackMuted, syncTracks);
+    participant.on(ParticipantEvent.TrackUnmuted, syncTracks);
+
+    return () => {
+      participant.off(ParticipantEvent.TrackSubscribed, syncTracks);
+      participant.off(ParticipantEvent.TrackUnsubscribed, syncTracks);
+      participant.off(ParticipantEvent.TrackMuted, syncTracks);
+      participant.off(ParticipantEvent.TrackUnmuted, syncTracks);
+      if (attachedVideoTrack && videoRef.current) attachedVideoTrack.detach(videoRef.current);
+      if (attachedAudioTrack && audioRef.current) attachedAudioTrack.detach(audioRef.current);
+    };
+  }, [participant]);
+
+  const pName = participant.name || participant.identity || "Guest";
+
+  return (
+    <div className="relative w-44 sm:w-52 aspect-video rounded-xl border border-zinc-700/80 bg-zinc-900/95 overflow-hidden shadow-2xl flex items-center justify-center backdrop-blur-md">
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        className={`h-full w-full object-cover transition-opacity ${hasVideo ? "opacity-100" : "opacity-0"}`}
+      />
+      <audio ref={audioRef} autoPlay />
+      {!hasVideo && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-400 space-y-1">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-800 text-zinc-400 border border-zinc-700">
+            <Users className="h-4 w-4 text-primary" />
+          </div>
+          <span className="text-[10px] font-semibold text-zinc-300 truncate max-w-[90%]">{pName}</span>
+        </div>
+      )}
+      <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1.5 bg-zinc-950/80 backdrop-blur-md px-1.5 py-0.5 rounded text-[10px] font-mono text-zinc-300 border border-zinc-800">
+        <span className="truncate max-w-[100px]">{pName}</span>
+        {isAudioMuted && <MicOff className="h-2.5 w-2.5 text-destructive" />}
+      </div>
+    </div>
+  );
+}
+
 export function ActiveRoom({
   serverUrl,
   token,
@@ -199,8 +344,47 @@ export function ActiveRoom({
   const [messageInput, setMessageInput] = React.useState("");
 
   const localVideoRef = React.useRef<HTMLVideoElement | null>(null);
+  const localPipVideoRef = React.useRef<HTMLVideoElement | null>(null);
   const roomRef = React.useRef<Room | null>(null);
   const localTracksRef = React.useRef<LocalTrack[]>([]);
+
+  const remoteScreenShare = React.useMemo(() => {
+    for (const p of remoteParticipants) {
+      for (const pub of p.videoTrackPublications.values()) {
+        if (pub.source === Track.Source.ScreenShare && pub.isSubscribed && pub.track) {
+          return {
+            track: pub.track,
+            presenterName: p.name || p.identity || "Guest",
+            isLocal: false,
+          };
+        }
+      }
+    }
+    return null;
+  }, [remoteParticipants]);
+
+  const localScreenTrack = React.useMemo(() => {
+    if (!screenSharing || !roomRef.current?.localParticipant) return null;
+    const pub = roomRef.current.localParticipant.getTrackPublication(Track.Source.ScreenShare);
+    return pub?.track || null;
+  }, [screenSharing, remoteParticipants]);
+
+  const activeScreenShare = remoteScreenShare || (localScreenTrack ? {
+    track: localScreenTrack,
+    presenterName: `${displayName} (You)`,
+    isLocal: true,
+  } : null);
+
+  React.useEffect(() => {
+    const videoTrack = localTracksRef.current.find((t) => t.kind === "video");
+    if (!videoTrack) return;
+
+    if (activeScreenShare && localPipVideoRef.current) {
+      videoTrack.attach(localPipVideoRef.current);
+    } else if (!activeScreenShare && localVideoRef.current) {
+      videoTrack.attach(localVideoRef.current);
+    }
+  }, [activeScreenShare, videoEnabled, connectionState]);
 
   const copyInviteLink = async () => {
     try {
@@ -345,13 +529,36 @@ export function ActiveRoom({
     const nextState = !screenSharing;
     try {
       if (roomRef.current?.localParticipant) {
-        await roomRef.current.localParticipant.setScreenShareEnabled(nextState);
-        setScreenSharing(nextState);
+        if (nextState) {
+          const pub = await roomRef.current.localParticipant.setScreenShareEnabled(true, {
+            audio: true,
+            selfBrowserSurface: "include",
+            surfaceSwitching: "include",
+            systemAudio: "include",
+            video: { cursor: "always", displaySurface: "monitor" } as any,
+            contentHint: "detail",
+          });
+          const mediaStreamTrack = (pub?.track as any)?.mediaStreamTrack;
+          if (mediaStreamTrack) {
+            mediaStreamTrack.addEventListener(
+              "ended",
+              () => {
+                setScreenSharing(false);
+              },
+              { once: true }
+            );
+          }
+          setScreenSharing(true);
+        } else {
+          await roomRef.current.localParticipant.setScreenShareEnabled(false);
+          setScreenSharing(false);
+        }
       } else {
         setScreenSharing(nextState);
       }
     } catch (err) {
       console.warn("Screen share error:", err);
+      setScreenSharing(false);
     }
   };
 
@@ -453,57 +660,104 @@ export function ActiveRoom({
             </Button>
           </div>
         )}
-        {/* Main Stage Video Grid */}
-        <div className="flex-1 p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 items-center justify-center overflow-auto bg-zinc-950">
-          {/* Local User Tile */}
-          <div className="relative aspect-video w-full max-h-[70vh] rounded-2xl border border-zinc-800 bg-zinc-900 overflow-hidden shadow-md flex items-center justify-center">
-            <video
-              ref={localVideoRef}
-              autoPlay
-              playsInline
-              muted
-              className={`h-full w-full object-cover transform -scale-x-100 transition-opacity ${
-                videoEnabled ? "opacity-100" : "opacity-0"
-              }`}
+        {/* Main Stage: Screen Share with Floating PiP or Regular Grid */}
+        {activeScreenShare ? (
+          <div className="relative flex-1 h-full w-full bg-zinc-950 overflow-hidden flex items-center justify-center">
+            <ScreenShareStage
+              track={activeScreenShare.track}
+              presenterName={activeScreenShare.presenterName}
+              isLocal={activeScreenShare.isLocal}
+              onStopShare={activeScreenShare.isLocal ? toggleScreenShare : undefined}
             />
 
-            {!videoEnabled && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-400 space-y-2">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-800 text-zinc-400 border border-zinc-700">
-                  <VideoOff className="h-6 w-6" />
+            {/* Floating PiP Participant Strip (top-right overlay) */}
+            <div className="absolute top-4 right-4 z-20 flex flex-col gap-3 max-h-[85vh] overflow-y-auto p-1 pointer-events-auto">
+              {/* Local User PiP Tile */}
+              <div className="relative w-44 sm:w-52 aspect-video rounded-xl border border-zinc-700/80 bg-zinc-900/95 overflow-hidden shadow-2xl flex items-center justify-center backdrop-blur-md">
+                <video
+                  ref={localPipVideoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className={`h-full w-full object-cover transform -scale-x-100 transition-opacity ${
+                    videoEnabled ? "opacity-100" : "opacity-0"
+                  }`}
+                />
+                {!videoEnabled && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-400 space-y-1">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-800 text-zinc-400 border border-zinc-700">
+                      <VideoOff className="h-4 w-4" />
+                    </div>
+                    <span className="text-[10px] font-medium text-zinc-300 truncate max-w-[90%]">
+                      {displayName} (Camera Off)
+                    </span>
+                  </div>
+                )}
+                <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1.5 bg-zinc-950/80 backdrop-blur-md px-1.5 py-0.5 rounded text-[10px] font-mono text-zinc-300 border border-zinc-800">
+                  <span className="truncate max-w-[100px]">{displayName} (You)</span>
+                  {!audioEnabled && <MicOff className="h-2.5 w-2.5 text-destructive" />}
                 </div>
-                <span className="text-xs font-medium">{displayName} (Camera Off)</span>
               </div>
-            )}
 
-            {/* Tile Label */}
-            <div className="absolute bottom-3 left-3 flex items-center gap-2 bg-zinc-950/80 backdrop-blur-md px-2.5 py-1 rounded-md text-xs font-mono text-zinc-300 border border-zinc-800">
-              <span>{displayName} (You)</span>
-              {!audioEnabled && <MicOff className="h-3 w-3 text-destructive" />}
+              {/* Remote Participants PiP Tiles */}
+              {remoteParticipants.map((p) => (
+                <RemoteCameraPiPTile key={p.identity} participant={p} />
+              ))}
             </div>
           </div>
+        ) : (
+          /* Main Stage Video Grid */
+          <div className="flex-1 p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 items-center justify-center overflow-auto bg-zinc-950">
+            {/* Local User Tile */}
+            <div className="relative aspect-video w-full max-h-[70vh] rounded-2xl border border-zinc-800 bg-zinc-900 overflow-hidden shadow-md flex items-center justify-center">
+              <video
+                ref={localVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className={`h-full w-full object-cover transform -scale-x-100 transition-opacity ${
+                  videoEnabled ? "opacity-100" : "opacity-0"
+                }`}
+              />
 
-          {/* Remote Participants or Waiting Placeholder */}
-          {remoteParticipants.length > 0 ? (
-            remoteParticipants.map((p) => (
-              <RemoteParticipantTile key={p.identity} participant={p} />
-            ))
-          ) : (
-            <div className="relative aspect-video w-full max-h-[70vh] rounded-2xl border border-zinc-800/80 bg-zinc-900/50 overflow-hidden shadow-md flex flex-col items-center justify-center text-zinc-500 p-6 text-center space-y-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-800/80 text-zinc-500 border border-zinc-700">
-                <Users className="h-6 w-6" />
-              </div>
-              <div>
-                <p className="text-xs font-medium text-zinc-400">
-                  {expectedInviteeName ? `Waiting for ${expectedInviteeName} to join` : "Waiting for other participants"}
-                </p>
-                <p className="text-[11px] text-zinc-500 mt-0.5">
-                  Share the invite link using the button above. Connected participants will appear here.
-                </p>
+              {!videoEnabled && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-400 space-y-2">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-800 text-zinc-400 border border-zinc-700">
+                    <VideoOff className="h-6 w-6" />
+                  </div>
+                  <span className="text-xs font-medium">{displayName} (Camera Off)</span>
+                </div>
+              )}
+
+              {/* Tile Label */}
+              <div className="absolute bottom-3 left-3 flex items-center gap-2 bg-zinc-950/80 backdrop-blur-md px-2.5 py-1 rounded-md text-xs font-mono text-zinc-300 border border-zinc-800">
+                <span>{displayName} (You)</span>
+                {!audioEnabled && <MicOff className="h-3 w-3 text-destructive" />}
               </div>
             </div>
-          )}
-        </div>
+
+            {/* Remote Participants or Waiting Placeholder */}
+            {remoteParticipants.length > 0 ? (
+              remoteParticipants.map((p) => (
+                <RemoteParticipantTile key={p.identity} participant={p} />
+              ))
+            ) : (
+              <div className="relative aspect-video w-full max-h-[70vh] rounded-2xl border border-zinc-800/80 bg-zinc-900/50 overflow-hidden shadow-md flex flex-col items-center justify-center text-zinc-500 p-6 text-center space-y-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-800/80 text-zinc-500 border border-zinc-700">
+                  <Users className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-zinc-400">
+                    {expectedInviteeName ? `Waiting for ${expectedInviteeName} to join` : "Waiting for other participants"}
+                  </p>
+                  <p className="text-[11px] text-zinc-500 mt-0.5">
+                    Share the invite link using the button above. Connected participants will appear here.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Slide-out In-Meeting Chat Drawer */}
         {chatOpen && (

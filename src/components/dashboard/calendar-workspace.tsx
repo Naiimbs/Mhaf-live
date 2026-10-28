@@ -44,8 +44,9 @@ interface CalendarEvent {
 }
 
 interface CalendarWorkspaceProps {
+  hostId?: string;
   hostTimeZone: string;
-  eventTypes: Array<{ id: string; slug: string; title: string; durationMinutes: number }>;
+  eventTypes: Array<{ id: string; slug: string; title: string; durationMinutes: number; description?: string | null }>;
 }
 
 const HOUR_START = 7;
@@ -108,7 +109,7 @@ function roomPath(url: string): string {
   return new URL(url, "https://mhaf.invalid").pathname;
 }
 
-export function CalendarWorkspace({ hostTimeZone, eventTypes }: CalendarWorkspaceProps) {
+export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: CalendarWorkspaceProps) {
   const [weekStart, setWeekStart] = React.useState(() => mondayOf(getLocalDateString(new Date(), hostTimeZone)));
   const [events, setEvents] = React.useState<CalendarEvent[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -121,6 +122,55 @@ export function CalendarWorkspace({ hostTimeZone, eventTypes }: CalendarWorkspac
   const [startingInstant, setStartingInstant] = React.useState(false);
   const [instantRoomUrl, setInstantRoomUrl] = React.useState<string | null>(null);
   const [cancellingId, setCancellingId] = React.useState<string | null>(null);
+
+  // Booking links state
+  const [bookingTypes, setBookingTypes] = React.useState(eventTypes);
+  const [createLinkOpen, setCreateLinkOpen] = React.useState(false);
+  const [creatingLink, setCreatingLink] = React.useState(false);
+  const [createLinkError, setCreateLinkError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setBookingTypes(eventTypes);
+  }, [eventTypes]);
+
+  const copyBookingLink = async (href: string) => {
+    try {
+      const full = `${window.location.origin}${href}`;
+      await navigator.clipboard.writeText(full);
+      setCopyMessage("Booking link copied to clipboard!");
+    } catch {
+      setCopyMessage("Failed to copy link");
+    }
+    window.setTimeout(() => setCopyMessage(null), 2500);
+  };
+
+  const submitNewBookingLink = async (formEvent: React.FormEvent<HTMLFormElement>) => {
+    formEvent.preventDefault();
+    setCreatingLink(true);
+    setCreateLinkError(null);
+    const form = new FormData(formEvent.currentTarget);
+    const payload = {
+      title: String(form.get("title") || "").trim(),
+      durationMinutes: Number(form.get("durationMinutes") || 30),
+      description: String(form.get("description") || "").trim(),
+    };
+    try {
+      const res = await fetch("/api/schedule/event-types", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not create booking link.");
+      setBookingTypes((prev) => [...prev, data.eventType]);
+      setCreateLinkOpen(false);
+      setCopyMessage(`Booking link created: “${data.eventType.title}”`);
+    } catch (err: any) {
+      setCreateLinkError(err.message || "Failed to create booking link.");
+    } finally {
+      setCreatingLink(false);
+    }
+  };
 
   const days = React.useMemo(() => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)), [weekStart]);
   const weekEnd = days[6];
@@ -351,17 +401,51 @@ export function CalendarWorkspace({ hostTimeZone, eventTypes }: CalendarWorkspac
       <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="rounded-2xl border border-border bg-card p-5">
           <div className="flex items-start justify-between gap-4">
-            <div><h2 className="font-semibold">Your booking links</h2><p className="mt-1 text-xs text-muted-foreground">Guests use these pages to reserve an available time.</p></div>
-            <CalendarDays className="h-5 w-5 text-primary" />
+            <div>
+              <h2 className="font-semibold">Your booking links</h2>
+              <p className="mt-1 text-xs text-muted-foreground">Share these links with clients to let them pick an available slot on your calendar.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={() => setCreateLinkOpen(true)} className="gap-1.5 text-xs">
+                <Plus className="h-3.5 w-3.5" />
+                New booking link
+              </Button>
+              <CalendarDays className="h-5 w-5 text-primary" />
+            </div>
           </div>
-          {eventTypes.length === 0 ? <p className="mt-4 text-sm text-muted-foreground">No active booking types are available yet.</p> : (
+          {bookingTypes.length === 0 ? (
+            <p className="mt-4 text-sm text-muted-foreground">No active booking types are available yet.</p>
+          ) : (
             <div className="mt-4 divide-y divide-border">
-              {eventTypes.map((type) => {
-                const href = `/book/${type.id}/${type.slug}`;
-                return <div key={type.id} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
-                  <div className="min-w-0"><p className="truncate text-sm font-medium">{type.title}</p><p className="mt-0.5 text-xs text-muted-foreground">{type.durationMinutes} minutes</p></div>
-                  <Button size="sm" variant="outline" asChild className="shrink-0 gap-1.5"><Link href={href} target="_blank">Open link <ExternalLink className="h-3 w-3" /></Link></Button>
-                </div>;
+              {bookingTypes.map((type) => {
+                const href = `/book/${hostId || "me"}/${type.slug}`;
+                return (
+                  <div key={type.id} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{type.title}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {type.durationMinutes} minutes{type.description ? ` • ${type.description}` : ""}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => copyBookingLink(href)}
+                        className="gap-1.5 text-xs"
+                        title="Copy direct booking link for client"
+                      >
+                        <Copy className="h-3 w-3" />
+                        Copy link
+                      </Button>
+                      <Button size="sm" variant="outline" asChild className="gap-1.5 text-xs">
+                        <Link href={href} target="_blank">
+                          Open <ExternalLink className="h-3 w-3" />
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
+                );
               })}
             </div>
           )}
@@ -375,6 +459,73 @@ export function CalendarWorkspace({ hostTimeZone, eventTypes }: CalendarWorkspac
           </ul>
         </div>
       </section>
+
+      {/* Create New Booking Link Dialog */}
+      <Dialog open={createLinkOpen} onOpenChange={setCreateLinkOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create a booking link</DialogTitle>
+            <DialogDescription>
+              Clients will use this link to view your real-time availability and reserve an appointment.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={submitNewBookingLink} className="space-y-4">
+            {createLinkError && (
+              <p className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive" role="alert">
+                {createLinkError}
+              </p>
+            )}
+            <label className="block space-y-1.5">
+              <span className="text-xs font-medium">Link title</span>
+              <input
+                name="title"
+                required
+                minLength={2}
+                maxLength={100}
+                placeholder="e.g. Consultation 30 min"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="block space-y-1.5">
+              <span className="text-xs font-medium">Meeting duration</span>
+              <select
+                name="durationMinutes"
+                defaultValue="30"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="15">15 minutes</option>
+                <option value="30">30 minutes</option>
+                <option value="45">45 minutes</option>
+                <option value="60">60 minutes (1 hour)</option>
+                <option value="90">90 minutes</option>
+                <option value="120">2 hours</option>
+              </select>
+            </label>
+            <label className="block space-y-1.5">
+              <span className="text-xs font-medium">Description (optional)</span>
+              <textarea
+                name="description"
+                rows={2}
+                maxLength={300}
+                placeholder="Brief instructions or purpose for your client..."
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none"
+              />
+            </label>
+            <p className="text-xs text-muted-foreground">
+              A shareable URL will be created. You can copy and send it directly via WhatsApp, SMS, or Email.
+            </p>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="outline" onClick={() => setCreateLinkOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={creatingLink} className="gap-2">
+                {creatingLink ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                Create link
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
