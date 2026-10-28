@@ -186,24 +186,38 @@ interface ClickRipple {
   label?: string;
 }
 
+interface ActivePointer {
+  identity: string;
+  name: string;
+  xPercent: number;
+  yPercent: number;
+}
+
 function ScreenShareStage({
   track,
   presenterName,
   isLocal,
   onStopShare,
   onBroadcastClick,
+  onBroadcastPointerMove,
+  onBroadcastPointerLeave,
   externalRipples,
+  externalPointers,
 }: {
   track: any;
   presenterName: string;
   isLocal: boolean;
   onStopShare?: () => void;
   onBroadcastClick?: (xPercent: number, yPercent: number) => void;
+  onBroadcastPointerMove?: (xPercent: number, yPercent: number) => void;
+  onBroadcastPointerLeave?: () => void;
   externalRipples?: ClickRipple[];
+  externalPointers?: ActivePointer[];
 }) {
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const [localRipples, setLocalRipples] = React.useState<ClickRipple[]>([]);
+  const lastMoveRef = React.useRef<number>(0);
 
   React.useEffect(() => {
     let attachedTrack: any = null;
@@ -239,12 +253,31 @@ function ScreenShareStage({
     onBroadcastClick?.(xPercent, yPercent);
   };
 
+  const handleStageMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!containerRef.current) return;
+    const now = Date.now();
+    if (now - lastMoveRef.current < 40) return; // ~25 fps throttle
+    lastMoveRef.current = now;
+
+    const rect = containerRef.current.getBoundingClientRect();
+    const xPercent = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    const yPercent = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+
+    onBroadcastPointerMove?.(xPercent, yPercent);
+  };
+
+  const handleStageMouseLeave = () => {
+    onBroadcastPointerLeave?.();
+  };
+
   const allRipples = [...localRipples, ...(externalRipples || [])];
 
   return (
     <div
       ref={containerRef}
       onClick={handleStageClick}
+      onMouseMove={handleStageMouseMove}
+      onMouseLeave={handleStageMouseLeave}
       className="relative h-full w-full bg-zinc-950 flex items-center justify-center overflow-hidden cursor-crosshair select-none"
     >
       <video
@@ -254,6 +287,23 @@ function ScreenShareStage({
         muted={isLocal}
         className="max-h-full max-w-full w-auto h-auto object-contain rounded-lg shadow-2xl pointer-events-none"
       />
+
+      {/* Live Remote Pointers (Laser pointer + name tag as in Image 3) */}
+      {(externalPointers || []).map((ptr) => (
+        <div
+          key={ptr.identity}
+          className="pointer-events-none absolute z-40 -translate-x-1/2 -translate-y-1/2 transition-[left,top] duration-75 ease-out"
+          style={{ left: `${ptr.xPercent}%`, top: `${ptr.yPercent}%` }}
+        >
+          <div className="relative flex h-6 w-6 items-center justify-center">
+            <span className="absolute -inset-2 rounded-full bg-emerald-400/30 animate-ping opacity-60" />
+            <span className="h-3 w-3 rounded-full bg-emerald-400 border-2 border-white shadow-[0_0_15px_rgba(52,211,153,1)]" />
+          </div>
+          <span className="absolute top-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-zinc-950/90 border border-zinc-700 px-2 py-0.5 text-[10px] font-mono font-medium text-emerald-300 shadow-xl">
+            {ptr.name}
+          </span>
+        </div>
+      ))}
 
       {/* Ripple click animations */}
       {allRipples.map((ripple) => (
@@ -458,6 +508,7 @@ export function ActiveRoom({
 
   const [soundEffectsOn, setSoundEffectsOn] = React.useState(isSoundEffectsEnabled());
   const [externalRipples, setExternalRipples] = React.useState<ClickRipple[]>([]);
+  const [externalPointers, setExternalPointers] = React.useState<ActivePointer[]>([]);
 
   const broadcastClickRipple = (xPercent: number, yPercent: number) => {
     if (roomRef.current?.localParticipant) {
@@ -469,6 +520,31 @@ export function ActiveRoom({
         })
       );
       roomRef.current.localParticipant.publishData(payload, { reliable: true }).catch(() => {});
+    }
+  };
+
+  const broadcastPointerMove = (xPercent: number, yPercent: number) => {
+    if (roomRef.current?.localParticipant) {
+      const payload = new TextEncoder().encode(
+        JSON.stringify({
+          type: "POINTER_MOVE",
+          xPercent,
+          yPercent,
+          name: displayName,
+        })
+      );
+      roomRef.current.localParticipant.publishData(payload, { reliable: false }).catch(() => {});
+    }
+  };
+
+  const broadcastPointerLeave = () => {
+    if (roomRef.current?.localParticipant) {
+      const payload = new TextEncoder().encode(
+        JSON.stringify({
+          type: "POINTER_LEAVE",
+        })
+      );
+      roomRef.current.localParticipant.publishData(payload, { reliable: false }).catch(() => {});
     }
   };
 
@@ -594,6 +670,30 @@ export function ActiveRoom({
               setTimeout(() => {
                 setExternalRipples((prev) => prev.filter((r) => r.id !== rippleId));
               }, 1600);
+              return;
+            }
+
+            if (parsed.type === "POINTER_MOVE") {
+              const peerIdentity = participant?.identity || "unknown";
+              const peerName = parsed.name || participant?.name || participant?.identity || "Guest";
+              setExternalPointers((prev) => {
+                const filtered = prev.filter((p) => p.identity !== peerIdentity);
+                return [
+                  ...filtered,
+                  {
+                    identity: peerIdentity,
+                    name: peerName,
+                    xPercent: parsed.xPercent,
+                    yPercent: parsed.yPercent,
+                  },
+                ];
+              });
+              return;
+            }
+
+            if (parsed.type === "POINTER_LEAVE") {
+              const peerIdentity = participant?.identity || "unknown";
+              setExternalPointers((prev) => prev.filter((p) => p.identity !== peerIdentity));
               return;
             }
 
@@ -875,7 +975,10 @@ export function ActiveRoom({
                 isLocal={activeScreenShare.isLocal}
                 onStopShare={activeScreenShare.isLocal ? toggleScreenShare : undefined}
                 onBroadcastClick={broadcastClickRipple}
+                onBroadcastPointerMove={broadcastPointerMove}
+                onBroadcastPointerLeave={broadcastPointerLeave}
                 externalRipples={externalRipples}
+                externalPointers={externalPointers}
               />
             </div>
 
