@@ -12,7 +12,7 @@ import {
   MeetingSource,
   AuditLog,
 } from "./types";
-import { getBookingConflictRange } from "../scheduling/conflicts";
+import { getBookingConflictRange, hasScheduledMeetingConflict } from "../scheduling/conflicts";
 
 interface DatabaseSchema {
   users: User[];
@@ -455,7 +455,7 @@ class DatabaseStore {
       const conflictingMeeting = this.data.meetings.find(
         (meeting) =>
           meeting.hostId === params.hostId &&
-          meeting.source !== "BOOKING" &&
+          meeting.source === "MANUAL" &&
           meeting.status !== "CANCELLED" &&
           meeting.status !== "COMPLETED" &&
           meeting.startTime.getTime() < requestedEndMs &&
@@ -566,23 +566,33 @@ class DatabaseStore {
         return { success: false, error: "A scheduled meeting must start in the future." };
       }
 
-      const eventTypesById = new Map(this.data.eventTypes.map((eventType) => [eventType.id, eventType]));
-      const bookingConflict = this.data.bookings.some((booking) => {
-        if (booking.hostId !== params.hostId) return false;
-        const range = getBookingConflictRange(booking, eventTypesById);
-        return range !== null && range.startMs < endMs && range.endMs > startMs;
-      });
-      const meetingConflict = this.data.meetings.some(
-        (meeting) =>
-          meeting.hostId === params.hostId &&
-          meeting.source !== "BOOKING" &&
-          meeting.status !== "CANCELLED" &&
-          meeting.status !== "COMPLETED" &&
-          meeting.startTime.getTime() < endMs &&
-          meeting.endTime.getTime() > startMs
-      );
-      if (bookingConflict || meetingConflict) {
-        return { success: false, error: "MEETING_CONFLICT: This time overlaps another booking or meeting." };
+      if (params.source === "INSTANT") {
+        for (const meeting of this.data.meetings) {
+          if (
+            meeting.hostId === params.hostId &&
+            meeting.source === "INSTANT" &&
+            meeting.status === "SCHEDULED"
+          ) {
+            meeting.status = "COMPLETED";
+            meeting.updatedAt = now;
+          }
+        }
+      } else {
+        const eventTypesById = new Map(this.data.eventTypes.map((eventType) => [eventType.id, eventType]));
+        const bookingConflict = this.data.bookings.some((booking) => {
+          if (booking.hostId !== params.hostId) return false;
+          const range = getBookingConflictRange(booking, eventTypesById);
+          return range !== null && range.startMs < endMs && range.endMs > startMs;
+        });
+        const meetingConflict = hasScheduledMeetingConflict(
+          this.data.meetings,
+          params.hostId,
+          startMs,
+          endMs
+        );
+        if (bookingConflict || meetingConflict) {
+          return { success: false, error: "MEETING_CONFLICT: This time overlaps another booking or meeting." };
+        }
       }
 
       const meeting: Meeting = {

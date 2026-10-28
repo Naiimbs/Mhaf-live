@@ -73,7 +73,7 @@ export async function calculateAvailableSlots(
   });
   const activeMeetings = allMeetings.filter(
     (meeting) =>
-      meeting.source !== "BOOKING" &&
+      meeting.source === "MANUAL" &&
       meeting.status !== "CANCELLED" &&
       meeting.status !== "COMPLETED"
   );

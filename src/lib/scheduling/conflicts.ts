@@ -1,4 +1,4 @@
-import type { Booking, EventType } from "../db/types";
+import type { Booking, EventType, Meeting } from "../db/types";
 
 /** Keep in sync with the duration used when an instant room is created. */
 export const INSTANT_MEETING_DURATION_MS = 2 * 60 * 60 * 1000;
@@ -46,3 +46,26 @@ export function getBookingConflictRange(
   const afterMs = Math.max(0, eventType?.bufferAfterMin || 0) * 60_000;
   return { startMs: startMs - beforeMs, endMs: storedEndMs + afterMs };
 }
+
+/**
+ * Check whether a scheduled (MANUAL) meeting conflicts with another active
+ * scheduled manual meeting for the same host. Ad-hoc instant meetings are
+ * excluded from scheduled conflict checks.
+ */
+export function hasScheduledMeetingConflict(
+  existingMeetings: readonly Meeting[],
+  hostId: string,
+  startMs: number,
+  endMs: number
+): boolean {
+  return existingMeetings.some(
+    (meeting) =>
+      meeting.hostId === hostId &&
+      meeting.source === "MANUAL" &&
+      meeting.status !== "CANCELLED" &&
+      meeting.status !== "COMPLETED" &&
+      meeting.startTime.getTime() < endMs &&
+      meeting.endTime.getTime() > startMs
+  );
+}
+
