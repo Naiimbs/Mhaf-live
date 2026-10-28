@@ -17,9 +17,24 @@ import {
   Send,
   Copy,
   Check,
+  ChevronLeft,
+  ChevronRight,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand-logo";
+import {
+  playUserJoinSound,
+  playUserLeaveSound,
+  playScreenShareStartSound,
+  playScreenShareStopSound,
+  playMessageSentSound,
+  playMessageReceivedSound,
+  playToggleMuteSound,
+  isSoundEffectsEnabled,
+  setSoundEffectsEnabled,
+} from "@/lib/audio/sound-effects";
 import {
   Room,
   RoomEvent,
@@ -162,18 +177,31 @@ function RemoteParticipantTile({ participant }: { participant: RemoteParticipant
   );
 }
 
+interface ClickRipple {
+  id: string;
+  xPercent: number;
+  yPercent: number;
+  label?: string;
+}
+
 function ScreenShareStage({
   track,
   presenterName,
   isLocal,
   onStopShare,
+  onBroadcastClick,
+  externalRipples,
 }: {
   track: any;
   presenterName: string;
   isLocal: boolean;
   onStopShare?: () => void;
+  onBroadcastClick?: (xPercent: number, yPercent: number) => void;
+  externalRipples?: ClickRipple[];
 }) {
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
+  const containerRef = React.useRef<HTMLDivElement | null>(null);
+  const [localRipples, setLocalRipples] = React.useState<ClickRipple[]>([]);
 
   React.useEffect(() => {
     let attachedTrack: any = null;
@@ -188,19 +216,69 @@ function ScreenShareStage({
     };
   }, [track]);
 
+  const handleStageClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const xPercent = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    const yPercent = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+
+    const newRipple: ClickRipple = {
+      id: `ripple-${Date.now()}-${Math.random()}`,
+      xPercent,
+      yPercent,
+      label: isLocal ? "You" : presenterName,
+    };
+
+    setLocalRipples((prev) => [...prev.slice(-10), newRipple]);
+    setTimeout(() => {
+      setLocalRipples((prev) => prev.filter((r) => r.id !== newRipple.id));
+    }, 1500);
+
+    onBroadcastClick?.(xPercent, yPercent);
+  };
+
+  const allRipples = [...localRipples, ...(externalRipples || [])];
+
   return (
-    <div className="relative h-full w-full bg-zinc-950 flex items-center justify-center overflow-hidden">
+    <div
+      ref={containerRef}
+      onClick={handleStageClick}
+      className="relative h-full w-full bg-zinc-950 flex items-center justify-center overflow-hidden cursor-crosshair select-none"
+    >
       <video
         ref={videoRef}
         autoPlay
         playsInline
         muted={isLocal}
-        className="max-h-full max-w-full w-auto h-auto object-contain rounded-lg shadow-2xl"
+        className="max-h-full max-w-full w-auto h-auto object-contain rounded-lg shadow-2xl pointer-events-none"
       />
+
+      {/* Ripple click animations */}
+      {allRipples.map((ripple) => (
+        <div
+          key={ripple.id}
+          className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2"
+          style={{ left: `${ripple.xPercent}%`, top: `${ripple.yPercent}%` }}
+        >
+          <span className="absolute -inset-4 rounded-full border-2 border-emerald-400 bg-emerald-400/20 animate-ping opacity-75" />
+          <span className="relative flex h-7 w-7 items-center justify-center rounded-full border-2 border-emerald-300 bg-emerald-500/40 shadow-[0_0_15px_rgba(52,211,153,0.9)] animate-pulse">
+            <span className="h-2 w-2 rounded-full bg-emerald-300" />
+          </span>
+          {ripple.label && (
+            <span className="absolute top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-zinc-900/90 border border-zinc-700 px-1.5 py-0.5 text-[9px] font-mono text-emerald-300 shadow">
+              {ripple.label}
+            </span>
+          )}
+        </div>
+      ))}
+
       {/* Top Banner / Indicator */}
-      <div className="absolute top-4 left-4 z-10 flex items-center gap-2 rounded-full border border-zinc-700/80 bg-zinc-900/90 backdrop-blur-md px-3.5 py-1.5 text-xs font-mono text-zinc-200 shadow-xl">
+      <div className="absolute top-4 left-4 z-10 flex items-center gap-2 rounded-full border border-zinc-700/80 bg-zinc-900/90 backdrop-blur-md px-3.5 py-1.5 text-xs font-mono text-zinc-200 shadow-xl pointer-events-auto">
         <ScreenShare className="h-3.5 w-3.5 text-emerald-400" />
         <span>{isLocal ? "You are presenting your screen" : `Screen shared by ${presenterName}`}</span>
+        <span className="text-[10px] text-zinc-400 border-l border-zinc-700 pl-2 hidden sm:inline">
+          Click anywhere to highlight
+        </span>
         {isLocal && onStopShare && (
           <Button
             size="sm"
@@ -284,7 +362,7 @@ function RemoteCameraPiPTile({ participant }: { participant: RemoteParticipant }
   const pName = participant.name || participant.identity || "Guest";
 
   return (
-    <div className="relative w-44 sm:w-52 aspect-video rounded-xl border border-zinc-700/80 bg-zinc-900/95 overflow-hidden shadow-2xl flex items-center justify-center backdrop-blur-md">
+    <div className="relative w-36 sm:w-44 aspect-video shrink-0 rounded-xl border border-zinc-700/80 bg-zinc-900/95 overflow-hidden shadow-lg flex items-center justify-center backdrop-blur-md">
       <video
         ref={videoRef}
         autoPlay
@@ -294,15 +372,15 @@ function RemoteCameraPiPTile({ participant }: { participant: RemoteParticipant }
       <audio ref={audioRef} autoPlay />
       {!hasVideo && (
         <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-400 space-y-1">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-800 text-zinc-400 border border-zinc-700">
-            <Users className="h-4 w-4 text-primary" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-800 text-zinc-400 border border-zinc-700">
+            <Users className="h-3.5 w-3.5 text-primary" />
           </div>
-          <span className="text-[10px] font-semibold text-zinc-300 truncate max-w-[90%]">{pName}</span>
+          <span className="text-[9px] font-semibold text-zinc-300 truncate max-w-[90%]">{pName}</span>
         </div>
       )}
-      <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1.5 bg-zinc-950/80 backdrop-blur-md px-1.5 py-0.5 rounded text-[10px] font-mono text-zinc-300 border border-zinc-800">
-        <span className="truncate max-w-[100px]">{pName}</span>
-        {isAudioMuted && <MicOff className="h-2.5 w-2.5 text-destructive" />}
+      <div className="absolute bottom-1 left-1 flex items-center gap-1 bg-zinc-950/80 backdrop-blur-md px-1.5 py-0.5 rounded text-[9px] font-mono text-zinc-300 border border-zinc-800">
+        <span className="truncate max-w-[85px]">{pName}</span>
+        {isAudioMuted && <MicOff className="h-2 w-2 text-destructive" />}
       </div>
     </div>
   );
@@ -345,8 +423,25 @@ export function ActiveRoom({
 
   const localVideoRef = React.useRef<HTMLVideoElement | null>(null);
   const localPipVideoRef = React.useRef<HTMLVideoElement | null>(null);
+  const carouselRef = React.useRef<HTMLDivElement | null>(null);
   const roomRef = React.useRef<Room | null>(null);
   const localTracksRef = React.useRef<LocalTrack[]>([]);
+
+  const [soundEffectsOn, setSoundEffectsOn] = React.useState(isSoundEffectsEnabled());
+  const [externalRipples, setExternalRipples] = React.useState<ClickRipple[]>([]);
+
+  const broadcastClickRipple = (xPercent: number, yPercent: number) => {
+    if (roomRef.current?.localParticipant) {
+      const payload = new TextEncoder().encode(
+        JSON.stringify({
+          type: "CLICK_RIPPLE",
+          xPercent,
+          yPercent,
+        })
+      );
+      roomRef.current.localParticipant.publishData(payload, { reliable: true }).catch(() => {});
+    }
+  };
 
   const remoteScreenShare = React.useMemo(() => {
     for (const p of remoteParticipants) {
@@ -437,8 +532,14 @@ export function ActiveRoom({
           setConnectionState("reconnecting");
         });
 
-        room.on(RoomEvent.ParticipantConnected, updateRemoteParticipants);
-        room.on(RoomEvent.ParticipantDisconnected, updateRemoteParticipants);
+        room.on(RoomEvent.ParticipantConnected, () => {
+          updateRemoteParticipants();
+          playUserJoinSound();
+        });
+        room.on(RoomEvent.ParticipantDisconnected, () => {
+          updateRemoteParticipants();
+          playUserLeaveSound();
+        });
         room.on(RoomEvent.TrackSubscribed, updateRemoteParticipants);
         room.on(RoomEvent.TrackUnsubscribed, updateRemoteParticipants);
         room.on(RoomEvent.TrackMuted, updateRemoteParticipants);
@@ -449,6 +550,24 @@ export function ActiveRoom({
           try {
             const decoded = new TextDecoder().decode(payload);
             const parsed = JSON.parse(decoded);
+
+            if (parsed.type === "CLICK_RIPPLE") {
+              const rippleId = `ext-${Date.now()}-${Math.random()}`;
+              setExternalRipples((prev) => [
+                ...prev.slice(-10),
+                {
+                  id: rippleId,
+                  xPercent: parsed.xPercent,
+                  yPercent: parsed.yPercent,
+                  label: participant?.name || participant?.identity || "Presenter",
+                },
+              ]);
+              setTimeout(() => {
+                setExternalRipples((prev) => prev.filter((r) => r.id !== rippleId));
+              }, 1600);
+              return;
+            }
+
             setChatMessages((prev) => [
               ...prev,
               {
@@ -461,6 +580,7 @@ export function ActiveRoom({
                 }),
               },
             ]);
+            playMessageReceivedSound();
           } catch {
             // plain text fallback
           }
@@ -511,6 +631,7 @@ export function ActiveRoom({
 
   const toggleAudio = async () => {
     const nextState = !audioEnabled;
+    playToggleMuteSound(audioEnabled);
     setAudioEnabled(nextState);
     if (roomRef.current?.localParticipant) {
       await roomRef.current.localParticipant.setMicrophoneEnabled(nextState).catch(() => {});
@@ -535,7 +656,10 @@ export function ActiveRoom({
             selfBrowserSurface: "include",
             surfaceSwitching: "include",
             systemAudio: "include",
-            video: { cursor: "always", displaySurface: "monitor" } as any,
+            video: {
+              cursor: "always",
+              displaySurface: "monitor",
+            } as any,
             contentHint: "detail",
           });
           const mediaStreamTrack = (pub?.track as any)?.mediaStreamTrack;
@@ -544,14 +668,17 @@ export function ActiveRoom({
               "ended",
               () => {
                 setScreenSharing(false);
+                playScreenShareStopSound();
               },
               { once: true }
             );
           }
           setScreenSharing(true);
+          playScreenShareStartSound();
         } else {
           await roomRef.current.localParticipant.setScreenShareEnabled(false);
           setScreenSharing(false);
+          playScreenShareStopSound();
         }
       } else {
         setScreenSharing(nextState);
@@ -574,6 +701,7 @@ export function ActiveRoom({
     };
 
     setChatMessages((prev) => [...prev, newMsg]);
+    playMessageSentSound();
 
     // Send across LiveKit data channel
     if (roomRef.current?.localParticipant) {
@@ -639,8 +767,24 @@ export function ActiveRoom({
           </div>
         </div>
 
-        {/* Live Status Pill */}
+        {/* Live Status Pill & Header Actions */}
         <div className="flex items-center gap-3 text-xs">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const next = !soundEffectsOn;
+              setSoundEffectsOn(next);
+              setSoundEffectsEnabled(next);
+            }}
+            className="h-8 w-8 p-0 border-zinc-700 text-zinc-300 hover:text-zinc-100"
+            title={soundEffectsOn ? "Mute sound effects" : "Enable sound effects"}
+            aria-label={soundEffectsOn ? "Mute sound effects" : "Enable sound effects"}
+          >
+            {soundEffectsOn ? <Volume2 className="h-3.5 w-3.5 text-emerald-400" /> : <VolumeX className="h-3.5 w-3.5 text-zinc-500" />}
+          </Button>
+
           <Button
             type="button"
             variant="outline"
@@ -691,7 +835,7 @@ export function ActiveRoom({
             </Button>
           </div>
         )}
-        {/* Main Stage: Screen Share with Floating PiP or Regular Grid */}
+        {/* Main Stage: Screen Share with Bottom Carousel Filmstrip or Regular Grid */}
         {activeScreenShare ? (
           <div className="relative flex-1 h-full w-full bg-zinc-950 overflow-hidden flex items-center justify-center">
             <ScreenShareStage
@@ -699,41 +843,75 @@ export function ActiveRoom({
               presenterName={activeScreenShare.presenterName}
               isLocal={activeScreenShare.isLocal}
               onStopShare={activeScreenShare.isLocal ? toggleScreenShare : undefined}
+              onBroadcastClick={broadcastClickRipple}
+              externalRipples={externalRipples}
             />
 
-            {/* Floating PiP Participant Strip (top-right overlay) */}
-            <div className="absolute top-4 right-4 z-20 flex flex-col gap-3 max-h-[85vh] overflow-y-auto p-1 pointer-events-auto">
-              {/* Local User PiP Tile */}
-              <div className="relative w-44 sm:w-52 aspect-video rounded-xl border border-zinc-700/80 bg-zinc-900/95 overflow-hidden shadow-2xl flex items-center justify-center backdrop-blur-md">
-                <video
-                  ref={localPipVideoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className={`h-full w-full object-cover transform -scale-x-100 transition-opacity ${
-                    videoEnabled ? "opacity-100" : "opacity-0"
-                  }`}
-                />
-                {!videoEnabled && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-400 space-y-1">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-800 text-zinc-400 border border-zinc-700">
-                      <VideoOff className="h-4 w-4" />
-                    </div>
-                    <span className="text-[10px] font-medium text-zinc-300 truncate max-w-[90%]">
-                      {displayName} (Camera Off)
-                    </span>
-                  </div>
-                )}
-                <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1.5 bg-zinc-950/80 backdrop-blur-md px-1.5 py-0.5 rounded text-[10px] font-mono text-zinc-300 border border-zinc-800">
-                  <span className="truncate max-w-[100px]">{displayName} (You)</span>
-                  {!audioEnabled && <MicOff className="h-2.5 w-2.5 text-destructive" />}
-                </div>
-              </div>
+            {/* Bottom Docked Carousel Filmstrip for Participants */}
+            <div className="absolute bottom-3 inset-x-0 z-20 flex items-center justify-center px-4 pointer-events-none">
+              <div className="relative flex items-center gap-1.5 max-w-full p-2 rounded-2xl bg-zinc-950/85 backdrop-blur-md border border-zinc-800 shadow-2xl pointer-events-auto">
+                {/* Scroll left button */}
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => carouselRef.current?.scrollBy({ left: -220, behavior: "smooth" })}
+                  className="h-8 w-8 shrink-0 rounded-full bg-zinc-900/80 text-zinc-300 hover:bg-zinc-800"
+                  aria-label="Scroll participants left"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
 
-              {/* Remote Participants PiP Tiles */}
-              {remoteParticipants.map((p) => (
-                <RemoteCameraPiPTile key={p.identity} participant={p} />
-              ))}
+                {/* Horizontal scroll filmstrip */}
+                <div
+                  ref={carouselRef}
+                  className="flex items-center gap-2.5 overflow-x-auto scrollbar-none scroll-smooth max-w-[85vw] sm:max-w-[75vw] py-0.5 px-0.5"
+                >
+                  {/* Local User Card */}
+                  <div className="relative w-36 sm:w-44 aspect-video shrink-0 rounded-xl border border-zinc-700/80 bg-zinc-900/95 overflow-hidden shadow-lg flex items-center justify-center">
+                    <video
+                      ref={localPipVideoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className={`h-full w-full object-cover transform -scale-x-100 transition-opacity ${
+                        videoEnabled ? "opacity-100" : "opacity-0"
+                      }`}
+                    />
+                    {!videoEnabled && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-400 space-y-1">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-800 text-zinc-400 border border-zinc-700">
+                          <VideoOff className="h-3.5 w-3.5" />
+                        </div>
+                        <span className="text-[9px] font-medium text-zinc-300 truncate max-w-[90%]">
+                          {displayName} (Camera Off)
+                        </span>
+                      </div>
+                    )}
+                    <div className="absolute bottom-1 left-1 flex items-center gap-1 bg-zinc-950/80 backdrop-blur-md px-1.5 py-0.5 rounded text-[9px] font-mono text-zinc-300 border border-zinc-800">
+                      <span className="truncate max-w-[85px]">{displayName} (You)</span>
+                      {!audioEnabled && <MicOff className="h-2 w-2 text-destructive" />}
+                    </div>
+                  </div>
+
+                  {/* Remote Participants Cards */}
+                  {remoteParticipants.map((p) => (
+                    <RemoteCameraPiPTile key={p.identity} participant={p} />
+                  ))}
+                </div>
+
+                {/* Scroll right button */}
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => carouselRef.current?.scrollBy({ left: 220, behavior: "smooth" })}
+                  className="h-8 w-8 shrink-0 rounded-full bg-zinc-900/80 text-zinc-300 hover:bg-zinc-800"
+                  aria-label="Scroll participants right"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
         ) : (
