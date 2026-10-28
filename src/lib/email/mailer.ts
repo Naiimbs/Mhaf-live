@@ -285,3 +285,217 @@ export async function sendMeetingConfirmationEmail({
 
   return info;
 }
+
+export interface SendHostBookingNotificationParams {
+  to: string;
+  hostName: string;
+  attendeeName: string;
+  attendeeEmail: string;
+  meetingTitle: string;
+  startTime: Date | string;
+  endTime: Date | string;
+  roomUrl: string;
+  bookingUid: string;
+  notes?: string;
+}
+
+export async function sendHostBookingNotificationEmail({
+  to,
+  hostName,
+  attendeeName,
+  attendeeEmail,
+  meetingTitle,
+  startTime,
+  endTime,
+  roomUrl,
+  bookingUid,
+  notes,
+}: SendHostBookingNotificationParams) {
+  const transporter = getTransporter();
+  const from = getMeetingEmailFrom(process.env.EMAIL_FROM, process.env.SMTP_USER);
+
+  const startDate = new Date(startTime);
+  const endDate = new Date(endTime);
+
+  const formattedDate = startDate.toLocaleDateString("fr-FR", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  const formattedTime = `${startDate.toLocaleTimeString("fr-FR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  })} – ${endDate.toLocaleTimeString("fr-FR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  })}`;
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://meet.naiimbsili.com";
+  const fullRoomUrl = roomUrl.startsWith("http") ? roomUrl : `${appUrl}${roomUrl}`;
+
+  const html = `
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Nouvelle réservation — meet</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: #09090b;
+      color: #fafafa;
+      margin: 0;
+      padding: 24px;
+    }
+    .container {
+      max-width: 580px;
+      margin: 0 auto;
+      background-color: #121215;
+      border: 1px solid #27272a;
+      border-radius: 16px;
+      padding: 32px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    }
+    .header {
+      border-bottom: 1px solid #27272a;
+      padding-bottom: 20px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .badge {
+      display: inline-block;
+      background: rgba(14, 165, 233, 0.15);
+      color: #38bdf8;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      border: 1px solid rgba(14, 165, 233, 0.3);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-top: 0;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      font-size: 14px;
+      color: #a1a1aa;
+      margin-top: 0;
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+    .card {
+      background-color: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 28px;
+    }
+    .card-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #27272a;
+      font-size: 14px;
+    }
+    .card-row:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+    .label {
+      color: #71717a;
+    }
+    .value {
+      font-weight: 600;
+      color: #f4f4f5;
+      text-align: right;
+    }
+    .btn-container {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .btn {
+      display: inline-block;
+      background: #0284c7;
+      color: #ffffff !important;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+      padding: 12px 28px;
+      border-radius: 8px;
+    }
+    .footer {
+      border-top: 1px solid #27272a;
+      padding-top: 20px;
+      font-size: 12px;
+      color: #52525b;
+      text-align: center;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <span class="badge">Nouveau Client Réservé</span>
+    </div>
+
+    <h1 class="title">Nouvelle réservation reçue</h1>
+    <p class="subtitle">Bonjour ${hostName}, un client vient de réserver un créneau avec vous pour <strong>${meetingTitle}</strong>.</p>
+
+    <div class="card">
+      <div class="card-row">
+        <span class="label">Client :</span>
+        <span class="value">${attendeeName}</span>
+      </div>
+      <div class="card-row">
+        <span class="label">Email client :</span>
+        <span class="value">${attendeeEmail}</span>
+      </div>
+      <div class="card-row">
+        <span class="label">Date :</span>
+        <span class="value">${formattedDate}</span>
+      </div>
+      <div class="card-row">
+        <span class="label">Horaire :</span>
+        <span class="value">${formattedTime}</span>
+      </div>
+      ${notes ? `
+      <div class="card-row">
+        <span class="label">Message :</span>
+        <span class="value">${notes}</span>
+      </div>` : ''}
+    </div>
+
+    <div class="btn-container">
+      <a href="${fullRoomUrl}" class="btn" target="_blank">Accéder à la salle de réunion</a>
+    </div>
+
+    <div class="footer">
+      meet — Réservation client synchronisée en temps réel avec votre Dashboard.<br>
+      © ${new Date().getFullYear()} meet. Tous droits réservés.
+    </div>
+  </div>
+</body>
+</html>
+  `;
+
+  const info = await transporter.sendMail({
+    from,
+    to,
+    subject: `Nouvelle réservation : ${attendeeName} pour ${meetingTitle} (meet)`,
+    text: `Bonjour ${hostName},\n\nUn client vient de réserver :\nClient : ${attendeeName} (${attendeeEmail})\nRéunion : ${meetingTitle}\nDate : ${formattedDate}\nHeure : ${formattedTime}\n\nLien direct de la réunion : ${fullRoomUrl}\n\nmeet`,
+    html,
+  });
+
+  return info;
+}

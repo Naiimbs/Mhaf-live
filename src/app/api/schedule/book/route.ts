@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     }
 
     try {
-      const { sendMeetingConfirmationEmail } = await import("@/lib/email/mailer");
+      const { sendMeetingConfirmationEmail, sendHostBookingNotificationEmail } = await import("@/lib/email/mailer");
       const { db } = await import("@/lib/db");
       const host = await db.findUserById(result.booking.hostId);
       const eventType = await db.findEventTypeById(result.booking.eventTypeId);
@@ -27,16 +27,37 @@ export async function POST(request: Request) {
       const appUrl = hostHeader ? `${proto}://${hostHeader}` : (process.env.NEXT_PUBLIC_APP_URL || "https://meet.naiimbsili.com");
       const roomUrl = `${appUrl}/rooms/${result.booking.uid}`;
 
-      await sendMeetingConfirmationEmail({
-        to: result.booking.attendeeEmail,
-        attendeeName: result.booking.attendeeName,
-        meetingTitle: eventType?.title || "MHAF Live meeting",
-        startTime: result.booking.startTime,
-        endTime: result.booking.endTime,
-        roomUrl,
-        bookingUid: result.booking.uid,
-        hostName: host?.name || "MHAF Live Host",
-      }).catch((mailError) => console.error("[Booking API] Non-fatal email error:", mailError));
+      const emailPromises: Promise<any>[] = [
+        sendMeetingConfirmationEmail({
+          to: result.booking.attendeeEmail,
+          attendeeName: result.booking.attendeeName,
+          meetingTitle: eventType?.title || "MHAF Live meeting",
+          startTime: result.booking.startTime,
+          endTime: result.booking.endTime,
+          roomUrl,
+          bookingUid: result.booking.uid,
+          hostName: host?.name || "MHAF Live Host",
+        }),
+      ];
+
+      if (host?.email) {
+        emailPromises.push(
+          sendHostBookingNotificationEmail({
+            to: host.email,
+            hostName: host.name || "MHAF Live Host",
+            attendeeName: result.booking.attendeeName,
+            attendeeEmail: result.booking.attendeeEmail,
+            meetingTitle: eventType?.title || "MHAF Live meeting",
+            startTime: result.booking.startTime,
+            endTime: result.booking.endTime,
+            roomUrl,
+            bookingUid: result.booking.uid,
+            notes: (result.booking as any).notes || undefined,
+          })
+        );
+      }
+
+      await Promise.allSettled(emailPromises);
     } catch (error) {
       console.warn("[Booking API] Email delivery trigger warning:", error);
     }
