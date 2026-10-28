@@ -37,10 +37,10 @@ export async function calculateAvailableSlots(
   if (dayOfWeek === null) throw new Error("Invalid date. Expected a real date in YYYY-MM-DD format.");
   if (!isValidTimeZone(attendeeTimezone)) throw new Error("Invalid attendee time zone.");
 
-  const host = await db.findUserById(hostId);
+  const host = (await db.findUserById(hostId)) || (await db.findUserByEmail(hostId));
   if (!host) throw new Error("Host not found.");
 
-  const eventType = await db.getEventTypeBySlug(hostId, eventSlug);
+  const eventType = await db.getEventTypeBySlug(host.id, eventSlug);
   if (!eventType || !eventType.isActive) {
     throw new Error(`Active event type '${eventSlug}' not found for this host.`);
   }
