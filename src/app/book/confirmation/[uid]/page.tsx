@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { CheckCircle2, Calendar, Clock, User, Mail, Video, ArrowLeft, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BrandLogo } from "@/components/brand-logo";
 
 export default async function BookingConfirmationPage({
   params,
@@ -25,7 +26,7 @@ export default async function BookingConfirmationPage({
             No active reservation exists with UID <span className="font-mono">{uid}</span>.
           </p>
           <Button asChild variant="outline" size="sm">
-            <Link href="/">Back to MHAF Live</Link>
+            <Link href="/">Back to Home</Link>
           </Button>
         </div>
       </div>
@@ -41,11 +42,8 @@ export default async function BookingConfirmationPage({
       {/* Top Header */}
       <header className="border-b border-border bg-card/80 backdrop-blur-md px-4 py-3">
         <div className="container max-w-3xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 font-bold tracking-tight text-sm">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-              <Video className="h-3.5 w-3.5" />
-            </div>
-            <span>MHAF LIVE</span>
+          <Link href="/" className="flex items-center" aria-label="meet home">
+            <BrandLogo size="small" />
           </Link>
           <span className="text-xs font-mono text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full font-semibold">
             ✓ Reservation Confirmed

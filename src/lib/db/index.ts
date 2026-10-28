@@ -12,6 +12,7 @@ import {
   MeetingSource,
   AuditLog,
 } from "./types";
+import { getBookingConflictRange } from "../scheduling/conflicts";
 
 interface DatabaseSchema {
   users: User[];
@@ -445,12 +446,11 @@ class DatabaseStore {
 
       const requestedStartMs = newStartMs - Math.max(0, params.bufferBeforeMin || 0) * 60_000;
       const requestedEndMs = newEndMs + Math.max(0, params.bufferAfterMin || 0) * 60_000;
-      const conflictingBooking = this.data.bookings.find((booking) => {
-        if (booking.hostId !== params.hostId || booking.status === "CANCELLED") return false;
-        const existingType = this.data.eventTypes.find((item) => item.id === booking.eventTypeId);
-        const existingStartMs = booking.startTime.getTime() - Math.max(0, existingType?.bufferBeforeMin || 0) * 60_000;
-        const existingEndMs = booking.endTime.getTime() + Math.max(0, existingType?.bufferAfterMin || 0) * 60_000;
-        return existingStartMs < requestedEndMs && existingEndMs > requestedStartMs;
+      const eventTypesById = new Map(this.data.eventTypes.map((eventType) => [eventType.id, eventType]));
+      const conflictingBooking = this.data.bookings.some((booking) => {
+        if (booking.hostId !== params.hostId) return false;
+        const range = getBookingConflictRange(booking, eventTypesById);
+        return range !== null && range.startMs < requestedEndMs && range.endMs > requestedStartMs;
       });
       const conflictingMeeting = this.data.meetings.find(
         (meeting) =>
@@ -566,12 +566,11 @@ class DatabaseStore {
         return { success: false, error: "A scheduled meeting must start in the future." };
       }
 
+      const eventTypesById = new Map(this.data.eventTypes.map((eventType) => [eventType.id, eventType]));
       const bookingConflict = this.data.bookings.some((booking) => {
-        if (booking.hostId !== params.hostId || booking.status === "CANCELLED") return false;
-        const existingType = this.data.eventTypes.find((item) => item.id === booking.eventTypeId);
-        const existingStartMs = booking.startTime.getTime() - Math.max(0, existingType?.bufferBeforeMin || 0) * 60_000;
-        const existingEndMs = booking.endTime.getTime() + Math.max(0, existingType?.bufferAfterMin || 0) * 60_000;
-        return existingStartMs < endMs && existingEndMs > startMs;
+        if (booking.hostId !== params.hostId) return false;
+        const range = getBookingConflictRange(booking, eventTypesById);
+        return range !== null && range.startMs < endMs && range.endMs > startMs;
       });
       const meetingConflict = this.data.meetings.some(
         (meeting) =>

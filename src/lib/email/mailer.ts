@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import path from "node:path";
 
 interface SendConfirmationEmailParams {
   to: string;
@@ -54,10 +55,10 @@ export async function sendMeetingConfirmationEmail({
   endTime,
   roomUrl,
   bookingUid,
-  hostName = "MHAF Live Host",
+  hostName = "meet Host",
 }: SendConfirmationEmailParams) {
   const transporter = getTransporter();
-  const from = process.env.EMAIL_FROM || `MHAF Live <${process.env.SMTP_USER?.trim()}>`;
+  const from = process.env.EMAIL_FROM || `meet <${process.env.SMTP_USER?.trim()}>`;
 
   const startDate = new Date(startTime);
   const endDate = new Date(endTime);
@@ -85,7 +86,7 @@ export async function sendMeetingConfirmationEmail({
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <title>Confirmation de votre réunion — MHAF Live</title>
+  <title>Confirmation de votre réunion — meet</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
@@ -113,13 +114,16 @@ export async function sendMeetingConfirmationEmail({
       justify-content: space-between;
     }
     .logo {
-      font-size: 18px;
-      font-weight: 800;
-      letter-spacing: -0.03em;
-      color: #fafafa;
+      display: flex;
+      align-items: center;
     }
-    .logo span {
-      color: #10b981;
+    .logo img {
+      display: block;
+      width: 120px;
+      height: auto;
+      padding: 4px;
+      border-radius: 6px;
+      background: #ffffff;
     }
     .badge {
       display: inline-block;
@@ -209,7 +213,7 @@ export async function sendMeetingConfirmationEmail({
 <body>
   <div class="container">
     <div class="header">
-      <div class="logo">MHAF <span>LIVE</span></div>
+      <div class="logo"><img src="cid:meet-logo" alt="meet" width="120"></div>
       <div class="badge">RÉUNION CONFIRMÉE</div>
     </div>
 
@@ -248,8 +252,8 @@ export async function sendMeetingConfirmationEmail({
     </div>
 
     <div class="footer">
-      MHAF Live — Plateforme de visioconférence WebRTC ultra-rapide et sécurisée.<br>
-      © ${new Date().getFullYear()} MHAF Live. Tous droits réservés.
+      meet — Plateforme de visioconférence WebRTC ultra-rapide et sécurisée.<br>
+      © ${new Date().getFullYear()} meet. Tous droits réservés.
     </div>
   </div>
 </body>
@@ -259,9 +263,16 @@ export async function sendMeetingConfirmationEmail({
   const info = await transporter.sendMail({
     from,
     to,
-    subject: `Confirmation de votre réunion : ${meetingTitle} (MHAF Live)`,
-    text: `Bonjour ${attendeeName},\n\nVotre réunion "${meetingTitle}" avec ${hostName} est confirmée.\nDate : ${formattedDate}\nHeure : ${formattedTime}\n\nLien pour rejoindre la réunion : ${fullRoomUrl}\n\nIdentifiant de session : ${bookingUid}\n\nMHAF Live`,
+    subject: `Confirmation de votre réunion : ${meetingTitle} (meet)`,
+    text: `Bonjour ${attendeeName},\n\nVotre réunion "${meetingTitle}" avec ${hostName} est confirmée.\nDate : ${formattedDate}\nHeure : ${formattedTime}\n\nLien pour rejoindre la réunion : ${fullRoomUrl}\n\nIdentifiant de session : ${bookingUid}\n\nmeet`,
     html,
+    attachments: [
+      {
+        filename: "meet-logo.png",
+        path: path.join(process.cwd(), "public", "meet-logo.png"),
+        cid: "meet-logo",
+      },
+    ],
   });
 
   return info;
