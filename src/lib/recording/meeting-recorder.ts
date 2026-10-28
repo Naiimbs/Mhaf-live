@@ -6,6 +6,12 @@ export interface RecorderState {
   formattedDuration: string;
 }
 
+export interface RecorderOptions {
+  videoBitrate?: number; // default: 650_000 (650 kbps) - gives ~95MB for 20 min with high text clarity
+  audioBitrate?: number; // default: 64_000 (64 kbps Opus) - clear voices
+  frameRate?: number;    // default: 15 fps - optimal for meetings & presentations
+}
+
 export class MeetingRecorder {
   private mediaRecorder: MediaRecorder | null = null;
   private recordedChunks: Blob[] = [];
@@ -34,24 +40,29 @@ export class MeetingRecorder {
     return "video/webm";
   }
 
-  public async startRecording(videoSourceElement?: HTMLVideoElement | null, extraAudioStreams?: MediaStream[]): Promise<boolean> {
+  public async startRecording(
+    videoSourceElement?: HTMLVideoElement | null,
+    extraAudioStreams?: MediaStream[],
+    options?: RecorderOptions
+  ): Promise<boolean> {
     try {
       if (typeof window === "undefined" || !navigator.mediaDevices) {
         throw new Error("Recording is not supported in this environment.");
       }
 
+      const frameRate = options?.frameRate ?? 15;
       let videoStream: MediaStream;
 
       // If a video element is playing (e.g. active screen share or main stage)
       if (videoSourceElement && (videoSourceElement as any).captureStream) {
-        videoStream = (videoSourceElement as any).captureStream(30);
+        videoStream = (videoSourceElement as any).captureStream(frameRate);
       } else {
         // Fallback: prompt presenter to select screen/tab to record
         videoStream = await navigator.mediaDevices.getDisplayMedia({
           video: {
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-            frameRate: { ideal: 30 },
+            width: { ideal: 1920, max: 1920 },
+            height: { ideal: 1080, max: 1080 },
+            frameRate: { ideal: frameRate, max: 20 },
           },
           audio: true,
         });
@@ -93,7 +104,19 @@ export class MeetingRecorder {
 
       const mimeType = this.getSupportedMimeType();
       this.recordedChunks = [];
-      this.mediaRecorder = new MediaRecorder(this.combinedStream, { mimeType });
+
+      const videoBitsPerSecond = options?.videoBitrate ?? 650_000;
+      const audioBitsPerSecond = options?.audioBitrate ?? 64_000;
+
+      try {
+        this.mediaRecorder = new MediaRecorder(this.combinedStream, {
+          mimeType,
+          videoBitsPerSecond,
+          audioBitsPerSecond,
+        });
+      } catch {
+        this.mediaRecorder = new MediaRecorder(this.combinedStream, { mimeType });
+      }
 
       this.mediaRecorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
