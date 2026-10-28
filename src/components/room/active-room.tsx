@@ -19,6 +19,8 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   Volume2,
   VolumeX,
 } from "lucide-react";
@@ -273,20 +275,26 @@ function ScreenShareStage({
       ))}
 
       {/* Top Banner / Indicator */}
-      <div className="absolute top-4 left-4 z-10 flex items-center gap-2 rounded-full border border-zinc-700/80 bg-zinc-900/90 backdrop-blur-md px-3.5 py-1.5 text-xs font-mono text-zinc-200 shadow-xl pointer-events-auto">
-        <ScreenShare className="h-3.5 w-3.5 text-emerald-400" />
-        <span>{isLocal ? "You are presenting your screen" : `Screen shared by ${presenterName}`}</span>
-        <span className="text-[10px] text-zinc-400 border-l border-zinc-700 pl-2 hidden sm:inline">
-          Click anywhere to highlight
-        </span>
+      <div className="absolute top-3 left-3 z-10 flex flex-wrap items-center gap-2 rounded-xl border border-zinc-700/80 bg-zinc-900/90 backdrop-blur-md px-3 py-1.5 text-xs font-mono text-zinc-200 shadow-xl pointer-events-auto max-w-[calc(100%-24px)]">
+        <div className="flex items-center gap-2">
+          <ScreenShare className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+          <span className="font-medium">
+            {isLocal ? "Vous partagez votre écran" : `Écran partagé par ${presenterName}`}
+          </span>
+        </div>
+        {isLocal && (
+          <span className="text-[10px] text-zinc-400 border-l border-zinc-700 pl-2 hidden md:inline">
+            Curseur visible en mode « Tout l&apos;écran »
+          </span>
+        )}
         {isLocal && onStopShare && (
           <Button
             size="sm"
             variant="destructive"
             onClick={onStopShare}
-            className="ml-2 h-6 px-2.5 text-[10px] rounded-full"
+            className="ml-auto h-6 px-2.5 text-[10px] rounded-full"
           >
-            Stop sharing
+            Arrêter le partage
           </Button>
         )}
       </div>
@@ -362,7 +370,7 @@ function RemoteCameraPiPTile({ participant }: { participant: RemoteParticipant }
   const pName = participant.name || participant.identity || "Guest";
 
   return (
-    <div className="relative w-36 sm:w-44 aspect-video shrink-0 rounded-xl border border-zinc-700/80 bg-zinc-900/95 overflow-hidden shadow-lg flex items-center justify-center backdrop-blur-md">
+    <div className="relative w-full aspect-video shrink-0 rounded-xl border border-zinc-700/80 bg-zinc-900/95 overflow-hidden shadow-md flex items-center justify-center backdrop-blur-md">
       <video
         ref={videoRef}
         autoPlay
@@ -423,9 +431,30 @@ export function ActiveRoom({
 
   const localVideoRef = React.useRef<HTMLVideoElement | null>(null);
   const localPipVideoRef = React.useRef<HTMLVideoElement | null>(null);
-  const carouselRef = React.useRef<HTMLDivElement | null>(null);
+  const carouselVerticalRef = React.useRef<HTMLDivElement | null>(null);
+  const [participantsSidebarOpen, setParticipantsSidebarOpen] = React.useState(true);
   const roomRef = React.useRef<Room | null>(null);
   const localTracksRef = React.useRef<LocalTrack[]>([]);
+
+  // Ensure browser getDisplayMedia requests continuous cursor capture
+  React.useEffect(() => {
+    if (typeof window !== "undefined" && navigator.mediaDevices?.getDisplayMedia) {
+      const origGetDisplayMedia = navigator.mediaDevices.getDisplayMedia.bind(navigator.mediaDevices);
+      navigator.mediaDevices.getDisplayMedia = async (constraints?: DisplayMediaStreamOptions) => {
+        const merged: any = { ...constraints };
+        merged.cursor = "always";
+        if (typeof merged.video === "object") {
+          merged.video = {
+            ...merged.video,
+            cursor: "always",
+          };
+        } else if (merged.video === true || merged.video === undefined) {
+          merged.video = { cursor: "always" };
+        }
+        return origGetDisplayMedia(merged);
+      };
+    }
+  }, []);
 
   const [soundEffectsOn, setSoundEffectsOn] = React.useState(isSoundEffectsEnabled());
   const [externalRipples, setExternalRipples] = React.useState<ClickRipple[]>([]);
@@ -835,84 +864,119 @@ export function ActiveRoom({
             </Button>
           </div>
         )}
-        {/* Main Stage: Screen Share with Bottom Carousel Filmstrip or Regular Grid */}
+        {/* Main Stage: Screen Share with Right Vertical Participant Rail or Regular Grid */}
         {activeScreenShare ? (
-          <div className="relative flex-1 h-full w-full bg-zinc-950 overflow-hidden flex items-center justify-center">
-            <ScreenShareStage
-              track={activeScreenShare.track}
-              presenterName={activeScreenShare.presenterName}
-              isLocal={activeScreenShare.isLocal}
-              onStopShare={activeScreenShare.isLocal ? toggleScreenShare : undefined}
-              onBroadcastClick={broadcastClickRipple}
-              externalRipples={externalRipples}
-            />
+          <div className="relative flex-1 h-full w-full bg-zinc-950 overflow-hidden flex flex-row">
+            {/* Left Screen Share Stage - Fits entirely without any overlap */}
+            <div className="relative flex-1 h-full min-w-0 min-h-0 flex items-center justify-center p-1.5 sm:p-2 overflow-hidden">
+              <ScreenShareStage
+                track={activeScreenShare.track}
+                presenterName={activeScreenShare.presenterName}
+                isLocal={activeScreenShare.isLocal}
+                onStopShare={activeScreenShare.isLocal ? toggleScreenShare : undefined}
+                onBroadcastClick={broadcastClickRipple}
+                externalRipples={externalRipples}
+              />
+            </div>
 
-            {/* Bottom Docked Carousel Filmstrip for Participants */}
-            <div className="absolute bottom-3 inset-x-0 z-20 flex items-center justify-center px-4 pointer-events-none">
-              <div className="relative flex items-center gap-1.5 max-w-full p-2 rounded-2xl bg-zinc-950/85 backdrop-blur-md border border-zinc-800 shadow-2xl pointer-events-auto">
-                {/* Scroll left button */}
-                <Button
+            {/* Right Vertical Participants Rail (Docked on right side, never masks screen share) */}
+            <aside
+              className={`${
+                participantsSidebarOpen ? "w-44 sm:w-52 md:w-56" : "w-0 border-l-0 p-0"
+              } shrink-0 h-full border-l border-zinc-800/90 bg-zinc-950/95 flex flex-col items-center py-2 px-2 z-10 transition-all duration-200 select-none overflow-hidden relative`}
+            >
+              {/* Header / Toggle */}
+              <div className="w-full flex items-center justify-between px-1 pb-1.5 mb-1 border-b border-zinc-800/60 text-[11px] font-mono text-zinc-400 shrink-0">
+                <span className="flex items-center gap-1.5 truncate">
+                  <Users className="h-3 w-3 text-zinc-400" />
+                  <span>Participants ({participantsCount})</span>
+                </span>
+                <button
                   type="button"
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => carouselRef.current?.scrollBy({ left: -220, behavior: "smooth" })}
-                  className="h-8 w-8 shrink-0 rounded-full bg-zinc-900/80 text-zinc-300 hover:bg-zinc-800"
-                  aria-label="Scroll participants left"
+                  onClick={() => setParticipantsSidebarOpen(false)}
+                  className="text-zinc-500 hover:text-zinc-300 p-0.5 rounded transition-colors"
+                  title="Masquer la liste"
                 >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
 
-                {/* Horizontal scroll filmstrip */}
-                <div
-                  ref={carouselRef}
-                  className="flex items-center gap-2.5 overflow-x-auto scrollbar-none scroll-smooth max-w-[85vw] sm:max-w-[75vw] py-0.5 px-0.5"
-                >
-                  {/* Local User Card */}
-                  <div className="relative w-36 sm:w-44 aspect-video shrink-0 rounded-xl border border-zinc-700/80 bg-zinc-900/95 overflow-hidden shadow-lg flex items-center justify-center">
-                    <video
-                      ref={localPipVideoRef}
-                      autoPlay
-                      playsInline
-                      muted
-                      className={`h-full w-full object-cover transform -scale-x-100 transition-opacity ${
-                        videoEnabled ? "opacity-100" : "opacity-0"
-                      }`}
-                    />
-                    {!videoEnabled && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-400 space-y-1">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-800 text-zinc-400 border border-zinc-700">
-                          <VideoOff className="h-3.5 w-3.5" />
-                        </div>
-                        <span className="text-[9px] font-medium text-zinc-300 truncate max-w-[90%]">
-                          {displayName} (Camera Off)
-                        </span>
+              {/* Scroll Up Button (^) */}
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                onClick={() => carouselVerticalRef.current?.scrollBy({ top: -160, behavior: "smooth" })}
+                className="h-7 w-full rounded-lg bg-zinc-900/90 text-zinc-300 hover:bg-zinc-800 hover:text-white shrink-0 mb-1 border border-zinc-800/80 shadow-sm"
+                aria-label="Faire défiler vers le haut"
+              >
+                <ChevronUp className="h-4 w-4" />
+              </Button>
+
+              {/* Vertical scrollable participants list */}
+              <div
+                ref={carouselVerticalRef}
+                className="flex-1 w-full overflow-y-auto scrollbar-none scroll-smooth space-y-2 py-1 px-0.5"
+              >
+                {/* Local User Card */}
+                <div className="relative w-full aspect-video rounded-xl border border-zinc-700/80 bg-zinc-900/95 overflow-hidden shadow-md flex items-center justify-center shrink-0">
+                  <video
+                    ref={localPipVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className={`h-full w-full object-cover transform -scale-x-100 transition-opacity ${
+                      videoEnabled ? "opacity-100" : "opacity-0"
+                    }`}
+                  />
+                  {!videoEnabled && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-400 space-y-1">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-800 text-zinc-400 border border-zinc-700">
+                        <VideoOff className="h-3.5 w-3.5" />
                       </div>
-                    )}
-                    <div className="absolute bottom-1 left-1 flex items-center gap-1 bg-zinc-950/80 backdrop-blur-md px-1.5 py-0.5 rounded text-[9px] font-mono text-zinc-300 border border-zinc-800">
-                      <span className="truncate max-w-[85px]">{displayName} (You)</span>
-                      {!audioEnabled && <MicOff className="h-2 w-2 text-destructive" />}
+                      <span className="text-[9px] font-medium text-zinc-300 truncate max-w-[90%]">
+                        {displayName} (Camera Off)
+                      </span>
                     </div>
+                  )}
+                  <div className="absolute bottom-1 left-1 flex items-center gap-1 bg-zinc-950/80 backdrop-blur-md px-1.5 py-0.5 rounded text-[9px] font-mono text-zinc-300 border border-zinc-800">
+                    <span className="truncate max-w-[85px]">{displayName} (You)</span>
+                    {!audioEnabled && <MicOff className="h-2 w-2 text-destructive" />}
                   </div>
-
-                  {/* Remote Participants Cards */}
-                  {remoteParticipants.map((p) => (
-                    <RemoteCameraPiPTile key={p.identity} participant={p} />
-                  ))}
                 </div>
 
-                {/* Scroll right button */}
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => carouselRef.current?.scrollBy({ left: 220, behavior: "smooth" })}
-                  className="h-8 w-8 shrink-0 rounded-full bg-zinc-900/80 text-zinc-300 hover:bg-zinc-800"
-                  aria-label="Scroll participants right"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
+                {/* Remote Participants Cards */}
+                {remoteParticipants.map((p) => (
+                  <RemoteCameraPiPTile key={p.identity} participant={p} />
+                ))}
               </div>
-            </div>
+
+              {/* Scroll Down Button (v) */}
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                onClick={() => carouselVerticalRef.current?.scrollBy({ top: 160, behavior: "smooth" })}
+                className="h-7 w-full rounded-lg bg-zinc-900/90 text-zinc-300 hover:bg-zinc-800 hover:text-white shrink-0 mt-1 border border-zinc-800/80 shadow-sm"
+                aria-label="Faire défiler vers le bas"
+              >
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </aside>
+
+            {/* Floating button to reopen sidebar if collapsed */}
+            {!participantsSidebarOpen && (
+              <button
+                type="button"
+                onClick={() => setParticipantsSidebarOpen(true)}
+                className="absolute right-3 top-3 z-20 flex items-center gap-1 bg-zinc-900/90 border border-zinc-700/80 text-zinc-300 hover:text-white px-2.5 py-1.5 rounded-lg text-xs font-mono shadow-xl backdrop-blur-md transition-colors"
+                title="Afficher les participants"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                <Users className="h-3.5 w-3.5" />
+                <span>{participantsCount}</span>
+              </button>
+            )}
           </div>
         ) : (
           /* Main Stage Video Grid */
