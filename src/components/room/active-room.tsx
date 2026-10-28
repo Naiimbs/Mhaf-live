@@ -23,9 +23,14 @@ import {
   ChevronDown,
   Volume2,
   VolumeX,
+  CircleDot,
+  Pin,
+  PinOff,
+  Maximize2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand-logo";
+import { MeetingRecorder, type RecorderState } from "@/lib/recording/meeting-recorder";
 import {
   playUserJoinSound,
   playUserLeaveSound,
@@ -147,16 +152,34 @@ function RemoteParticipantTile({ participant }: { participant: RemoteParticipant
   }, [participant]);
 
   const pName = participant.name || participant.identity || "Guest";
+  const [isPortrait, setIsPortrait] = React.useState(false);
+
+  const handleLoadedMetadata = () => {
+    if (videoRef.current) {
+      setIsPortrait(videoRef.current.videoHeight > videoRef.current.videoWidth);
+    }
+  };
 
   return (
-    <div className="relative aspect-video w-full max-h-[70vh] rounded-2xl border border-zinc-800 bg-zinc-900 overflow-hidden shadow-md flex items-center justify-center">
+    <div
+      className={`relative w-full rounded-2xl border ${
+        isPinned ? "border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]" : "border-zinc-800"
+      } bg-zinc-900 overflow-hidden shadow-md flex items-center justify-center transition-all ${
+        isTwoPersonLayout
+          ? "h-full flex-1 min-h-0 min-w-0"
+          : isPortrait
+          ? "aspect-[9/16] max-h-[75vh]"
+          : "aspect-video max-h-[70vh]"
+      }`}
+    >
       <video
         ref={videoRef}
         autoPlay
         playsInline
-        className={`h-full w-full object-cover transition-opacity duration-300 ${
-          hasVideo ? "opacity-100" : "opacity-0"
-        }`}
+        onLoadedMetadata={handleLoadedMetadata}
+        className={`h-full w-full transition-opacity duration-300 ${
+          isPortrait ? "object-contain bg-zinc-950" : "object-cover"
+        } ${hasVideo ? "opacity-100" : "opacity-0"}`}
       />
       <audio ref={audioRef} autoPlay />
 
@@ -175,6 +198,21 @@ function RemoteParticipantTile({ participant }: { participant: RemoteParticipant
         <span>{pName}</span>
         {isAudioMuted && <MicOff className="h-3 w-3 text-destructive" />}
       </div>
+
+      {onTogglePin && (
+        <button
+          type="button"
+          onClick={onTogglePin}
+          className={`absolute top-3 right-3 z-10 p-1.5 rounded-lg border text-xs backdrop-blur-md transition-colors ${
+            isPinned
+              ? "bg-emerald-600/90 text-white border-emerald-400"
+              : "bg-zinc-950/70 text-zinc-400 hover:text-white border-zinc-800"
+          }`}
+          title={isPinned ? "Détacher" : "Épingler en vue principale"}
+        >
+          {isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+        </button>
+      )}
     </div>
   );
 }
@@ -217,6 +255,7 @@ function ScreenShareStage({
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const [localRipples, setLocalRipples] = React.useState<ClickRipple[]>([]);
+  const [isTrackMuted, setIsTrackMuted] = React.useState(false);
   const lastMoveRef = React.useRef<number>(0);
 
   React.useEffect(() => {
@@ -224,12 +263,22 @@ function ScreenShareStage({
     if (track && videoRef.current) {
       track.attach(videoRef.current);
       attachedTrack = track;
+      setIsTrackMuted(Boolean(track.isMuted));
+
+      const onMuted = () => setIsTrackMuted(true);
+      const onUnmuted = () => setIsTrackMuted(false);
+
+      track.on?.("muted", onMuted);
+      track.on?.("unmuted", onUnmuted);
+
+      return () => {
+        track.off?.("muted", onMuted);
+        track.off?.("unmuted", onUnmuted);
+        if (attachedTrack && videoRef.current) {
+          attachedTrack.detach(videoRef.current);
+        }
+      };
     }
-    return () => {
-      if (attachedTrack && videoRef.current) {
-        attachedTrack.detach(videoRef.current);
-      }
-    };
   }, [track]);
 
   const handleStageClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -287,6 +336,17 @@ function ScreenShareStage({
         muted={isLocal}
         className="max-h-full max-w-full w-auto h-auto object-contain rounded-lg shadow-2xl pointer-events-none"
       />
+
+      {/* Mobile background / paused overlay */}
+      {isTrackMuted && (
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-zinc-950/85 backdrop-blur-sm text-center p-6 space-y-2">
+          <div className="h-10 w-10 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+            <ScreenShare className="h-5 w-5" />
+          </div>
+          <p className="text-sm font-semibold text-zinc-200">Partage d&apos;écran mobile en pause</p>
+          <p className="text-xs text-zinc-400 max-w-sm">Le présentateur navigue sur son téléphone. La diffusion reprendra dès son retour dans la salle.</p>
+        </div>
+      )}
 
       {/* Live Remote Pointers (Laser pointer + name tag as in Image 3) */}
       {(externalPointers || []).map((ptr) => (
@@ -352,11 +412,26 @@ function ScreenShareStage({
   );
 }
 
-function RemoteCameraPiPTile({ participant }: { participant: RemoteParticipant }) {
+function RemoteCameraPiPTile({
+  participant,
+  isPinned,
+  onTogglePin,
+}: {
+  participant: RemoteParticipant;
+  isPinned?: boolean;
+  onTogglePin?: () => void;
+}) {
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const [hasVideo, setHasVideo] = React.useState(false);
   const [isAudioMuted, setIsAudioMuted] = React.useState(false);
+  const [isPortrait, setIsPortrait] = React.useState(false);
+
+  const handleLoadedMetadata = () => {
+    if (videoRef.current) {
+      setIsPortrait(videoRef.current.videoHeight > videoRef.current.videoWidth);
+    }
+  };
 
   React.useEffect(() => {
     let attachedVideoTrack: any = null;
@@ -420,12 +495,21 @@ function RemoteCameraPiPTile({ participant }: { participant: RemoteParticipant }
   const pName = participant.name || participant.identity || "Guest";
 
   return (
-    <div className="relative w-full aspect-video shrink-0 rounded-xl border border-zinc-700/80 bg-zinc-900/95 overflow-hidden shadow-md flex items-center justify-center backdrop-blur-md">
+    <div
+      className={`relative w-full ${
+        isPortrait ? "aspect-[9/16]" : "aspect-video"
+      } shrink-0 rounded-xl border ${
+        isPinned ? "border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.3)]" : "border-zinc-700/80"
+      } bg-zinc-900/95 overflow-hidden shadow-md flex items-center justify-center backdrop-blur-md transition-all`}
+    >
       <video
         ref={videoRef}
         autoPlay
         playsInline
-        className={`h-full w-full object-cover transition-opacity ${hasVideo ? "opacity-100" : "opacity-0"}`}
+        onLoadedMetadata={handleLoadedMetadata}
+        className={`h-full w-full ${
+          isPortrait ? "object-contain bg-zinc-950" : "object-cover"
+        } transition-opacity ${hasVideo ? "opacity-100" : "opacity-0"}`}
       />
       <audio ref={audioRef} autoPlay />
       {!hasVideo && (
@@ -440,6 +524,20 @@ function RemoteCameraPiPTile({ participant }: { participant: RemoteParticipant }
         <span className="truncate max-w-[85px]">{pName}</span>
         {isAudioMuted && <MicOff className="h-2 w-2 text-destructive" />}
       </div>
+      {onTogglePin && (
+        <button
+          type="button"
+          onClick={onTogglePin}
+          className={`absolute top-1 right-1 p-1 rounded-md text-[10px] border backdrop-blur-md transition-colors ${
+            isPinned
+              ? "bg-emerald-600 text-white border-emerald-400"
+              : "bg-zinc-950/80 text-zinc-400 hover:text-white border-zinc-800"
+          }`}
+          title={isPinned ? "Détacher" : "Épingler en haut"}
+        >
+          {isPinned ? <PinOff className="h-2.5 w-2.5" /> : <Pin className="h-2.5 w-2.5" />}
+        </button>
+      )}
     </div>
   );
 }
@@ -505,6 +603,60 @@ export function ActiveRoom({
       };
     }
   }, []);
+
+  const [pinnedParticipantId, setPinnedParticipantId] = React.useState<string | null>(null);
+  const [localIsPortrait, setLocalIsPortrait] = React.useState(false);
+  const recorderRef = React.useRef<MeetingRecorder | null>(null);
+  const [recorderState, setRecorderState] = React.useState<RecorderState>({
+    isRecording: false,
+    durationSeconds: 0,
+    formattedDuration: "00:00",
+  });
+
+  const handleLocalVideoMetadata = () => {
+    if (localVideoRef.current) {
+      setLocalIsPortrait(localVideoRef.current.videoHeight > localVideoRef.current.videoWidth);
+    }
+  };
+
+  React.useEffect(() => {
+    recorderRef.current = new MeetingRecorder((state) => {
+      setRecorderState(state);
+    });
+    return () => {
+      if (recorderRef.current) {
+        recorderRef.current.stopRecording();
+      }
+    };
+  }, []);
+
+  const toggleRecording = async () => {
+    if (!recorderRef.current) return;
+    if (recorderState.isRecording) {
+      recorderRef.current.stopRecording(`meet-${roomName}`);
+    } else {
+      const audioStreams: MediaStream[] = [];
+      if (localTracksRef.current) {
+        const audioTrack = localTracksRef.current.find((t) => t.kind === "audio");
+        if (audioTrack?.mediaStreamTrack) {
+          audioStreams.push(new MediaStream([audioTrack.mediaStreamTrack]));
+        }
+      }
+      remoteParticipants.forEach((p) => {
+        p.audioTrackPublications.forEach((pub) => {
+          if (pub.isSubscribed && pub.track?.mediaStreamTrack) {
+            audioStreams.push(new MediaStream([pub.track.mediaStreamTrack]));
+          }
+        });
+      });
+      await recorderRef.current.startRecording(null, audioStreams);
+    }
+  };
+
+  const pinnedParticipant = React.useMemo(() => {
+    if (!pinnedParticipantId) return null;
+    return remoteParticipants.find((p) => p.identity === pinnedParticipantId) || null;
+  }, [pinnedParticipantId, remoteParticipants]);
 
   const [soundEffectsOn, setSoundEffectsOn] = React.useState(isSoundEffectsEnabled());
   const [externalRipples, setExternalRipples] = React.useState<ClickRipple[]>([]);
@@ -614,8 +766,9 @@ export function ActiveRoom({
 
         const updateRemoteParticipants = () => {
           if (!mounted) return;
-          setRemoteParticipants(Array.from(room.remoteParticipants.values()));
-          setParticipantsCount(room.numParticipants + 1);
+          const remotes = Array.from(room.remoteParticipants.values());
+          setRemoteParticipants(remotes);
+          setParticipantsCount(1 + remotes.length);
         };
 
         // Set up event listeners
@@ -926,6 +1079,18 @@ export function ActiveRoom({
             <span className="hidden sm:inline">{inviteLinkStatus || "Copy invite link"}</span>
           </Button>
           <span className="sr-only" role="status" aria-live="polite">{inviteLinkStatus}</span>
+          {/* In-Browser Recording Indicator */}
+          {recorderState.isRecording && (
+            <div
+              className="flex items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/15 px-2.5 py-1 font-mono text-[11px] text-red-400 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.3)]"
+              role="status"
+              aria-live="polite"
+            >
+              <CircleDot className="h-3 w-3 text-red-500" />
+              <span>REC {recorderState.formattedDuration}</span>
+            </div>
+          )}
+
           <div
             className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[11px] ${
               connectionState === "connected"
@@ -966,8 +1131,72 @@ export function ActiveRoom({
         )}
         {/* Main Stage: Screen Share with Right Vertical Participant Rail or Regular Grid */}
         {activeScreenShare ? (
-          <div className="relative flex-1 h-full w-full bg-zinc-950 overflow-hidden flex flex-row">
-            {/* Left Screen Share Stage - Fits entirely without any overlap */}
+          <div className="relative flex-1 h-full w-full bg-zinc-950 overflow-hidden flex flex-col md:flex-row">
+            {/* Mobile-only Top Camera Spotlight (Pinned Participant or Host/You) */}
+            <div className="md:hidden w-full shrink-0 bg-zinc-900/90 border-b border-zinc-800/80 px-3 py-1.5 flex items-center justify-between z-10">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-mono uppercase text-zinc-300">
+                  {pinnedParticipant
+                    ? `Épinglé: ${pinnedParticipant.name || pinnedParticipant.identity}`
+                    : "Caméra Hôte"}
+                </span>
+                {pinnedParticipant && (
+                  <button
+                    type="button"
+                    onClick={() => setPinnedParticipantId(null)}
+                    className="text-[10px] text-zinc-400 hover:text-white flex items-center gap-0.5 underline"
+                  >
+                    <PinOff className="h-2.5 w-2.5" /> Revenir à l&apos;hôte
+                  </button>
+                )}
+              </div>
+
+              {/* Mobile button to toggle participant drawer to choose who to pin */}
+              <button
+                type="button"
+                onClick={() => setParticipantsSidebarOpen((prev) => !prev)}
+                className="flex items-center gap-1 text-[11px] font-mono text-zinc-300 bg-zinc-800 px-2 py-0.5 rounded border border-zinc-700"
+              >
+                <Users className="h-3 w-3" />
+                <span>Changer ({participantsCount})</span>
+              </button>
+            </div>
+
+            {/* Mobile Spotlight Video Feed (Above ScreenShare on small screens) */}
+            <div className="md:hidden w-full shrink-0 bg-zinc-950 flex justify-center py-1.5 px-2 border-b border-zinc-800/60 max-h-36">
+              {pinnedParticipant ? (
+                <div className="h-28 w-auto aspect-video max-w-full rounded-xl overflow-hidden border border-emerald-500/80 bg-zinc-900 shadow relative">
+                  <RemoteCameraPiPTile
+                    participant={pinnedParticipant}
+                    isPinned={true}
+                    onTogglePin={() => setPinnedParticipantId(null)}
+                  />
+                </div>
+              ) : (
+                <div className="h-28 w-auto aspect-video max-w-full rounded-xl overflow-hidden border border-zinc-700 bg-zinc-900 shadow relative">
+                  <video
+                    ref={localPipVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className={`h-full w-full object-cover transform -scale-x-100 transition-opacity ${
+                      videoEnabled ? "opacity-100" : "opacity-0"
+                    }`}
+                  />
+                  {!videoEnabled && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-400 text-[10px]">
+                      <VideoOff className="h-4 w-4 mb-1" />
+                      <span>{displayName} (Off)</span>
+                    </div>
+                  )}
+                  <div className="absolute bottom-1 left-1 bg-zinc-950/80 px-1 py-0.5 rounded text-[8px] font-mono text-zinc-300">
+                    {displayName} (Hôte)
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Presentation Stage - Fits entirely without any overlap */}
             <div className="relative flex-1 h-full min-w-0 min-h-0 flex items-center justify-center p-1.5 sm:p-2 overflow-hidden">
               <ScreenShareStage
                 track={activeScreenShare.track}
@@ -985,8 +1214,10 @@ export function ActiveRoom({
             {/* Right Vertical Participants Rail (Docked on right side, never masks screen share) */}
             <aside
               className={`${
-                participantsSidebarOpen ? "w-44 sm:w-52 md:w-56" : "w-0 border-l-0 p-0"
-              } shrink-0 h-full border-l border-zinc-800/90 bg-zinc-950/95 flex flex-col items-center py-2 px-2 z-10 transition-all duration-200 select-none overflow-hidden relative`}
+                participantsSidebarOpen ? "w-48 sm:w-52 md:w-56" : "w-0 border-l-0 p-0 hidden md:flex"
+              } shrink-0 h-full border-l border-zinc-800/90 bg-zinc-950/95 flex flex-col items-center py-2 px-2 z-20 transition-all duration-200 select-none overflow-hidden ${
+                participantsSidebarOpen ? "absolute right-0 top-0 bottom-0 md:relative" : ""
+              }`}
             >
               {/* Header / Toggle */}
               <div className="w-full flex items-center justify-between px-1 pb-1.5 mb-1 border-b border-zinc-800/60 text-[11px] font-mono text-zinc-400 shrink-0">
@@ -1048,9 +1279,16 @@ export function ActiveRoom({
                   </div>
                 </div>
 
-                {/* Remote Participants Cards */}
+                {/* Remote Participants Cards with Pin Spotlight controls */}
                 {remoteParticipants.map((p) => (
-                  <RemoteCameraPiPTile key={p.identity} participant={p} />
+                  <RemoteCameraPiPTile
+                    key={p.identity}
+                    participant={p}
+                    isPinned={pinnedParticipantId === p.identity}
+                    onTogglePin={() =>
+                      setPinnedParticipantId(pinnedParticipantId === p.identity ? null : p.identity)
+                    }
+                  />
                 ))}
               </div>
 
@@ -1072,7 +1310,7 @@ export function ActiveRoom({
               <button
                 type="button"
                 onClick={() => setParticipantsSidebarOpen(true)}
-                className="absolute right-3 top-3 z-20 flex items-center gap-1 bg-zinc-900/90 border border-zinc-700/80 text-zinc-300 hover:text-white px-2.5 py-1.5 rounded-lg text-xs font-mono shadow-xl backdrop-blur-md transition-colors"
+                className="absolute right-3 top-3 z-30 flex items-center gap-1 bg-zinc-900/90 border border-zinc-700/80 text-zinc-300 hover:text-white px-2.5 py-1.5 rounded-lg text-xs font-mono shadow-xl backdrop-blur-md transition-colors"
                 title="Afficher les participants"
               >
                 <ChevronLeft className="h-3.5 w-3.5" />
@@ -1081,8 +1319,52 @@ export function ActiveRoom({
               </button>
             )}
           </div>
+        ) : remoteParticipants.length === 1 ? (
+          /* Optimized 2-Participant Layout: 100% viewport space, zero wasted black bars */
+          <div className="flex-1 h-full w-full min-h-0 min-w-0 p-2 sm:p-3 flex flex-col md:flex-row gap-2 sm:gap-3 items-stretch justify-stretch overflow-hidden bg-zinc-950">
+            {/* Local User Tile */}
+            <div className="relative flex-1 h-full w-full min-h-0 min-w-0 rounded-2xl border border-zinc-800 bg-zinc-900 overflow-hidden shadow-md flex items-center justify-center">
+              <video
+                ref={localVideoRef}
+                autoPlay
+                playsInline
+                muted
+                onLoadedMetadata={handleLocalVideoMetadata}
+                className={`h-full w-full ${
+                  localIsPortrait ? "object-contain bg-zinc-950" : "object-cover"
+                } transform -scale-x-100 transition-opacity ${videoEnabled ? "opacity-100" : "opacity-0"}`}
+              />
+
+              {!videoEnabled && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-400 space-y-2">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-800 text-zinc-400 border border-zinc-700">
+                    <VideoOff className="h-6 w-6" />
+                  </div>
+                  <span className="text-xs font-medium">{displayName} (Camera Off)</span>
+                </div>
+              )}
+
+              {/* Tile Label */}
+              <div className="absolute bottom-3 left-3 flex items-center gap-2 bg-zinc-950/80 backdrop-blur-md px-2.5 py-1 rounded-md text-xs font-mono text-zinc-300 border border-zinc-800">
+                <span>{displayName} (You)</span>
+                {!audioEnabled && <MicOff className="h-3 w-3 text-destructive" />}
+              </div>
+            </div>
+
+            {/* Remote Participant Tile (takes the remaining 50% space seamlessly) */}
+            <RemoteParticipantTile
+              participant={remoteParticipants[0]}
+              isTwoPersonLayout={true}
+              isPinned={pinnedParticipantId === remoteParticipants[0].identity}
+              onTogglePin={() =>
+                setPinnedParticipantId(
+                  pinnedParticipantId === remoteParticipants[0].identity ? null : remoteParticipants[0].identity
+                )
+              }
+            />
+          </div>
         ) : (
-          /* Main Stage Video Grid */
+          /* Main Stage Multi-Video Grid (> 1 remote participant or waiting) */
           <div className="flex-1 p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 items-center justify-center overflow-auto bg-zinc-950">
             {/* Local User Tile */}
             <div className="relative aspect-video w-full max-h-[70vh] rounded-2xl border border-zinc-800 bg-zinc-900 overflow-hidden shadow-md flex items-center justify-center">
@@ -1091,9 +1373,10 @@ export function ActiveRoom({
                 autoPlay
                 playsInline
                 muted
-                className={`h-full w-full object-cover transform -scale-x-100 transition-opacity ${
-                  videoEnabled ? "opacity-100" : "opacity-0"
-                }`}
+                onLoadedMetadata={handleLocalVideoMetadata}
+                className={`h-full w-full ${
+                  localIsPortrait ? "object-contain bg-zinc-950" : "object-cover"
+                } transform -scale-x-100 transition-opacity ${videoEnabled ? "opacity-100" : "opacity-0"}`}
               />
 
               {!videoEnabled && (
@@ -1115,7 +1398,14 @@ export function ActiveRoom({
             {/* Remote Participants or Waiting Placeholder */}
             {remoteParticipants.length > 0 ? (
               remoteParticipants.map((p) => (
-                <RemoteParticipantTile key={p.identity} participant={p} />
+                <RemoteParticipantTile
+                  key={p.identity}
+                  participant={p}
+                  isPinned={pinnedParticipantId === p.identity}
+                  onTogglePin={() =>
+                    setPinnedParticipantId(pinnedParticipantId === p.identity ? null : p.identity)
+                  }
+                />
               ))
             ) : (
               <div className="relative aspect-video w-full max-h-[70vh] rounded-2xl border border-zinc-800/80 bg-zinc-900/50 overflow-hidden shadow-md flex flex-col items-center justify-center text-zinc-500 p-6 text-center space-y-3">
@@ -1242,6 +1532,27 @@ export function ActiveRoom({
             aria-label={screenSharing ? "Stop sharing screen" : "Share screen"}
           >
             <ScreenShare className="h-5 w-5" />
+          </button>
+
+          {/* Record Meeting (Option 1 - In-Browser) */}
+          <button
+            type="button"
+            id="room-record-btn"
+            onClick={toggleRecording}
+            className={`flex h-11 px-3.5 items-center gap-1.5 rounded-full transition-all text-xs font-semibold ${
+              recorderState.isRecording
+                ? "bg-red-600 text-white shadow-[0_0_15px_rgba(239,68,68,0.5)] animate-pulse"
+                : "bg-zinc-800 text-zinc-200 hover:bg-zinc-700 hover:text-white"
+            }`}
+            aria-label={recorderState.isRecording ? "Arrêter l'enregistrement" : "Enregistrer la réunion"}
+            title={
+              recorderState.isRecording
+                ? "Arrêter l'enregistrement (téléchargement direct)"
+                : "Enregistrer la réunion (Option 1: direct navigateur, 0 serveur)"
+            }
+          >
+            <CircleDot className={`h-4 w-4 ${recorderState.isRecording ? "text-white" : "text-red-500"}`} />
+            <span>{recorderState.isRecording ? recorderState.formattedDuration : "REC"}</span>
           </button>
 
           {/* End / Leave Call */}
