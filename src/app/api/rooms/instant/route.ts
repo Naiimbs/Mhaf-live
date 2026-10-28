@@ -1,37 +1,43 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { db } from "@/lib/db";
 import { getCurrentHost } from "@/lib/auth/session";
 
+const InstantMeetingSchema = z.object({
+  title: z.string().trim().min(2).max(100).optional(),
+});
+
 export async function POST(request: Request) {
+  const host = await getCurrentHost();
+  if (!host) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
-    const currentHost = await getCurrentHost();
-    const defaultHost =
-      (await db.findUserByEmail("host@mhaf.live")) ||
-      (await db.findUserById("host_default_01"));
-    const hostId = currentHost?.id || defaultHost?.id || "host_default_01";
-
     const body = await request.json().catch(() => ({}));
-    const roomTitle = body.title || "Instant Meeting";
-    const attendeeName = body.attendeeName || body.userName || undefined;
+    const parsed = InstantMeetingSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Meeting title must be between 2 and 100 characters." }, { status: 400 });
+    }
 
-    const booking = await db.createInstantRoom({
-      hostId,
-      roomName: roomTitle,
-      attendeeName,
+    const startTime = new Date();
+    const endTime = new Date(startTime.getTime() + 2 * 60 * 60 * 1000);
+    const result = await db.createMeetingWithConflictLock({
+      hostId: host.id,
+      title: parsed.data.title || "Instant meeting",
+      source: "INSTANT",
+      startTime,
+      endTime,
     });
+    if (!result.success) {
+      return NextResponse.json({ error: result.error }, { status: 409 });
+    }
 
     return NextResponse.json(
-      {
-        success: true,
-        roomUid: booking.uid,
-        roomUrl: `/rooms/${booking.uid}`,
-        booking,
-      },
+      { success: true, meeting: result.meeting, roomUid: result.meeting.uid, roomUrl: `/rooms/${result.meeting.uid}` },
       { status: 201 }
     );
-  } catch (err: any) {
+  } catch (error) {
     return NextResponse.json(
-      { error: err.message || "Failed to create instant meeting room." },
+      { error: error instanceof Error ? error.message : "Failed to create instant meeting." },
       { status: 500 }
     );
   }

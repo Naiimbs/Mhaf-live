@@ -15,6 +15,7 @@ interface RoomContainerProps {
   startTime: string;
   endTime: string;
   isHostUser: boolean;
+  hasBooking: boolean;
 }
 
 interface ConnectionData {
@@ -33,6 +34,7 @@ export function RoomContainer({
   startTime,
   endTime,
   isHostUser,
+  hasBooking,
 }: RoomContainerProps) {
   const [stage, setStage] = React.useState<"prejoin" | "active" | "left">("prejoin");
   const [joining, setJoining] = React.useState(false);
@@ -146,11 +148,11 @@ export function RoomContainer({
       {/* Top back navigation */}
       <div className="max-w-4xl w-full mx-auto mb-6 flex items-center justify-between">
         <Link
-          href={`/book/confirmation/${roomUid}`}
+          href={hasBooking ? `/book/confirmation/${roomUid}` : isHostUser ? "/dashboard" : "/"}
           className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors font-medium"
         >
           <ArrowLeft className="h-4 w-4" />
-          <span>Back to Reservation Details</span>
+          <span>{hasBooking ? "Back to Reservation Details" : isHostUser ? "Back to Calendar" : "Back to Homepage"}</span>
         </Link>
       </div>
 

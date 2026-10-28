@@ -1,8 +1,10 @@
 # MHAF Live — Open-Source Reference Audit & Dependency Analysis
 
-**Document Status:** Complete & Verified  
-**Date:** October 2026  
-**Target Repository:** `d:/naiimC/Mhaf-live`  
+**Document Status:** Historical source-reference audit; not a current implementation description
+**Date:** October 2026
+**Target Repository:** `Naiimbs/Mhaf-live`
+
+> The baseline notes below describe the repository at the time of the original audit. They predate `feat/calendar-workspace-flow`; use `docs/architecture.md`, `docs/data-model.md`, and `docs/implementation-roadmap.md` for the current implementation and verification state.
 
 ---
 
@@ -18,12 +20,11 @@ Rather than cloning or indiscriminately copying upstream repositories, this audi
 
 ---
 
-## 2. MHAF Live Baseline Inspection
+## 2. Historical MHAF Live Baseline Inspection
 
-* **Current Workspace Path:** `d:/naiimC/Mhaf-live`
-* **Repository State:** Clean, pristine workspace initialized for this architecture and implementation plan.
-* **Pre-existing Framework / Lockfile:** None (no conflicting `package.json`, `pnpm-lock.yaml`, or framework runtime).
-* **Architectural Advantage:** Zero legacy technical debt. The project can be deliberately structured with strict version alignment across Next.js App Router, React 19 / 18, Tailwind CSS, PostgreSQL, and LiveKit without migration blockers.
+* **Workspace path in the original audit:** `d:/naiimC/Mhaf-live`.
+* **Repository state at that time:** Clean scaffold, before the scheduling and meeting workflows were added.
+* **Historical baseline:** The claims about a pristine repository, absent framework, or zero legacy constraints are not current-state claims and must not guide present deployment decisions.
 
 ---
 

@@ -17,6 +17,7 @@ import {
   ChevronLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getLocalDateString } from "@/lib/scheduling/timezone";
 
 interface SlotItem {
   slotId: string;
@@ -25,6 +26,12 @@ interface SlotItem {
   displayTime: string;
   durationMinutes: number;
   available: boolean;
+}
+
+function addIsoDays(dateString: string, days: number): string {
+  const [year, month, day] = dateString.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day + days));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
 }
 
 const COMMON_TIMEZONES = [
@@ -50,12 +57,11 @@ export default function PublicBookingPage() {
 
   // Selected state
   const [selectedDate, setSelectedDate] = React.useState<string>(() => {
-    // Default to tomorrow or next business day
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    // If weekend, advance
-    return tomorrow.toISOString().split("T")[0];
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    return addIsoDays(getLocalDateString(new Date(), timezone), 1);
   });
+  const userSelectedDate = React.useRef(false);
+  const initializedHostDate = React.useRef(false);
   const [attendeeTimezone, setAttendeeTimezone] = React.useState("UTC");
   const [selectedSlot, setSelectedSlot] = React.useState<SlotItem | null>(null);
 
@@ -107,6 +113,12 @@ export default function PublicBookingPage() {
       }
 
       setHostInfo(data.host);
+      if (!initializedHostDate.current) {
+        initializedHostDate.current = true;
+        if (!userSelectedDate.current) {
+          setSelectedDate(addIsoDays(getLocalDateString(new Date(), data.host.timezone || "UTC"), 1));
+        }
+      }
       setEventType(data.eventType);
       setSlots(data.slots || []);
     } catch (err: any) {
@@ -285,7 +297,7 @@ export default function PublicBookingPage() {
                     Select a Date
                   </h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Available times will calculate automatically in your local timezone.
+                    Choose a date in the host’s timezone; available times are shown in your selected timezone.
                   </p>
 
                   <div className="mt-3 max-w-xs">
@@ -293,8 +305,11 @@ export default function PublicBookingPage() {
                       type="date"
                       id="booking-date-picker"
                       value={selectedDate}
-                      min={new Date().toISOString().split("T")[0]}
-                      onChange={(e) => setSelectedDate(e.target.value)}
+                      min={getLocalDateString(new Date(), hostInfo?.timezone || "UTC")}
+                      onChange={(e) => {
+                        userSelectedDate.current = true;
+                        setSelectedDate(e.target.value);
+                      }}
                       className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-ring"
                     />
                   </div>
@@ -348,7 +363,7 @@ export default function PublicBookingPage() {
                       {selectedSlot.displayTime} ({attendeeTimezone})
                     </h3>
                     <p className="text-xs text-muted-foreground">
-                      Date: {new Date(selectedSlot.startTimeUtc).toDateString()}
+                      Date: {new Intl.DateTimeFormat("en-US", { dateStyle: "full", timeZone: attendeeTimezone }).format(new Date(selectedSlot.startTimeUtc))}
                     </p>
                   </div>
 

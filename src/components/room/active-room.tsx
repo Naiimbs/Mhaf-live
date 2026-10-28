@@ -170,6 +170,7 @@ export function ActiveRoom({
   onLeaveRoom,
 }: ActiveRoomProps) {
   const [connectionState, setConnectionState] = React.useState<string>("connecting");
+  const [connectionError, setConnectionError] = React.useState<string | null>(null);
   const [audioEnabled, setAudioEnabled] = React.useState(initialAudioEnabled);
   const [videoEnabled, setVideoEnabled] = React.useState(initialVideoEnabled);
   const [screenSharing, setScreenSharing] = React.useState(false);
@@ -208,6 +209,7 @@ export function ActiveRoom({
     const connectLiveKit = async () => {
       try {
         setConnectionState("connecting");
+        setConnectionError(null);
 
         const updateRemoteParticipants = () => {
           if (!mounted) return;
@@ -285,14 +287,12 @@ export function ActiveRoom({
           await room.localParticipant.publishTrack(track);
         }
       } catch (err: any) {
-        console.warn(
-          "[ActiveRoom] LiveKit server connection failed (development sandbox mode):",
-          err.message
-        );
-        // In local development sandbox where LiveKit SFU daemon is offline,
-        // transition cleanly to active stage view with active local stream
+        console.warn("[ActiveRoom] LiveKit connection failed:", err.message);
+        localTracksRef.current.forEach((track) => track.stop());
+        localTracksRef.current = [];
         if (mounted) {
-          setConnectionState("connected");
+          setConnectionState("error");
+          setConnectionError(err.message || "Unable to connect to the meeting server.");
         }
       }
     };
@@ -393,9 +393,25 @@ export function ActiveRoom({
 
         {/* Live Status Pill */}
         <div className="flex items-center gap-3 text-xs">
-          <div className="flex items-center gap-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-full font-mono text-[11px]">
-            <Radio className="h-3 w-3 animate-pulse" />
-            <span>SESSION LIVE</span>
+          <div
+            className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[11px] ${
+              connectionState === "connected"
+                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                : connectionState === "error" || connectionState === "disconnected"
+                  ? "bg-red-500/10 text-red-400 border-red-500/20"
+                  : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+            }`}
+            role="status"
+            aria-live="polite"
+          >
+            <Radio className={`h-3 w-3 ${connectionState === "connected" ? "animate-pulse" : ""}`} />
+            <span>
+              {connectionState === "connected"
+                ? "SESSION LIVE"
+                : connectionState === "error"
+                  ? "CONNECTION FAILED"
+                  : connectionState.toUpperCase()}
+            </span>
           </div>
 
           <div className="flex items-center gap-1 text-zinc-400 font-mono text-[11px]">
@@ -407,6 +423,11 @@ export function ActiveRoom({
 
       {/* Main Video Viewport & Sidebars */}
       <main className="flex-1 flex overflow-hidden relative">
+        {connectionError && (
+          <div className="absolute left-4 right-4 top-4 z-20 rounded-lg border border-red-500/30 bg-red-950/90 p-3 text-sm text-red-100 sm:left-6 sm:right-auto sm:max-w-lg" role="alert">
+            Could not connect to the meeting server. Check your connection and try again. <span className="text-red-200/80">{connectionError}</span>
+          </div>
+        )}
         {/* Main Stage Video Grid */}
         <div className="flex-1 p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 items-center justify-center overflow-auto bg-zinc-950">
           {/* Local User Tile */}

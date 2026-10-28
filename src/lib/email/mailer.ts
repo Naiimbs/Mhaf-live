@@ -12,11 +12,28 @@ interface SendConfirmationEmailParams {
 }
 
 function getTransporter() {
-  const host = process.env.SMTP_HOST || "smtp.mail.ovh.net";
-  const port = parseInt(process.env.SMTP_PORT || "465", 10);
-  const secure = process.env.SMTP_SECURE === "true" || port === 465;
-  const user = process.env.SMTP_USER || "hi@naiimbsili.com";
-  const pass = process.env.SMTP_PASS || "NWnla117#";
+  const host = process.env.SMTP_HOST?.trim();
+  const user = process.env.SMTP_USER?.trim();
+  const pass = process.env.SMTP_PASS;
+  const missing = [
+    !host && "SMTP_HOST",
+    !user && "SMTP_USER",
+    !pass && "SMTP_PASS",
+  ].filter(Boolean);
+  if (!host || !user || !pass) {
+    throw new Error(`Email delivery is not configured. Missing: ${missing.join(", ")}.`);
+  }
+
+  const port = Number.parseInt(process.env.SMTP_PORT || "465", 10);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error("Email delivery is not configured. SMTP_PORT must be a valid TCP port.");
+  }
+
+  const secureSetting = process.env.SMTP_SECURE?.trim().toLowerCase();
+  if (secureSetting && secureSetting !== "true" && secureSetting !== "false") {
+    throw new Error('Email delivery is not configured. SMTP_SECURE must be "true" or "false".');
+  }
+  const secure = secureSetting ? secureSetting === "true" : port === 465;
 
   return nodemailer.createTransport({
     host,
@@ -25,10 +42,6 @@ function getTransporter() {
     auth: {
       user,
       pass,
-    },
-    tls: {
-      // Do not fail on invalid certs if any
-      rejectUnauthorized: false,
     },
   });
 }
@@ -44,7 +57,7 @@ export async function sendMeetingConfirmationEmail({
   hostName = "MHAF Live Host",
 }: SendConfirmationEmailParams) {
   const transporter = getTransporter();
-  const from = process.env.EMAIL_FROM || "MHAF Live <hi@naiimbsili.com>";
+  const from = process.env.EMAIL_FROM || `MHAF Live <${process.env.SMTP_USER?.trim()}>`;
 
   const startDate = new Date(startTime);
   const endDate = new Date(endTime);

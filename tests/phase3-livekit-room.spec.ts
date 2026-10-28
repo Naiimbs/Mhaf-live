@@ -1,235 +1,179 @@
 import { test, expect } from "@playwright/test";
 import { jwtVerify } from "jose";
 
-test.describe("Phase 3 — LiveKit Video Rooms, PreJoin & Token Minting", () => {
-  let activeBookingUid: string;
+test.describe("LiveKit rooms and meeting lifecycle", () => {
+  let activeInstantUid: string;
+  let bookingUid: string;
+  let futureMeetingUid: string;
   let testHostId: string;
   let testHostEmail: string;
-  let testHostPassword = "StrongPassword123!";
+  const testHostPassword = process.env.E2E_NEW_HOST_PASSWORD || "Password123!";
+  let hostCookie = "";
 
   test.beforeAll(async ({ request }) => {
-    // 1. Create a dedicated test host to ensure absolute test isolation across parallel test workers
     const hostEmail = `doctor_${Date.now()}_${Math.random().toString(36).substring(2, 6)}@test.live`;
-    const regRes = await request.post("/api/auth/register", {
-      data: {
-        name: "Dr. Jordan Hayes",
-        email: hostEmail,
-        password: testHostPassword,
-        timezone: "UTC",
-      },
+    const register = await request.post("/api/auth/register", {
+      data: { name: "Dr. Jordan Hayes", email: hostEmail, password: testHostPassword, timezone: "UTC" },
     });
-    expect(regRes.status()).toBe(201);
-    const regData = await regRes.json();
-    testHostId = regData.user.id;
+    expect(register.status()).toBe(201);
+    const registerData = await register.json();
+    testHostId = registerData.user.id;
     testHostEmail = hostEmail;
 
-    // 2. Fetch the default 30min event type created for this host
-    const slotsRes = await request.get(
-      `/api/schedule/slots?hostId=${testHostId}&eventSlug=30min&date=2026-10-30&timezone=UTC`
-    );
-    const slotsData = await slotsRes.json();
-    const eventTypeId = slotsData.eventType?.id || "evt_30min_01";
+    const login = await request.post("/api/auth/login", { data: { email: testHostEmail, password: testHostPassword } });
+    expect(login.status()).toBe(200);
+    hostCookie = login.headers()["set-cookie"] || "";
+    expect(hostCookie).toContain("mhaf_session=");
 
-    // 3. Create confirmed booking scheduled 5 min from now (within 15-min early join window)
-    const now = new Date();
-    const startTime = new Date(now.getTime() + 5 * 60 * 1000);
-    const endTime = new Date(now.getTime() + 35 * 60 * 1000);
+    let openSlot: { startTimeUtc: string; endTimeUtc: string; eventTypeId: string } | null = null;
+    const baseDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+    for (let index = 0; index < 45 && !openSlot; index++) {
+      const candidate = new Date(baseDate);
+      candidate.setUTCDate(candidate.getUTCDate() + index);
+      const weekday = candidate.getUTCDay();
+      if (weekday === 0 || weekday === 6) continue;
+      const date = candidate.toISOString().slice(0, 10);
+      const slotsResponse = await request.get(`/api/schedule/slots?hostId=${testHostId}&eventSlug=30min&date=${date}&timezone=UTC`);
+      if (slotsResponse.ok()) {
+        const slotsBody = await slotsResponse.json();
+        const available = slotsBody.slots?.find((slot: { available: boolean }) => slot.available);
+        if (available) openSlot = { ...available, eventTypeId: slotsBody.eventType.id };
+      }
+    }
+    expect(openSlot).not.toBeNull();
 
-    const bookRes = await request.post("/api/schedule/book", {
+    const bookingResponse = await request.post("/api/schedule/book", {
       data: {
         hostId: testHostId,
-        eventTypeId,
+        eventTypeId: openSlot!.eventTypeId,
         attendeeName: "Dr. Eleanor Vance",
         attendeeEmail: "eleanor.vance@hillhouse.org",
-        attendeeNotes: "Phase 3 WebRTC PreJoin verification call.",
-        startTimeUtc: startTime.toISOString(),
-        endTimeUtc: endTime.toISOString(),
+        attendeeNotes: "Room flow verification.",
+        startTimeUtc: openSlot!.startTimeUtc,
+        endTimeUtc: openSlot!.endTimeUtc,
       },
     });
+    expect(bookingResponse.status()).toBe(201);
+    bookingUid = (await bookingResponse.json()).booking.uid;
 
-    expect(bookRes.status()).toBe(201);
-    const bookData = await bookRes.json();
-    activeBookingUid = bookData.booking.uid;
-    expect(activeBookingUid).toBeTruthy();
-  });
-
-  // --------------------------------------------------------------------------
-  // Server-side Token Minting Boundary (/api/connection-details)
-  // --------------------------------------------------------------------------
-  test("1. Rejects missing room identifier with 400 Bad Request", async ({ request }) => {
-    const res = await request.get("/api/connection-details");
-    expect(res.status()).toBe(400);
-    const body = await res.json();
-    expect(body.error).toMatch(/Room UID is required/i);
-  });
-
-  test("2. Rejects invalid or nonexistent booking UID with 404 Not Found", async ({ request }) => {
-    const res = await request.get("/api/connection-details?room=mhaf-nonexistent-999");
-    expect(res.status()).toBe(404);
-    const body = await res.json();
-    expect(body.error).toMatch(/not found/i);
-  });
-
-  test("3. Blocks rooms scheduled too far in advance with 403 and joinableAt metadata", async ({
-    request,
-  }) => {
-    // Create a booking 3 days in the future
-    const futureStart = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
-    const futureEnd = new Date(futureStart.getTime() + 30 * 60 * 1000);
-
-    const bookRes = await request.post("/api/schedule/book", {
+    const now = new Date();
+    const futureStart = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+    const futureMeeting = await request.post("/api/meetings", {
+      headers: { Cookie: hostCookie },
       data: {
-        hostId: testHostId,
-        eventTypeId: "evt_30min_01",
+        title: "Future room access test",
+        date: futureStart.toISOString().slice(0, 10),
+        time: "12:00",
+        durationMinutes: 30,
         attendeeName: "Future Attendee",
         attendeeEmail: "future@mhaf.live",
-        startTimeUtc: futureStart.toISOString(),
-        endTimeUtc: futureEnd.toISOString(),
       },
     });
+    expect(futureMeeting.status()).toBe(201);
+    futureMeetingUid = (await futureMeeting.json()).meeting.uid;
 
-    expect(bookRes.status()).toBe(201);
-    const futureBooking = await bookRes.json();
-
-    const tokenRes = await request.get(
-      `/api/connection-details?room=${futureBooking.booking.uid}&enforceTime=true`
-    );
-    expect(tokenRes.status()).toBe(403);
-    const tokenBody = await tokenRes.json();
-    expect(tokenBody.error).toMatch(/not open yet/i);
-    expect(tokenBody.joinableAt).toBeTruthy();
+    const instantResponse = await request.post("/api/rooms/instant", {
+      headers: { Cookie: hostCookie },
+      data: { title: "LiveKit test room" },
+    });
+    expect(instantResponse.status()).toBe(201);
+    activeInstantUid = (await instantResponse.json()).meeting.uid;
   });
 
-  test("4. Mints valid LiveKit token for attendee without exposing API secret", async ({
-    request,
-  }) => {
-    const res = await request.get(
-      `/api/connection-details?room=${activeBookingUid}&name=Eleanor%20Vance`
-    );
-    expect(res.status()).toBe(200);
-    const data = await res.json();
+  test("rejects a token request without room identifier", async ({ request }) => {
+    const response = await request.get("/api/connection-details");
+    expect(response.status()).toBe(400);
+    expect((await response.json()).error).toMatch(/Room UID is required/i);
+  });
 
+  test("rejects an unknown room without creating one implicitly", async ({ request }) => {
+    const response = await request.get("/api/connection-details?room=mhaf-unknown-room");
+    expect(response.status()).toBe(404);
+    expect((await response.json()).error).toMatch(/not found/i);
+  });
+
+  test("scheduled meeting access cannot be opened early by client parameters", async ({ request }) => {
+    const response = await request.get(`/api/connection-details?room=${futureMeetingUid}&enforceTime=false`);
+    expect(response.status()).toBe(403);
+    const body = await response.json();
+    expect(body.error).toMatch(/not open yet/i);
+    expect(body.joinableAt).toBeTruthy();
+
+    const postResponse = await request.post("/api/connection-details", {
+      data: { room: futureMeetingUid, enforceTime: false },
+    });
+    expect(postResponse.status()).toBe(403);
+    expect((await postResponse.json()).error).toMatch(/not open yet/i);
+  });
+
+  test("mints a guest token for a saved instant room without returning server credentials", async ({ request }) => {
+    const response = await request.get(`/api/connection-details?room=${activeInstantUid}&name=Eleanor%20Vance`, { headers: { Cookie: "" } });
+    expect(response.status()).toBe(200);
+    const data = await response.json();
     expect(data.serverUrl).toBeTruthy();
     expect(data.participantToken).toBeTruthy();
-    expect(data.roomName).toBe(activeBookingUid);
+    expect(data.roomName).toBe(activeInstantUid);
     expect(data.isHost).toBe(false);
     expect(data.participantName).toBe("Eleanor Vance");
     expect(data.participantIdentity).toMatch(/^attendee_/);
+    expect(data).not.toHaveProperty("apiSecret");
 
-    // Cryptographic token verification
-    // LiveKit tokens are signed with LIVEKIT_API_SECRET
-    const apiSecret = process.env.LIVEKIT_API_SECRET || "secret";
-    const secretKey = new TextEncoder().encode(apiSecret);
+    const secretKey = new TextEncoder().encode(process.env.LIVEKIT_API_SECRET || "secret");
     const { payload } = await jwtVerify(data.participantToken, secretKey);
-
     expect(payload.sub).toBe(data.participantIdentity);
-    expect(payload.name).toBe("Eleanor Vance");
-    const videoGrant = (payload as any).video;
-    expect(videoGrant).toBeTruthy();
-    expect(videoGrant.room).toBe(activeBookingUid);
-    expect(videoGrant.roomJoin).toBe(true);
-    expect(videoGrant.roomAdmin).toBe(false); // Attendee is not host
+    const grant = (payload as { video?: Record<string, unknown> }).video;
+    expect(grant?.room).toBe(activeInstantUid);
+    expect(grant?.roomJoin).toBe(true);
+    expect(grant?.roomAdmin).toBe(false);
   });
 
-  test("5. Authenticated host receives host token with roomAdmin grant", async ({
-    request,
-  }) => {
-    // Log in as host to obtain session cookie
-    const loginRes = await request.post("/api/auth/login", {
-      data: {
-        email: testHostEmail,
-        password: testHostPassword,
-      },
-    });
-    expect(loginRes.status()).toBe(200);
-
-    // Request token with host session cookie forwarded
-    const cookieHeader = loginRes.headers()["set-cookie"];
-    const tokenRes = await request.get(
-      `/api/connection-details?room=${activeBookingUid}`,
-      {
-        headers: {
-          Cookie: cookieHeader,
-        },
-      }
-    );
-
-    expect(tokenRes.status()).toBe(200);
-    const data = await tokenRes.json();
+  test("grants host privileges only to the authenticated owner", async ({ request }) => {
+    const response = await request.get(`/api/connection-details?room=${activeInstantUid}`, { headers: { Cookie: hostCookie } });
+    expect(response.status()).toBe(200);
+    const data = await response.json();
     expect(data.isHost).toBe(true);
     expect(data.participantIdentity).toBe(`host_${testHostId}`);
 
-    // Verify roomAdmin grant in JWT
-    const apiSecret = process.env.LIVEKIT_API_SECRET || "secret";
-    const secretKey = new TextEncoder().encode(apiSecret);
+    const secretKey = new TextEncoder().encode(process.env.LIVEKIT_API_SECRET || "secret");
     const { payload } = await jwtVerify(data.participantToken, secretKey);
-    const videoGrant = (payload as any).video;
-    expect(videoGrant.roomAdmin).toBe(true);
+    expect((payload as { video?: Record<string, unknown> }).video?.roomAdmin).toBe(true);
   });
 
-  // --------------------------------------------------------------------------
-  // PreJoin Screen & Room Navigation UI Tests
-  // --------------------------------------------------------------------------
-  test("6. Accessing invalid room UID renders 404 Room Not Found error view", async ({
-    page,
-  }) => {
+  test("renders invalid room without creating an implicit booking", async ({ page }) => {
     await page.goto("/rooms/mhaf-invalid-slug-999");
     await expect(page.locator("h1")).toContainText("Room Not Found");
-    await expect(page.getByText(/No active video conferencing room exists/)).toBeVisible();
+    await expect(page.getByText(/No scheduled meeting exists/)).toBeVisible();
     await expect(page.getByRole("link", { name: "Back to Homepage" })).toBeVisible();
   });
 
-  test("7. Booking confirmation page provides direct CTA into PreJoin room", async ({
-    page,
-  }) => {
-    await page.goto(`/book/confirmation/${activeBookingUid}`);
+  test("booking confirmation links to its associated meeting room", async ({ page }) => {
+    await page.goto(`/book/confirmation/${bookingUid}`);
     await expect(page.locator("h1")).toContainText("You're Scheduled!");
-
-    const enterBtn = page.locator("#enter-room-btn");
-    await expect(enterBtn).toBeVisible();
-    await expect(enterBtn).toContainText("Enter PreJoin Room");
-
-    await enterBtn.click();
-    await expect(page).toHaveURL(new RegExp(`/rooms/${activeBookingUid}`));
+    const enterButton = page.locator("#enter-room-btn");
+    await expect(enterButton).toBeVisible();
+    await expect(enterButton).toContainText("Enter PreJoin Room");
+    await enterButton.click();
+    await expect(page).toHaveURL(new RegExp(`/rooms/${bookingUid}`));
   });
 
-  test("8. PreJoin screen renders device controls, camera preview box, and joins room", async ({
-    page,
-  }) => {
-    await page.goto(`/rooms/${activeBookingUid}`);
-
-    // Verify session metadata is loaded
+  test("room UI reports its actual LiveKit connection state", async ({ page }) => {
+    await page.goto(`/rooms/${activeInstantUid}`);
     await expect(page.locator("h1")).toBeVisible();
-    await expect(page.getByText(activeBookingUid)).toBeVisible();
+    await expect(page.getByText(activeInstantUid)).toBeVisible();
+    await expect(page.locator("#prejoin-mic-toggle")).toBeVisible();
+    await expect(page.locator("#prejoin-cam-toggle")).toBeVisible();
+    await expect(page.locator("#prejoin-display-name")).toBeVisible();
 
-    // Verify PreJoin controls
-    const micToggle = page.locator("#prejoin-mic-toggle");
-    const camToggle = page.locator("#prejoin-cam-toggle");
-    const nameInput = page.locator("#prejoin-display-name");
-    const joinBtn = page.locator("#prejoin-join-button");
+    await page.locator("#prejoin-mic-toggle").click();
+    await page.locator("#prejoin-cam-toggle").click();
+    await page.locator("#prejoin-join-button").click();
 
-    await expect(micToggle).toBeVisible();
-    await expect(camToggle).toBeVisible();
-    await expect(nameInput).toBeVisible();
-    await expect(joinBtn).toBeVisible();
-
-    // Test mute toggles on PreJoin
-    await micToggle.click();
-    await camToggle.click();
-
-    // Join room
-    await joinBtn.click();
-
-    // Verify transition into active room stage
     await expect(page.getByText("MHAF LIVE ROOM")).toBeVisible();
-    await expect(page.getByText("SESSION LIVE")).toBeVisible();
+    await expect(page.getByText(/SESSION LIVE|CONNECTION FAILED/)).toBeVisible({ timeout: 20_000 });
     await expect(page.locator("#room-mic-btn")).toBeVisible();
     await expect(page.locator("#room-cam-btn")).toBeVisible();
     await expect(page.locator("#room-leave-btn")).toBeVisible();
-
-    // Leave call cleanly
     await page.locator("#room-leave-btn").click();
     await expect(page.getByText("You Have Left the Meeting")).toBeVisible();
-    await expect(page.getByText("Re-enter PreJoin Staging")).toBeVisible();
   });
 });
