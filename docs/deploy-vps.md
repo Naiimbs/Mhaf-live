@@ -86,7 +86,7 @@ If an SMTP credential was ever committed to Git, removing it from the current so
 
 After reviewing and merging the deployment changes into `master`, open **Actions → Deploy MHAF Live → Run workflow**. Normal pushes do not trigger deployment.
 
-The workflow keeps the previous container available until the new container passes its health check, and attempts to restore the previous container if the check fails. The persistent JSON data directory is `/opt/mhaf-live/data`.
+The workflow keeps the previous container available until the new container passes its health check, and attempts to restore the previous container if the check fails. The persistent JSON data directory is `/opt/mhaf-live/data`; before stopping the current container, deployment aligns its ownership to UID/GID `1001:1001` (the non-root app user) and verifies that user can create and remove a file there. If the storage check fails, deployment aborts while the current container is still running.
 
 ## Before public exposure
 

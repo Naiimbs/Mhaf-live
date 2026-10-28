@@ -244,6 +244,26 @@ jobs:
             pull_with_retry "$IMAGE"
           fi
 
+          # The bind-mounted JSON store must be readable and writable by the app's
+          # non-root user (UID/GID 1001), not just by the SSH/deploy account.
+          echo "Aligning persistent application data ownership with container UID 1001..."
+          if ! docker run --rm --user 0:0 \
+            -v "$DATA_DIR:/app/data" \
+            --entrypoint sh "$IMAGE" \
+            -c 'chown -R 1001:1001 /app/data && chmod 0700 /app/data'; then
+            echo "Could not set application data directory ownership; aborting before stopping the current container."
+            exit 1
+          fi
+          echo "Verifying JSON storage write access as the application user..."
+          if ! docker run --rm --user 1001:1001 \
+            -v "$DATA_DIR:/app/data" \
+            --entrypoint node "$IMAGE" \
+            -e 'const fs=require("node:fs");const {randomUUID}=require("node:crypto");const p="/app/data/.write-check-"+randomUUID();fs.writeFileSync(p,"ok",{flag:"wx",mode:0o600});fs.unlinkSync(p);'; then
+            echo "Application user UID 1001 cannot write to the persistent data volume; aborting before stopping the current container."
+            exit 1
+          fi
+          echo "Persistent JSON storage is writable by the application user."
+
           if docker container inspect "$ROLLBACK" >/dev/null 2>&1; then
             echo "Rollback container already exists; refusing to overwrite it."
             exit 1
