@@ -12,6 +12,14 @@ interface SendConfirmationEmailParams {
   hostName?: string;
 }
 
+export function getMeetingEmailFrom(configuredFrom: string | undefined, smtpUser: string | undefined): string {
+  const configuredValue = configuredFrom?.trim();
+  const configuredAddress = configuredValue?.match(/<([^<>]+)>/)?.[1]?.trim();
+  const address = configuredAddress || configuredValue || smtpUser?.trim();
+  if (!address) throw new Error("Email sender address is not configured.");
+  return `meet <${address}>`;
+}
+
 function getTransporter() {
   const host = process.env.SMTP_HOST?.trim();
   const user = process.env.SMTP_USER?.trim();
@@ -58,7 +66,7 @@ export async function sendMeetingConfirmationEmail({
   hostName = "meet Host",
 }: SendConfirmationEmailParams) {
   const transporter = getTransporter();
-  const from = process.env.EMAIL_FROM || `meet <${process.env.SMTP_USER?.trim()}>`;
+  const from = getMeetingEmailFrom(process.env.EMAIL_FROM, process.env.SMTP_USER);
 
   const startDate = new Date(startTime);
   const endDate = new Date(endTime);
