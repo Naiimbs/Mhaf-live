@@ -46,6 +46,7 @@ import {
   Room,
   RoomEvent,
   VideoPresets,
+  AudioPresets,
   createLocalTracks,
   LocalTrack,
   RemoteParticipant,
@@ -770,9 +771,9 @@ export function ActiveRoom({
         simulcast: true,
         videoCodec: "vp8",
         videoSimulcastLayers: [VideoPresets.h180, VideoPresets.h360],
+        audioPreset: AudioPresets.speech,
         dtx: true, // Discontinuous transmission: cut bandwidth during silence
         red: true, // Redundant audio data: prevent audio packet loss
-        audioBitrate: 32_000,
         screenShareEncoding: {
           maxBitrate: 1_500_000, // 1.5 Mbps max (crystal-clear text without upload bufferbloat)
           maxFramerate: 15, // 15 fps gives ultra smooth presentations while saving 75% bandwidth
@@ -993,7 +994,6 @@ export function ActiveRoom({
             } as any,
             contentHint: "detail",
             resolution: VideoPresets.h1080.resolution,
-            simulcast: true,
           });
           const mediaStreamTrack = (pub?.track as any)?.mediaStreamTrack;
           if (mediaStreamTrack) {
