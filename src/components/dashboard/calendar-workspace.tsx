@@ -8,11 +8,15 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Clock,
   Copy,
   ExternalLink,
   Globe2,
+  LayoutGrid,
+  ListFilter,
   Loader2,
   Plus,
+  User,
   Video,
   X,
 } from "lucide-react";
@@ -122,6 +126,7 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
   const [startingInstant, setStartingInstant] = React.useState(false);
   const [instantRoomUrl, setInstantRoomUrl] = React.useState<string | null>(null);
   const [cancellingId, setCancellingId] = React.useState<string | null>(null);
+  const [viewMode, setViewMode] = React.useState<"calendar" | "timeline">("calendar");
 
   // Booking links state
   const [bookingTypes, setBookingTypes] = React.useState(eventTypes);
@@ -311,6 +316,7 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-2 text-xs text-muted-foreground"><Globe2 className="h-3.5 w-3.5 text-primary" />{hostTimeZone}</span>
+          <Button variant="outline" onClick={() => { setCreateLinkError(null); setCreateLinkOpen(true); }} className="gap-1.5"><Plus className="h-4 w-4" />New booking link</Button>
           <Button variant="outline" onClick={() => { setCreateError(null); setCreatedRoomUrl(null); setCreateOpen(true); }} className="gap-1.5"><CalendarPlus className="h-4 w-4" />Schedule meeting</Button>
           <Button onClick={startInstantMeeting} disabled={startingInstant} className="gap-1.5">
             {startingInstant ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
@@ -338,7 +344,37 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
       <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm" aria-label="Weekly calendar">
         <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between">
           <div><h2 className="font-semibold">{formatRange()}</h2><p className="mt-0.5 text-xs text-muted-foreground">Week starts Monday · {events.length} event{events.length === 1 ? "" : "s"}</p></div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* View Switcher: Calendar vs Timeline */}
+            <div className="flex items-center rounded-lg border border-border bg-muted/40 p-0.5">
+              <button
+                type="button"
+                onClick={() => setViewMode("calendar")}
+                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                  viewMode === "calendar"
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title="Weekly Grid View"
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Calendar</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("timeline")}
+                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                  viewMode === "timeline"
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title="Timeline / Agenda View"
+              >
+                <ListFilter className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Timeline</span>
+              </button>
+            </div>
+
             <Button size="sm" variant="outline" onClick={() => setWeekStart(mondayOf(getLocalDateString(new Date(), hostTimeZone)))}>Today</Button>
             <div className="flex items-center">
               <Button size="icon" variant="outline" aria-label="Previous week" onClick={() => setWeekStart((current) => addDays(current, -7))}><ChevronLeft className="h-4 w-4" /></Button>
@@ -349,6 +385,150 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
 
         {loading ? (
           <div className="flex h-72 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Loading calendar…</div>
+        ) : viewMode === "timeline" ? (
+          <div className="divide-y divide-border p-4 sm:p-6 space-y-6">
+            {days.map((day) => {
+              const date = dateAtUtcNoon(day);
+              const weekday = new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "UTC" }).format(date);
+              const formattedDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(date);
+              const isToday = day === getLocalDateString(new Date(), hostTimeZone);
+              const dayEvents = (eventsForDay.get(day) || []).slice().sort(
+                (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+              );
+
+              return (
+                <div key={day} className="pt-6 first:pt-0 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <h3 className={`text-sm font-bold ${isToday ? "text-primary" : "text-foreground"}`}>
+                        {weekday}, {formattedDate}
+                      </h3>
+                      {isToday && (
+                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                          Today
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground font-mono">
+                      {dayEvents.length} meeting{dayEvents.length === 1 ? "" : "s"}
+                    </span>
+                  </div>
+
+                  {dayEvents.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-border/80 bg-muted/10 p-4 text-center">
+                      <p className="text-xs text-muted-foreground">No meetings scheduled for this day.</p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setCreateError(null);
+                          setCreatedRoomUrl(null);
+                          setCreateOpen(true);
+                        }}
+                        className="mt-1 h-7 text-xs text-primary hover:text-primary"
+                      >
+                        <CalendarPlus className="mr-1 h-3 w-3" /> Schedule meeting
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="grid gap-3 sm:grid-cols-1 lg:grid-cols-2">
+                      {dayEvents.map((event) => {
+                        const start = new Date(event.startTime);
+                        const end = new Date(event.endTime);
+                        const durationMin = Math.round((end.getTime() - start.getTime()) / 60000);
+                        const cancelled = event.status === "CANCELLED" || event.status === "COMPLETED";
+                        const roomLink = `${window.location.origin}/rooms/${event.uid}`;
+
+                        return (
+                          <div
+                            key={event.id}
+                            className={`rounded-2xl border p-4 transition-all shadow-sm flex flex-col justify-between gap-3 ${
+                              cancelled
+                                ? "border-border bg-muted/20 opacity-70"
+                                : "border-border bg-card hover:border-primary/40 hover:shadow-md"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs font-mono font-medium text-foreground">
+                                    <Clock className="h-3 w-3 text-primary" />
+                                    {formatClock(event.startTime, hostTimeZone)} – {formatClock(event.endTime, hostTimeZone)}
+                                  </span>
+                                  <span className="text-[11px] text-muted-foreground font-mono">
+                                    ({durationMin} min)
+                                  </span>
+                                  <span
+                                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                                      event.status === "CONFIRMED" || event.status === "SCHEDULED"
+                                        ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
+                                        : event.status === "LIVE"
+                                        ? "bg-blue-500/10 text-blue-500 border border-blue-500/20 animate-pulse"
+                                        : "bg-zinc-500/10 text-zinc-400 border border-zinc-500/20"
+                                    }`}
+                                  >
+                                    {event.status}
+                                  </span>
+                                </div>
+                                <h4 className={`mt-2 font-semibold text-sm ${cancelled ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                                  {event.title}
+                                </h4>
+                                {event.attendeeName && (
+                                  <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                                    <User className="h-3 w-3 text-muted-foreground" />
+                                    <span>{event.attendeeName}</span>
+                                    {event.attendeeEmail && <span className="opacity-70 font-mono">({event.attendeeEmail})</span>}
+                                  </p>
+                                )}
+                              </div>
+
+                              <span className="shrink-0 text-[10px] font-mono px-2 py-0.5 rounded bg-muted/60 text-muted-foreground border border-border/50">
+                                {sourceLabel(event.source)}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between gap-2 border-t border-border/60 pt-3 mt-1">
+                              <div className="flex items-center gap-1.5">
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => copyRoomLink(roomLink)}
+                                  className="h-7 text-xs gap-1 px-2.5"
+                                  title="Copy meeting room link"
+                                >
+                                  <Copy className="h-3 w-3" />
+                                  Copy link
+                                </Button>
+                                {!cancelled && (
+                                  <Button size="sm" asChild className="h-7 text-xs gap-1 px-2.5">
+                                    <Link href={`/rooms/${event.uid}`}>
+                                      <Video className="h-3 w-3" />
+                                      Enter room
+                                    </Link>
+                                  </Button>
+                                )}
+                              </div>
+
+                              {!cancelled && (
+                                <button
+                                  type="button"
+                                  onClick={() => cancelEvent(event)}
+                                  disabled={cancellingId === event.id}
+                                  className="text-[11px] text-destructive hover:underline disabled:opacity-50"
+                                >
+                                  Cancel
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <div className="min-w-[980px]">

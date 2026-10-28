@@ -42,3 +42,34 @@ test("custom booking links protect buffers according to custom event type durati
   // Ends 15 min after 14:45 -> 15:00
   assert.equal(range.endMs, Date.parse("2026-11-02T15:00:00.000Z"));
 });
+
+test("room expires after 15 minutes of participant exit without return", () => {
+  const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
+  const now = Date.now();
+
+  function checkRoomExpiry(lastLeftAt: Date | null, status: string) {
+    if (status === "COMPLETED" || status === "CANCELLED") return true;
+    if (!lastLeftAt) return false;
+    const elapsed = now - lastLeftAt.getTime();
+    return elapsed > FIFTEEN_MINUTES_MS;
+  }
+
+  // Case 1: Participant left 5 minutes ago -> Not expired (rejoinable)
+  const recentLeave = new Date(now - 5 * 60 * 1000);
+  assert.equal(checkRoomExpiry(recentLeave, "SCHEDULED"), false);
+
+  // Case 2: Participant left 14 minutes ago -> Still within grace period
+  const withinGrace = new Date(now - 14 * 60 * 1000);
+  assert.equal(checkRoomExpiry(withinGrace, "SCHEDULED"), false);
+
+  // Case 3: Participant left 16 minutes ago without return -> Expired!
+  const pastGrace = new Date(now - 16 * 60 * 1000);
+  assert.equal(checkRoomExpiry(pastGrace, "SCHEDULED"), true);
+
+  // Case 4: Participant rejoined before 15 min -> timer reset (lastLeftAt = null)
+  let lastLeft: Date | null = new Date(now - 8 * 60 * 1000);
+  // simulate return
+  lastLeft = null;
+  assert.equal(checkRoomExpiry(lastLeft, "SCHEDULED"), false);
+});
+

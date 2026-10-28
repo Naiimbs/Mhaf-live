@@ -33,7 +33,8 @@ export default async function RoomPage({ params }: { params: Promise<{ slug: str
     );
   }
 
-  const cancelled = booking?.status === "CANCELLED" || meeting?.status === "CANCELLED" || meeting?.status === "COMPLETED";
+  const expiryCheck = await db.isRoomExpired(slug);
+  const cancelled = booking?.status === "CANCELLED" || meeting?.status === "CANCELLED" || expiryCheck.expired;
   if (cancelled) {
     return (
       <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-4">
@@ -41,9 +42,11 @@ export default async function RoomPage({ params }: { params: Promise<{ slug: str
           <div className="h-14 w-14 rounded-2xl bg-destructive/20 text-destructive flex items-center justify-center mx-auto">
             <AlertCircle className="h-7 w-7" />
           </div>
-          <h1 className="text-xl font-bold tracking-tight text-destructive">Meeting Unavailable</h1>
+          <h1 className="text-xl font-bold tracking-tight text-destructive">
+            {expiryCheck.expired ? "Réunion Expirée" : "Meeting Unavailable"}
+          </h1>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            This meeting was cancelled or has concluded and cannot be joined.
+            {expiryCheck.reason || "This meeting was cancelled or has concluded and cannot be joined."}
           </p>
           <Button asChild variant="outline" size="sm" className="text-xs">
             <Link href="/">Return to Homepage</Link>

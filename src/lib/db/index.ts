@@ -92,6 +92,8 @@ class DatabaseStore {
             ...b,
             startTime: new Date(b.startTime),
             endTime: new Date(b.endTime),
+            lastLeftAt: b.lastLeftAt ? new Date(b.lastLeftAt) : null,
+            completedAt: b.completedAt ? new Date(b.completedAt) : null,
             createdAt: new Date(b.createdAt),
             updatedAt: new Date(b.updatedAt),
           })),
@@ -99,6 +101,8 @@ class DatabaseStore {
             ...m,
             startTime: new Date(m.startTime),
             endTime: new Date(m.endTime),
+            lastLeftAt: m.lastLeftAt ? new Date(m.lastLeftAt) : null,
+            completedAt: m.completedAt ? new Date(m.completedAt) : null,
             createdAt: new Date(m.createdAt),
             updatedAt: new Date(m.updatedAt),
           })),
@@ -687,6 +691,104 @@ class DatabaseStore {
       }
       return meeting;
     });
+  }
+
+  // --- Room Expiration & Lifecycle (15-minute leave expiry) ---
+  async recordRoomParticipantLeave(roomUid: string): Promise<boolean> {
+    return globalLock.acquire(async () => {
+      let modified = false;
+      const now = new Date();
+
+      const booking = this.data.bookings.find((b) => b.uid === roomUid);
+      if (booking && booking.status !== "CANCELLED" && booking.status !== "COMPLETED") {
+        booking.lastLeftAt = now;
+        booking.updatedAt = now;
+        modified = true;
+      }
+
+      const meeting = this.data.meetings.find((m) => m.uid === roomUid);
+      if (meeting && meeting.status !== "CANCELLED" && meeting.status !== "COMPLETED") {
+        meeting.lastLeftAt = now;
+        meeting.updatedAt = now;
+        modified = true;
+      }
+
+      if (modified) {
+        this.persist();
+      }
+      return modified;
+    });
+  }
+
+  async recordRoomParticipantJoin(roomUid: string): Promise<boolean> {
+    return globalLock.acquire(async () => {
+      let modified = false;
+      const now = new Date();
+
+      const booking = this.data.bookings.find((b) => b.uid === roomUid);
+      if (booking && booking.status !== "CANCELLED" && booking.status !== "COMPLETED" && booking.lastLeftAt) {
+        booking.lastLeftAt = null;
+        booking.updatedAt = now;
+        modified = true;
+      }
+
+      const meeting = this.data.meetings.find((m) => m.uid === roomUid);
+      if (meeting && meeting.status !== "CANCELLED" && meeting.status !== "COMPLETED" && meeting.lastLeftAt) {
+        meeting.lastLeftAt = null;
+        meeting.updatedAt = now;
+        modified = true;
+      }
+
+      if (modified) {
+        this.persist();
+      }
+      return modified;
+    });
+  }
+
+  async isRoomExpired(roomUid: string): Promise<{ expired: boolean; reason?: string }> {
+    const booking = this.data.bookings.find((b) => b.uid === roomUid);
+    const meeting = this.data.meetings.find((m) => m.uid === roomUid);
+
+    if (!booking && !meeting) {
+      return { expired: true, reason: "Room not found." };
+    }
+
+    if (booking?.status === "CANCELLED" || meeting?.status === "CANCELLED") {
+      return { expired: true, reason: "This meeting has been cancelled." };
+    }
+
+    if (booking?.status === "COMPLETED" || meeting?.status === "COMPLETED") {
+      return { expired: true, reason: "Cette réunion est terminée et le lien d'accès a expiré." };
+    }
+
+    const lastLeft = meeting?.lastLeftAt || booking?.lastLeftAt;
+    if (lastLeft) {
+      const elapsedMs = Date.now() - new Date(lastLeft).getTime();
+      const expirationThresholdMs = 15 * 60 * 1000; // 15 minutes
+      if (elapsedMs > expirationThresholdMs) {
+        return globalLock.acquire(async () => {
+          const now = new Date();
+          if (booking && booking.status !== "COMPLETED") {
+            booking.status = "COMPLETED";
+            booking.completedAt = now;
+            booking.updatedAt = now;
+          }
+          if (meeting && meeting.status !== "COMPLETED") {
+            meeting.status = "COMPLETED";
+            meeting.completedAt = now;
+            meeting.updatedAt = now;
+          }
+          this.persist();
+          return {
+            expired: true,
+            reason: "Ce lien de réunion a expiré car aucun participant n'est revenu dans les 15 minutes suivant la sortie.",
+          };
+        });
+      }
+    }
+
+    return { expired: false };
   }
 }
 
