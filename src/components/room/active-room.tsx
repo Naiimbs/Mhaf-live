@@ -766,6 +766,19 @@ export function ActiveRoom({
       videoCaptureDefaults: {
         resolution: VideoPresets.h720.resolution,
       },
+      publishDefaults: {
+        simulcast: true,
+        videoCodec: "vp8",
+        videoSimulcastLayers: [VideoPresets.h180, VideoPresets.h360],
+        dtx: true, // Discontinuous transmission: cut bandwidth during silence
+        red: true, // Redundant audio data: prevent audio packet loss
+        audioBitrate: 32_000,
+        screenShareEncoding: {
+          maxBitrate: 1_500_000, // 1.5 Mbps max (crystal-clear text without upload bufferbloat)
+          maxFramerate: 15, // 15 fps gives ultra smooth presentations while saving 75% bandwidth
+        },
+        screenShareSimulcastLayers: [VideoPresets.h720],
+      },
     });
     roomRef.current = room;
 
@@ -878,11 +891,22 @@ export function ActiveRoom({
           }
         });
 
-        // Acquire local tracks
+        // Acquire local tracks with noise suppression, echo cancellation, and balanced frame rate
         try {
           const tracks = await createLocalTracks({
-            audio: initialAudioEnabled,
-            video: initialVideoEnabled,
+            audio: initialAudioEnabled
+              ? {
+                  echoCancellation: true,
+                  noiseSuppression: true,
+                  autoGainControl: true,
+                }
+              : false,
+            video: initialVideoEnabled
+              ? {
+                  resolution: VideoPresets.h720.resolution,
+                  facingMode: "user",
+                }
+              : false,
           });
           localTracksRef.current = tracks;
 
@@ -897,9 +921,23 @@ export function ActiveRoom({
         // Connect to LiveKit server
         await room.connect(serverUrl, token);
 
-        // Publish acquired tracks
+        // Publish acquired tracks with simulcast and dtx
         for (const track of localTracksRef.current) {
-          await room.localParticipant.publishTrack(track);
+          if (track.kind === "video") {
+            await room.localParticipant.publishTrack(track, {
+              simulcast: true,
+              source: Track.Source.Camera,
+              videoCodec: "vp8",
+            });
+          } else if (track.kind === "audio") {
+            await room.localParticipant.publishTrack(track, {
+              dtx: true,
+              red: true,
+              source: Track.Source.Microphone,
+            });
+          } else {
+            await room.localParticipant.publishTrack(track);
+          }
         }
       } catch (err: any) {
         console.warn("[ActiveRoom] LiveKit connection failed:", err.message);
@@ -951,8 +989,11 @@ export function ActiveRoom({
             video: {
               cursor: "always",
               displaySurface: "monitor",
+              frameRate: { ideal: 15, max: 20 },
             } as any,
             contentHint: "detail",
+            resolution: VideoPresets.h1080.resolution,
+            simulcast: true,
           });
           const mediaStreamTrack = (pub?.track as any)?.mediaStreamTrack;
           if (mediaStreamTrack) {
