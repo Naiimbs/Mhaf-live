@@ -94,6 +94,12 @@ export function RoomContainer({
     setStage("left");
   };
 
+  const handleRetryRoom = () => {
+    setConnectionData(null);
+    setError(null);
+    setStage("prejoin");
+  };
+
   if (stage === "left") {
     return (
       <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-4">
@@ -136,9 +142,11 @@ export function RoomContainer({
         roomName={connectionData.roomName}
         displayName={connectionData.participantName}
         isHost={connectionData.isHost}
+        expectedInviteeName={isHostUser ? attendeeName || undefined : undefined}
         initialAudioEnabled={mediaPreferences.audioEnabled}
         initialVideoEnabled={mediaPreferences.videoEnabled}
         onLeaveRoom={handleLeave}
+        onRetryRoom={handleRetryRoom}
       />
     );
   }

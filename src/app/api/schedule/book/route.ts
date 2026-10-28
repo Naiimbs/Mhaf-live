@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
 import { createBooking } from "@/lib/scheduling/booking";
+import { resolveLiveKitSettings } from "@/lib/livekit/config";
 
 export async function POST(request: Request) {
   try {
+    const liveKitConfig = resolveLiveKitSettings(process.env);
+    if (!liveKitConfig.ok) {
+      return NextResponse.json({ error: liveKitConfig.error }, { status: 503 });
+    }
+
     const body = await request.json();
     const result = await createBooking(body);
 

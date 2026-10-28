@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getCurrentHost } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { localDateTimeToUtc } from "@/lib/scheduling/timezone";
+import { resolveLiveKitSettings } from "@/lib/livekit/config";
 
 const CreateMeetingSchema = z.object({
   title: z.string().trim().min(2).max(100),
@@ -28,6 +29,11 @@ export async function POST(request: Request) {
       }
       const meeting = await db.cancelMeeting(body.meetingId, host.id);
       return NextResponse.json({ success: true, meeting });
+    }
+
+    const liveKitConfig = resolveLiveKitSettings(process.env);
+    if (!liveKitConfig.ok) {
+      return NextResponse.json({ error: liveKitConfig.error }, { status: 503 });
     }
 
     const parsed = CreateMeetingSchema.safeParse(body);
