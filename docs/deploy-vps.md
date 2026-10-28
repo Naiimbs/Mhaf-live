@@ -62,6 +62,12 @@ POSTGRES_USER=mhaf_app
 POSTGRES_PASSWORD=REPLACE_WITH_GENERATED_32_CHAR_PASSWORD
 DATABASE_URL=postgresql://mhaf_app:REPLACE_WITH_GENERATED_32_CHAR_PASSWORD@mhaf-db:5432/mhaf_live?schema=public
 
+# LiveKit — use the endpoint and matching credentials from the same project/server.
+# Production requires a browser-reachable secure WebSocket URL (wss://).
+LIVEKIT_URL=wss://REPLACE_WITH_LIVEKIT_HOST
+LIVEKIT_API_KEY=REPLACE_WITH_LIVEKIT_API_KEY
+LIVEKIT_API_SECRET=REPLACE_WITH_LIVEKIT_API_SECRET
+
 # SMTP confirmation email (store credentials only in this server-side env file)
 SMTP_HOST=REPLACE_WITH_SMTP_HOST
 SMTP_PORT=465
@@ -71,7 +77,7 @@ SMTP_PASS=REPLACE_WITH_NEW_SMTP_PASSWORD
 EMAIL_FROM="meet <notifications@your-verified-domain.example>"
 ```
 
-The secrets must be unique and non-placeholder. The `DATABASE_URL` must point to internal host `mhaf-db:5432` on `mhaf-network`. Never commit or share the env file. The confirmation mailer requires `SMTP_HOST`, `SMTP_USER`, and `SMTP_PASS`; it does not have a built-in credential fallback. Configure a valid sender address and keep normal TLS certificate validation enabled.
+The secrets must be unique and non-placeholder. `LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET` must all belong to the same LiveKit project/server; missing or placeholder values prevent participants from connecting. The `DATABASE_URL` must point to internal host `mhaf-db:5432` on `mhaf-network`. Never commit or share the env file. The confirmation mailer requires `SMTP_HOST`, `SMTP_USER`, and `SMTP_PASS`; it does not have a built-in credential fallback. Configure a valid sender address and keep normal TLS certificate validation enabled.
 
 If an SMTP credential was ever committed to Git, removing it from the current source is not sufficient: revoke/rotate it with the mail provider before release, and do not reuse the old value.
 

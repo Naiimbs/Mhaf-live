@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { getCurrentHost } from "@/lib/auth/session";
 import { INSTANT_MEETING_DURATION_MS } from "@/lib/scheduling/conflicts";
+import { resolveLiveKitSettings } from "@/lib/livekit/config";
 
 const InstantMeetingSchema = z.object({
   title: z.string().trim().min(2).max(100).optional(),
@@ -11,6 +12,11 @@ const InstantMeetingSchema = z.object({
 export async function POST(request: Request) {
   const host = await getCurrentHost();
   if (!host) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const liveKitConfig = resolveLiveKitSettings(process.env);
+  if (!liveKitConfig.ok) {
+    return NextResponse.json({ error: liveKitConfig.error }, { status: 503 });
+  }
 
   try {
     const body = await request.json().catch(() => ({}));

@@ -15,6 +15,8 @@ import {
   Lock,
   Radio,
   Send,
+  Copy,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand-logo";
@@ -35,9 +37,11 @@ interface ActiveRoomProps {
   roomName: string;
   displayName: string;
   isHost: boolean;
+  expectedInviteeName?: string;
   initialAudioEnabled: boolean;
   initialVideoEnabled: boolean;
   onLeaveRoom: () => void;
+  onRetryRoom: () => void;
 }
 
 interface ChatMessage {
@@ -165,12 +169,15 @@ export function ActiveRoom({
   roomName,
   displayName,
   isHost,
+  expectedInviteeName,
   initialAudioEnabled,
   initialVideoEnabled,
   onLeaveRoom,
+  onRetryRoom,
 }: ActiveRoomProps) {
   const [connectionState, setConnectionState] = React.useState<string>("connecting");
   const [connectionError, setConnectionError] = React.useState<string | null>(null);
+  const [inviteLinkStatus, setInviteLinkStatus] = React.useState("");
   const [audioEnabled, setAudioEnabled] = React.useState(initialAudioEnabled);
   const [videoEnabled, setVideoEnabled] = React.useState(initialVideoEnabled);
   const [screenSharing, setScreenSharing] = React.useState(false);
@@ -194,6 +201,16 @@ export function ActiveRoom({
   const localVideoRef = React.useRef<HTMLVideoElement | null>(null);
   const roomRef = React.useRef<Room | null>(null);
   const localTracksRef = React.useRef<LocalTrack[]>([]);
+
+  const copyInviteLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setInviteLinkStatus("Invite link copied");
+    } catch {
+      setInviteLinkStatus("Copy failed — copy the URL from your address bar");
+    }
+    window.setTimeout(() => setInviteLinkStatus(""), 2500);
+  };
 
   React.useEffect(() => {
     let mounted = true;
@@ -221,12 +238,14 @@ export function ActiveRoom({
         room.on(RoomEvent.Connected, () => {
           if (!mounted) return;
           setConnectionState("connected");
+          setConnectionError(null);
           updateRemoteParticipants();
         });
 
         room.on(RoomEvent.Disconnected, () => {
           if (!mounted) return;
           setConnectionState("disconnected");
+          setConnectionError("The LiveKit connection ended. Check the network and reconnect to the room.");
         });
 
         room.on(RoomEvent.Reconnecting, () => {
@@ -384,6 +403,18 @@ export function ActiveRoom({
 
         {/* Live Status Pill */}
         <div className="flex items-center gap-3 text-xs">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={copyInviteLink}
+            className="h-8 gap-1.5 border-zinc-700 px-2.5 text-zinc-300"
+            aria-label="Copy meeting invite link"
+          >
+            {inviteLinkStatus === "Invite link copied" ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            <span className="hidden sm:inline">{inviteLinkStatus || "Copy invite link"}</span>
+          </Button>
+          <span className="sr-only" role="status" aria-live="polite">{inviteLinkStatus}</span>
           <div
             className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[11px] ${
               connectionState === "connected"
@@ -416,7 +447,10 @@ export function ActiveRoom({
       <main className="flex-1 flex overflow-hidden relative">
         {connectionError && (
           <div className="absolute left-4 right-4 top-4 z-20 rounded-lg border border-red-500/30 bg-red-950/90 p-3 text-sm text-red-100 sm:left-6 sm:right-auto sm:max-w-lg" role="alert">
-            Could not connect to the meeting server. Check your connection and try again. <span className="text-red-200/80">{connectionError}</span>
+            <p>Could not stay connected to the meeting server. <span className="text-red-200/80">{connectionError}</span></p>
+            <Button type="button" size="sm" variant="outline" onClick={onRetryRoom} className="mt-2 h-8 border-red-300/30 text-red-50 hover:bg-red-900">
+              Return to pre-join and reconnect
+            </Button>
           </div>
         )}
         {/* Main Stage Video Grid */}
@@ -460,9 +494,11 @@ export function ActiveRoom({
                 <Users className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-xs font-medium text-zinc-400">Waiting for other participants</p>
+                <p className="text-xs font-medium text-zinc-400">
+                  {expectedInviteeName ? `Waiting for ${expectedInviteeName} to join` : "Waiting for other participants"}
+                </p>
                 <p className="text-[11px] text-zinc-500 mt-0.5">
-                  Share room UID <span className="font-mono text-zinc-300">{roomName}</span> to join.
+                  Share the invite link using the button above. Connected participants will appear here.
                 </p>
               </div>
             </div>

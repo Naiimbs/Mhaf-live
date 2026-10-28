@@ -127,12 +127,34 @@ test.describe("LiveKit rooms and meeting lifecycle", () => {
     expect(grant?.roomAdmin).toBe(false);
   });
 
+  test("gives guests joining the same link the same room and unique identities", async ({ request }) => {
+    const [firstResponse, secondResponse] = await Promise.all([
+      request.get(`/api/connection-details?room=${activeInstantUid}&name=Guest%20One`, { headers: { Cookie: "" } }),
+      request.get(`/api/connection-details?room=${activeInstantUid}&name=Guest%20Two`, { headers: { Cookie: "" } }),
+    ]);
+    expect(firstResponse.status()).toBe(200);
+    expect(secondResponse.status()).toBe(200);
+    const first = await firstResponse.json();
+    const second = await secondResponse.json();
+    expect(first.roomName).toBe(activeInstantUid);
+    expect(second.roomName).toBe(activeInstantUid);
+    expect(first.participantIdentity).not.toBe(second.participantIdentity);
+    expect(first.serverUrl).toBe(second.serverUrl);
+  });
+
   test("grants host privileges only to the authenticated owner", async ({ request }) => {
-    const response = await request.get(`/api/connection-details?room=${activeInstantUid}`, { headers: { Cookie: hostCookie } });
+    const [response, secondResponse] = await Promise.all([
+      request.get(`/api/connection-details?room=${activeInstantUid}`, { headers: { Cookie: hostCookie } }),
+      request.get(`/api/connection-details?room=${activeInstantUid}`, { headers: { Cookie: hostCookie } }),
+    ]);
     expect(response.status()).toBe(200);
+    expect(secondResponse.status()).toBe(200);
     const data = await response.json();
+    const second = await secondResponse.json();
     expect(data.isHost).toBe(true);
-    expect(data.participantIdentity).toBe(`host_${testHostId}`);
+    expect(data.participantIdentity.startsWith(`host_${testHostId}_`)).toBe(true);
+    expect(second.participantIdentity).not.toBe(data.participantIdentity);
+    expect(second.isHost).toBe(true);
 
     const secretKey = new TextEncoder().encode(process.env.LIVEKIT_API_SECRET || "secret");
     const { payload } = await jwtVerify(data.participantToken, secretKey);
@@ -168,7 +190,7 @@ test.describe("LiveKit rooms and meeting lifecycle", () => {
     await page.locator("#prejoin-cam-toggle").click();
     await page.locator("#prejoin-join-button").click();
 
-    await expect(page.getByText("MHAF LIVE ROOM")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Copy meeting invite link" })).toBeVisible();
     await expect(page.getByText(/SESSION LIVE|CONNECTION FAILED/)).toBeVisible({ timeout: 20_000 });
     await expect(page.locator("#room-mic-btn")).toBeVisible();
     await expect(page.locator("#room-cam-btn")).toBeVisible();

@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { AccessToken } from "livekit-server-sdk";
 import { db } from "@/lib/db";
 import { getCurrentHost } from "@/lib/auth/session";
+import { resolveLiveKitSettings } from "@/lib/livekit/config";
 
 interface TokenMintRequest {
   roomUid: string;
@@ -71,16 +72,14 @@ async function handleConnectionDetails({ roomUid, requestedName }: TokenMintRequ
     requestedName?.trim() ||
     (isHost ? currentHost?.name || "Host" : meeting?.attendeeName || booking?.attendeeName || "Guest");
   const participantIdentity = isHost
-    ? `host_${currentHost!.id}`
+    ? `host_${currentHost!.id}_${randomUUID()}`
     : `attendee_${randomUUID()}`;
 
-  const apiKey = process.env.LIVEKIT_API_KEY || "devkey";
-  const apiSecret = process.env.LIVEKIT_API_SECRET || "secret";
-  const livekitUrl =
-    process.env.LIVEKIT_URL || process.env.NEXT_PUBLIC_LIVEKIT_URL || "ws://127.0.0.1:7880";
-  if (!apiKey || !apiSecret) {
-    return NextResponse.json({ error: "LiveKit server credentials are not configured on the server." }, { status: 500 });
+  const liveKitConfig = resolveLiveKitSettings(process.env);
+  if (!liveKitConfig.ok) {
+    return NextResponse.json({ error: liveKitConfig.error }, { status: 503 });
   }
+  const { url: livekitUrl, apiKey, apiSecret } = liveKitConfig.settings;
 
   const tokenDeadlineMs = new Date(endTime).getTime() + (isInstantMeeting ? 0 : 60 * 60 * 1000);
   const ttlSeconds = Math.max(60, Math.min(2 * 60 * 60, Math.floor((tokenDeadlineMs - Date.now()) / 1000)));
@@ -99,34 +98,37 @@ async function handleConnectionDetails({ roomUid, requestedName }: TokenMintRequ
   });
   const participantToken = await at.toJwt();
 
-  return NextResponse.json({
-    serverUrl: livekitUrl,
-    participantToken,
-    roomName: roomUid,
-    isHost,
-    participantName,
-    participantIdentity,
-    meeting: {
-      uid: roomUid,
-      source: meeting?.source || (isInstantMeeting ? "INSTANT" : "BOOKING"),
-      startTime,
-      endTime,
-      hostId,
-      attendeeName: meeting?.attendeeName || booking?.attendeeName || null,
-      status: meeting?.status || booking?.status || "SCHEDULED",
+  return NextResponse.json(
+    {
+      serverUrl: livekitUrl,
+      participantToken,
+      roomName: roomUid,
+      isHost,
+      participantName,
+      participantIdentity,
+      meeting: {
+        uid: roomUid,
+        source: meeting?.source || (isInstantMeeting ? "INSTANT" : "BOOKING"),
+        startTime,
+        endTime,
+        hostId,
+        attendeeName: meeting?.attendeeName || booking?.attendeeName || null,
+        status: meeting?.status || booking?.status || "SCHEDULED",
+      },
+      // Kept for older clients that still read this response field.
+      booking: booking
+        ? {
+            uid: booking.uid,
+            startTime: booking.startTime,
+            endTime: booking.endTime,
+            hostId: booking.hostId,
+            attendeeName: booking.attendeeName,
+            status: booking.status,
+          }
+        : null,
     },
-    // Kept for older clients that still read this response field.
-    booking: booking
-      ? {
-          uid: booking.uid,
-          startTime: booking.startTime,
-          endTime: booking.endTime,
-          hostId: booking.hostId,
-          attendeeName: booking.attendeeName,
-          status: booking.status,
-        }
-      : null,
-  });
+    { headers: { "Cache-Control": "no-store, max-age=0" } }
+  );
 }
 
 export async function GET(request: Request) {

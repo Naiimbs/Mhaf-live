@@ -3,6 +3,15 @@ import { loadEnvConfig } from "@next/env";
 
 loadEnvConfig(process.cwd());
 
+// Tests use an intentionally unreachable endpoint and fake signing credentials.
+// This lets the API mint/verifiable test tokens without touching a real LiveKit project.
+const e2eLiveKitEnv = {
+  LIVEKIT_URL: "wss://livekit.test.invalid",
+  LIVEKIT_API_KEY: "mhaf-e2e-test-key",
+  LIVEKIT_API_SECRET: "mhaf-e2e-test-secret",
+};
+Object.assign(process.env, e2eLiveKitEnv);
+
 export default defineConfig({
   testDir: "./tests",
   fullyParallel: false,
@@ -50,5 +59,6 @@ export default defineConfig({
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 60000,
+    env: e2eLiveKitEnv,
   },
 });
