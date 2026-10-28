@@ -33,9 +33,17 @@ async function handleConnectionDetails({ roomUid, requestedName }: TokenMintRequ
   if (isCancelled) {
     return NextResponse.json({ error: "This meeting has been cancelled and cannot be joined." }, { status: 403 });
   }
-  if (meeting?.status === "COMPLETED") {
-    return NextResponse.json({ error: "This meeting has concluded and the room is closed." }, { status: 410 });
+
+  const expiryCheck = await db.isRoomExpired(roomUid);
+  if (expiryCheck.expired) {
+    return NextResponse.json(
+      { error: expiryCheck.reason || "Ce lien de réunion a expiré et la salle est fermée." },
+      { status: 410 }
+    );
   }
+
+  // Active join -> reset the 15-minute leave countdown timer
+  await db.recordRoomParticipantJoin(roomUid);
 
   const isInstantMeeting = meeting?.source === "INSTANT" || Boolean(
     booking && (booking.uid.startsWith("instant-") || booking.attendeeNotes?.includes("[instant]"))

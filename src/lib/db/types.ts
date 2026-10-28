@@ -58,6 +58,8 @@ export interface Booking {
   startTime: Date;
   endTime: Date;
   status: BookingStatus;
+  lastLeftAt?: Date | null;
+  completedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -77,6 +79,8 @@ export interface Meeting {
   startTime: Date;
   endTime: Date;
   status: MeetingStatus;
+  lastLeftAt?: Date | null;
+  completedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

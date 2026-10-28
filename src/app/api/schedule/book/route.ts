@@ -22,14 +22,18 @@ export async function POST(request: Request) {
       const { db } = await import("@/lib/db");
       const host = await db.findUserById(result.booking.hostId);
       const eventType = await db.findEventTypeById(result.booking.eventTypeId);
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://meet.naiimbsili.com";
+      const hostHeader = request.headers.get("x-forwarded-host") || request.headers.get("host");
+      const proto = request.headers.get("x-forwarded-proto") || (hostHeader?.includes("localhost") ? "http" : "https");
+      const appUrl = hostHeader ? `${proto}://${hostHeader}` : (process.env.NEXT_PUBLIC_APP_URL || "https://meet.naiimbsili.com");
+      const roomUrl = `${appUrl}/rooms/${result.booking.uid}`;
+
       await sendMeetingConfirmationEmail({
         to: result.booking.attendeeEmail,
         attendeeName: result.booking.attendeeName,
         meetingTitle: eventType?.title || "MHAF Live meeting",
         startTime: result.booking.startTime,
         endTime: result.booking.endTime,
-        roomUrl: `${appUrl}/rooms/${result.booking.uid}`,
+        roomUrl,
         bookingUid: result.booking.uid,
         hostName: host?.name || "MHAF Live Host",
       }).catch((mailError) => console.error("[Booking API] Non-fatal email error:", mailError));

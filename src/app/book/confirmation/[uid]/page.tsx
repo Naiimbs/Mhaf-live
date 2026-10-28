@@ -64,7 +64,8 @@ export default async function BookingConfirmationPage({
                 You're Scheduled!
               </h1>
               <p className="text-sm text-muted-foreground mt-0.5">
-                A calendar invitation and confirmation details have been committed to the database.
+                Un e-mail de confirmation contenant votre lien d'accès direct à la réunion a été envoyé à{" "}
+                <strong className="text-foreground">{booking.attendeeEmail}</strong>.
               </p>
             </div>
           </div>
