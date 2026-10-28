@@ -10,7 +10,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "MHAF Live — High-Assurance Video Meetings & Autonomous Scheduling",
+  title: "meet — High-Assurance Video Meetings & Autonomous Scheduling",
   description:
     "Low-latency WebRTC video conferencing, timezone-aware scheduling, and verifiable attendance analytics without mandatory guest accounts.",
   icons: {

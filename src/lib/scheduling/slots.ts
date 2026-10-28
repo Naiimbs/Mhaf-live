@@ -5,6 +5,7 @@ import {
   isValidTimeZone,
   localDateTimeToUtc,
 } from "./timezone";
+import { getBookingConflictRange, type BookingConflictRange } from "./conflicts";
 
 export interface AvailableSlot {
   slotId: string;
@@ -66,7 +67,10 @@ export async function calculateAvailableSlots(
   const bufferBeforeMs = Math.max(0, eventType.bufferBeforeMin || 0) * 60_000;
   const bufferAfterMs = Math.max(0, eventType.bufferAfterMin || 0) * 60_000;
   const stepMs = durationMs + bufferBeforeMs + bufferAfterMs;
-  const activeBookings = allBookings.filter((booking) => booking.status !== "CANCELLED");
+  const bookingConflictRanges: BookingConflictRange[] = allBookings.flatMap((booking) => {
+    const range = getBookingConflictRange(booking, eventTypeById);
+    return range ? [range] : [];
+  });
   const activeMeetings = allMeetings.filter(
     (meeting) =>
       meeting.source !== "BOOKING" &&
@@ -89,11 +93,8 @@ export async function calculateAvailableSlots(
       const protectedStartMs = slotStartMs - bufferBeforeMs;
       const protectedEndMs = slotEndMs + bufferAfterMs;
       const isTooSoon = slotStartMs < minNoticeTime;
-      const bookingCollision = activeBookings.some((booking) => {
-        const existingType = eventTypeById.get(booking.eventTypeId);
-        const existingStartMs = booking.startTime.getTime() - Math.max(0, existingType?.bufferBeforeMin || 0) * 60_000;
-        const existingEndMs = booking.endTime.getTime() + Math.max(0, existingType?.bufferAfterMin || 0) * 60_000;
-        return existingStartMs < protectedEndMs && existingEndMs > protectedStartMs;
+      const bookingCollision = bookingConflictRanges.some((range) => {
+        return range.startMs < protectedEndMs && range.endMs > protectedStartMs;
       });
       const meetingCollision = activeMeetings.some(
         (meeting) =>

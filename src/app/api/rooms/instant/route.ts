@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { getCurrentHost } from "@/lib/auth/session";
+import { INSTANT_MEETING_DURATION_MS } from "@/lib/scheduling/conflicts";
 
 const InstantMeetingSchema = z.object({
   title: z.string().trim().min(2).max(100).optional(),
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
     }
 
     const startTime = new Date();
-    const endTime = new Date(startTime.getTime() + 2 * 60 * 60 * 1000);
+    const endTime = new Date(startTime.getTime() + INSTANT_MEETING_DURATION_MS);
     const result = await db.createMeetingWithConflictLock({
       hostId: host.id,
       title: parsed.data.title || "Instant meeting",

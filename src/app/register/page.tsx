@@ -3,8 +3,9 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Video, Lock, Mail, User, Globe, ArrowRight, AlertCircle } from "lucide-react";
+import { Lock, Mail, User, Globe, ArrowRight, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BrandLogo } from "@/components/brand-logo";
 
 const COMMON_TIMEZONES = [
   "UTC",
@@ -78,13 +79,8 @@ export default function RegisterPage() {
       <div className="w-full max-w-md space-y-6">
         {/* Header */}
         <div className="text-center space-y-2">
-          <Link href="/" className="inline-flex items-center gap-2 font-bold tracking-tight">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-              <Video className="h-5 w-5" />
-            </div>
-            <span className="text-xl font-extrabold tracking-tight">
-              MHAF <span className="text-muted-foreground font-medium">LIVE</span>
-            </span>
+          <Link href="/" className="inline-flex items-center" aria-label="meet home">
+            <BrandLogo size="large" priority />
           </Link>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             Create Host Account
@@ -205,7 +201,7 @@ export default function RegisterPage() {
           </p>
           <p>
             <Link href="/" className="hover:underline">
-              ← Back to MHAF Live Homepage
+              ← Back to Home
             </Link>
           </p>
         </div>

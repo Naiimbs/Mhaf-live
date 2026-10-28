@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { sendMeetingConfirmationEmail } from "../../src/lib/email/mailer.ts";
+import { getMeetingEmailFrom, sendMeetingConfirmationEmail } from "../../src/lib/email/mailer.ts";
 
 const smtpEnv = ["SMTP_HOST", "SMTP_USER", "SMTP_PASS"] as const;
 const previousValues = new Map(smtpEnv.map((key) => [key, process.env[key]]));
@@ -29,4 +29,12 @@ test("confirmation email refuses to send when SMTP credentials are missing", asy
     }),
     /Email delivery is not configured\. Missing: SMTP_HOST, SMTP_USER, SMTP_PASS\./
   );
+});
+
+test("confirmation email forces meet branding while preserving the configured sender address", () => {
+  assert.equal(
+    getMeetingEmailFrom("MHAF Live <notifications@example.com>", "smtp@example.com"),
+    "meet <notifications@example.com>"
+  );
+  assert.equal(getMeetingEmailFrom(undefined, "smtp@example.com"), "meet <smtp@example.com>");
 });

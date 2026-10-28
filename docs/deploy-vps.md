@@ -68,7 +68,7 @@ SMTP_PORT=465
 SMTP_SECURE=true
 SMTP_USER=REPLACE_WITH_SMTP_USERNAME
 SMTP_PASS=REPLACE_WITH_NEW_SMTP_PASSWORD
-EMAIL_FROM="MHAF Live <notifications@your-verified-domain.example>"
+EMAIL_FROM="meet <notifications@your-verified-domain.example>"
 ```
 
 The secrets must be unique and non-placeholder. The `DATABASE_URL` must point to internal host `mhaf-db:5432` on `mhaf-network`. Never commit or share the env file. The confirmation mailer requires `SMTP_HOST`, `SMTP_USER`, and `SMTP_PASS`; it does not have a built-in credential fallback. Configure a valid sender address and keep normal TLS certificate validation enabled.

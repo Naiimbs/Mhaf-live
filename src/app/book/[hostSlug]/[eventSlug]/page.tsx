@@ -4,7 +4,6 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
-  Video,
   Clock,
   Calendar,
   Globe,
@@ -18,6 +17,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getLocalDateString } from "@/lib/scheduling/timezone";
+import { BrandLogo } from "@/components/brand-logo";
 
 interface SlotItem {
   slotId: string;
@@ -186,11 +186,8 @@ export default function PublicBookingPage() {
       {/* Top Bar */}
       <header className="border-b border-border bg-card/80 backdrop-blur-md px-4 py-3">
         <div className="container max-w-5xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 font-bold tracking-tight text-sm">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-              <Video className="h-3.5 w-3.5" />
-            </div>
-            <span>MHAF LIVE</span>
+          <Link href="/" className="flex items-center" aria-label="meet home">
+            <BrandLogo size="small" />
           </Link>
           <span className="text-xs font-mono text-muted-foreground bg-muted px-2.5 py-1 rounded">
             Autonomous Scheduling

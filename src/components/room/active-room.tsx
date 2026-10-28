@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Image from "next/image";
 import {
   Mic,
   MicOff,
@@ -18,6 +17,7 @@ import {
   Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BrandLogo } from "@/components/brand-logo";
 import {
   Room,
   RoomEvent,
@@ -369,18 +369,9 @@ export function ActiveRoom({
       {/* Top Session Bar */}
       <header className="h-14 border-b border-zinc-800 bg-zinc-900/90 px-4 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden shadow-sm">
-            <Image
-              src="/mhaf-logo.webp"
-              alt="MHAF Live"
-              width={28}
-              height={28}
-              className="h-full w-full object-contain"
-            />
-          </div>
+          <BrandLogo size="small" className="border-zinc-700" />
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-zinc-100 tracking-tight">MHAF LIVE ROOM</span>
               <span className="text-[10px] font-mono bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded">
                 {roomName}
               </span>

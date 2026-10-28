@@ -2,10 +2,10 @@
 
 import * as React from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { BrandLogo } from "@/components/brand-logo";
 
 const navLinks = [
   { label: "How it works", href: "#workflow" },
@@ -19,13 +19,8 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border/70 bg-background/90 backdrop-blur-md">
       <div className="container flex h-16 max-w-7xl items-center justify-between px-4 sm:px-8">
-        <Link href="/" className="flex items-center gap-2.5 font-bold tracking-tight text-foreground">
-          <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted/60 shadow-sm">
-            <Image src="/mhaf-logo.webp" alt="MHAF Live" width={36} height={36} className="h-full w-full object-contain" priority />
-          </span>
-          <span className="text-base font-extrabold tracking-tight">
-            MHAF <span className="font-medium text-muted-foreground">LIVE</span>
-          </span>
+        <Link href="/" className="flex items-center" aria-label="meet home">
+          <BrandLogo size="medium" priority />
         </Link>
 
         <nav aria-label="Main navigation" className="hidden items-center gap-6 text-sm font-medium md:flex">
