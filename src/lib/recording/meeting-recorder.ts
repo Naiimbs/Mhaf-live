@@ -20,6 +20,7 @@ export class MeetingRecorder {
   private onStateChange: (state: RecorderState) => void;
   private combinedStream: MediaStream | null = null;
   private audioContext: AudioContext | null = null;
+  private audioSources: MediaStreamAudioSourceNode[] = [];
 
   constructor(onStateChange: (state: RecorderState) => void) {
     this.onStateChange = onStateChange;
@@ -68,39 +69,65 @@ export class MeetingRecorder {
         });
       }
 
-      // Mix Audio from all available streams
-      const audioTracks: MediaStreamTrack[] = [];
+      // Mix ALL audio (screen/tab audio + host mic + guest audio) into ONE master track
+      let masterAudioTrack: MediaStreamTrack | null = null;
+      try {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtx) {
+          this.audioContext = new AudioCtx();
+          if (this.audioContext.state === "suspended") {
+            await this.audioContext.resume();
+          }
 
-      // 1. Tracks from videoStream if any
-      videoStream.getAudioTracks().forEach((t) => audioTracks.push(t));
+          const destination = this.audioContext.createMediaStreamDestination();
+          this.audioSources = [];
 
-      // 2. Extra audio streams (local mic & remote participants)
-      if (extraAudioStreams && extraAudioStreams.length > 0) {
-        try {
-          const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-          if (AudioCtx) {
-            this.audioContext = new AudioCtx();
-            const destination = this.audioContext.createMediaStreamDestination();
+          // 1. Route videoStream / tab / screen audio if present
+          videoStream.getAudioTracks().forEach((track) => {
+            if (track.readyState === "live" && this.audioContext) {
+              const stream = new MediaStream([track]);
+              const source = this.audioContext.createMediaStreamSource(stream);
+              source.connect(destination);
+              this.audioSources.push(source);
+            }
+          });
 
+          // 2. Route host mic & remote participant audio streams
+          if (extraAudioStreams && extraAudioStreams.length > 0) {
             extraAudioStreams.forEach((stream) => {
-              if (stream.getAudioTracks().length > 0 && this.audioContext) {
-                const source = this.audioContext.createMediaStreamSource(stream);
+              const liveTracks = stream.getAudioTracks().filter((t) => t.readyState === "live");
+              if (liveTracks.length > 0 && this.audioContext) {
+                const source = this.audioContext.createMediaStreamSource(new MediaStream(liveTracks));
                 source.connect(destination);
+                this.audioSources.push(source);
               }
             });
-
-            destination.stream.getAudioTracks().forEach((t) => audioTracks.push(t));
           }
-        } catch (audioMixErr) {
-          console.warn("[MeetingRecorder] Audio mix fallback:", audioMixErr);
+
+          const destTracks = destination.stream.getAudioTracks();
+          if (destTracks.length > 0) {
+            masterAudioTrack = destTracks[0];
+          }
         }
+      } catch (audioMixErr) {
+        console.warn("[MeetingRecorder] Audio mix fallback:", audioMixErr);
       }
 
-      // Combine video tracks + audio tracks
-      this.combinedStream = new MediaStream([
-        ...videoStream.getVideoTracks(),
-        ...audioTracks,
-      ]);
+      // Fallback if AudioContext wasn't available
+      if (!masterAudioTrack) {
+        masterAudioTrack =
+          videoStream.getAudioTracks()[0] ||
+          extraAudioStreams?.flatMap((s) => s.getAudioTracks()).find((t) => t.readyState === "live") ||
+          null;
+      }
+
+      // Combine video tracks + ONE single master audio track (MediaRecorder only encodes track 0)
+      const tracksToRecord: MediaStreamTrack[] = [...videoStream.getVideoTracks()];
+      if (masterAudioTrack) {
+        tracksToRecord.push(masterAudioTrack);
+      }
+
+      this.combinedStream = new MediaStream(tracksToRecord);
 
       const mimeType = this.getSupportedMimeType();
       this.recordedChunks = [];
@@ -193,6 +220,15 @@ export class MeetingRecorder {
     if (this.combinedStream) {
       this.combinedStream.getTracks().forEach((t) => t.stop());
       this.combinedStream = null;
+    }
+
+    if (this.audioSources && this.audioSources.length > 0) {
+      this.audioSources.forEach((s) => {
+        try {
+          s.disconnect();
+        } catch {}
+      });
+      this.audioSources = [];
     }
 
     if (this.audioContext && this.audioContext.state !== "closed") {

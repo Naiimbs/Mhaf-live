@@ -647,15 +647,20 @@ export function ActiveRoom({
       recorderRef.current.stopRecording(`meet-${roomName}`);
     } else {
       const audioStreams: MediaStream[] = [];
-      if (localTracksRef.current) {
-        const audioTrack = localTracksRef.current.find((t) => t.kind === "audio");
-        if (audioTrack?.mediaStreamTrack) {
-          audioStreams.push(new MediaStream([audioTrack.mediaStreamTrack]));
-        }
+      // 1. Host local active microphone (check localParticipant first, fallback to localTracksRef)
+      const localMicPub = roomRef.current?.localParticipant?.getTrackPublication(Track.Source.Microphone);
+      const hostMicTrack =
+        localMicPub?.track?.mediaStreamTrack ||
+        localTracksRef.current?.find((t) => t.kind === "audio")?.mediaStreamTrack;
+
+      if (hostMicTrack && hostMicTrack.readyState === "live") {
+        audioStreams.push(new MediaStream([hostMicTrack]));
       }
+
+      // 2. All remote participants' audio
       remoteParticipants.forEach((p) => {
         p.audioTrackPublications.forEach((pub) => {
-          if (pub.isSubscribed && pub.track?.mediaStreamTrack) {
+          if (pub.isSubscribed && pub.track?.mediaStreamTrack && pub.track.mediaStreamTrack.readyState === "live") {
             audioStreams.push(new MediaStream([pub.track.mediaStreamTrack]));
           }
         });
@@ -772,8 +777,6 @@ export function ActiveRoom({
         videoCodec: "vp8",
         videoSimulcastLayers: [VideoPresets.h180, VideoPresets.h360],
         audioPreset: AudioPresets.speech,
-        dtx: true, // Discontinuous transmission: cut bandwidth during silence
-        red: true, // Redundant audio data: prevent audio packet loss
         screenShareEncoding: {
           maxBitrate: 1_500_000, // 1.5 Mbps max (crystal-clear text without upload bufferbloat)
           maxFramerate: 15, // 15 fps gives ultra smooth presentations while saving 75% bandwidth
@@ -932,8 +935,6 @@ export function ActiveRoom({
             });
           } else if (track.kind === "audio") {
             await room.localParticipant.publishTrack(track, {
-              dtx: true,
-              red: true,
               source: Track.Source.Microphone,
             });
           } else {
