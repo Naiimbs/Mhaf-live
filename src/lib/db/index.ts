@@ -12,8 +12,10 @@ import {
   Meeting,
   MeetingSource,
   AuditLog,
+  BookingChangeRequest,
 } from "./types";
 import { getBookingConflictRange, hasScheduledMeetingConflict } from "../scheduling/conflicts";
+import { getDueBookingReminderOffsets } from "../scheduling/reminders";
 
 interface DatabaseSchema {
   users: User[];
@@ -22,6 +24,7 @@ interface DatabaseSchema {
   eventTypes: EventType[];
   availabilities: Availability[];
   bookings: Booking[];
+  bookingChangeRequests: BookingChangeRequest[];
   meetings: Meeting[];
   auditLogs: AuditLog[];
 }
@@ -102,8 +105,19 @@ class DatabaseStore {
             endTime: new Date(b.endTime),
             lastLeftAt: b.lastLeftAt ? new Date(b.lastLeftAt) : null,
             completedAt: b.completedAt ? new Date(b.completedAt) : null,
+            managementTokenExpiresAt: b.managementTokenExpiresAt ? new Date(b.managementTokenExpiresAt) : null,
+            confirmationEmailSentAt: b.confirmationEmailSentAt ? new Date(b.confirmationEmailSentAt) : null,
+            reminder15SentAt: b.reminder15SentAt ? new Date(b.reminder15SentAt) : null,
+            reminder5SentAt: b.reminder5SentAt ? new Date(b.reminder5SentAt) : null,
             createdAt: new Date(b.createdAt),
             updatedAt: new Date(b.updatedAt),
+          })),
+          bookingChangeRequests: (parsed.bookingChangeRequests || []).map((r: any) => ({
+            ...r,
+            requestedStartTime: r.requestedStartTime ? new Date(r.requestedStartTime) : null,
+            createdAt: new Date(r.createdAt),
+            updatedAt: new Date(r.updatedAt),
+            resolvedAt: r.resolvedAt ? new Date(r.resolvedAt) : null,
           })),
           meetings: (parsed.meetings || []).map((m: any) => ({
             ...m,
@@ -131,6 +145,7 @@ class DatabaseStore {
       eventTypes: [],
       availabilities: [],
       bookings: [],
+      bookingChangeRequests: [],
       meetings: [],
       auditLogs: [],
     };
@@ -499,6 +514,16 @@ class DatabaseStore {
       .sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
   }
 
+  async getBookingByManagementTokenHash(tokenHash: string): Promise<Booking | null> {
+    const now = Date.now();
+    const booking = this.data.bookings.find((item) =>
+      item.managementTokenHash === tokenHash &&
+      item.managementTokenExpiresAt &&
+      item.managementTokenExpiresAt.getTime() > now
+    );
+    return booking || null;
+  }
+
   async getBookingByUid(uid: string): Promise<Booking | null> {
     const booking = this.data.bookings.find((b) => b.uid === uid);
     return booking || null;
@@ -539,6 +564,7 @@ class DatabaseStore {
     endTime: Date;
     bufferBeforeMin?: number;
     bufferAfterMin?: number;
+    managementTokenHash?: string;
   }): Promise<{ success: true; booking: Booking } | { success: false; error: string }> {
     return globalLock.acquire(async () => {
       const newStartMs = params.startTime.getTime();
@@ -589,6 +615,12 @@ class DatabaseStore {
         startTime: params.startTime,
         endTime: params.endTime,
         status: "CONFIRMED",
+        managementTokenHash: params.managementTokenHash || null,
+        managementTokenExpiresAt: params.managementTokenHash ? new Date(now.getTime() + 180 * 24 * 60 * 60_000) : null,
+        confirmationEmailSentAt: null,
+        confirmationEmailError: null,
+        reminder15SentAt: null,
+        reminder5SentAt: null,
         createdAt: now,
         updatedAt: now,
       };
@@ -619,6 +651,183 @@ class DatabaseStore {
       }
 
       return { success: true, booking };
+    });
+  }
+
+  async createBookingChangeRequest(params: {
+    tokenHash: string;
+    type: "CANCEL" | "RESCHEDULE";
+    reason: string;
+    requestedStartTime?: Date | null;
+  }): Promise<BookingChangeRequest> {
+    return globalLock.acquire(async () => {
+      const now = new Date();
+      const booking = this.data.bookings.find((item) =>
+        item.managementTokenHash === params.tokenHash &&
+        item.managementTokenExpiresAt &&
+        item.managementTokenExpiresAt.getTime() > now.getTime()
+      );
+      if (!booking || booking.status !== "CONFIRMED" || booking.startTime.getTime() <= now.getTime()) {
+        throw new Error("This booking management link is invalid, expired, or no longer active.");
+      }
+      if (params.type === "RESCHEDULE" && (!params.requestedStartTime || params.requestedStartTime.getTime() <= now.getTime())) {
+        throw new Error("Choose a future date and time for the reschedule request.");
+      }
+      const existing = this.data.bookingChangeRequests.find((item) =>
+        item.bookingId === booking.id && item.status === "PENDING"
+      );
+      if (existing) throw new Error("A change request is already awaiting host approval.");
+      const request: BookingChangeRequest = {
+        id: `bcr_${randomUUID()}`,
+        bookingId: booking.id,
+        hostId: booking.hostId,
+        type: params.type,
+        reason: params.reason.trim(),
+        requestedStartTime: params.type === "RESCHEDULE" ? params.requestedStartTime! : null,
+        status: "PENDING",
+        hostResponse: null,
+        createdAt: now,
+        updatedAt: now,
+        resolvedAt: null,
+      };
+      this.data.bookingChangeRequests.push(request);
+      try { this.persist(); } catch (error) {
+        this.data.bookingChangeRequests = this.data.bookingChangeRequests.filter((item) => item.id !== request.id);
+        throw error;
+      }
+      return request;
+    });
+  }
+
+  async getBookingChangeRequestById(requestId: string, hostId: string): Promise<BookingChangeRequest | null> {
+    return this.data.bookingChangeRequests.find((item) => item.id === requestId && item.hostId === hostId) || null;
+  }
+
+  async getBookingChangeRequestsByHostId(hostId: string): Promise<BookingChangeRequest[]> {
+    return this.data.bookingChangeRequests
+      .filter((item) => item.hostId === hostId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async resolveBookingChangeRequest(params: {
+    requestId: string;
+    hostId: string;
+    decision: "APPROVE" | "REJECT";
+    hostResponse?: string;
+  }): Promise<BookingChangeRequest> {
+    return globalLock.acquire(async () => {
+      const request = this.data.bookingChangeRequests.find((item) =>
+        item.id === params.requestId && item.hostId === params.hostId
+      );
+      if (!request) throw new Error("Change request not found.");
+      if (request.status !== "PENDING") throw new Error("This request has already been reviewed.");
+      const booking = this.data.bookings.find((item) => item.id === request.bookingId && item.hostId === params.hostId);
+      if (!booking || booking.status !== "CONFIRMED") throw new Error("The original booking is no longer active.");
+      const now = new Date();
+      const bookingSnapshot = { ...booking };
+      const requestSnapshot = { ...request };
+      const linkedMeeting = this.data.meetings.find((item) => item.bookingId === booking.id);
+      const meetingSnapshot = linkedMeeting ? { ...linkedMeeting } : null;
+      if (params.decision === "APPROVE") {
+        if (request.type === "CANCEL") {
+          booking.status = "CANCELLED";
+          if (linkedMeeting) {
+            linkedMeeting.status = "CANCELLED";
+            linkedMeeting.updatedAt = now;
+          }
+        } else {
+          const nextStart = request.requestedStartTime;
+          if (!nextStart || nextStart.getTime() <= now.getTime()) throw new Error("The requested time is no longer in the future.");
+          const duration = booking.endTime.getTime() - booking.startTime.getTime();
+          const nextEnd = new Date(nextStart.getTime() + duration);
+          const eventType = this.data.eventTypes.find((item) => item.id === booking.eventTypeId);
+          const beforeMs = Math.max(0, eventType?.bufferBeforeMin || 0) * 60_000;
+          const afterMs = Math.max(0, eventType?.bufferAfterMin || 0) * 60_000;
+          const rangeStart = nextStart.getTime() - beforeMs;
+          const rangeEnd = nextEnd.getTime() + afterMs;
+          const eventTypesById = new Map(this.data.eventTypes.map((item) => [item.id, item]));
+          const bookingConflict = this.data.bookings.some((item) => {
+            if (item.id === booking.id || item.hostId !== booking.hostId) return false;
+            const range = getBookingConflictRange(item, eventTypesById);
+            return range !== null && range.startMs < rangeEnd && range.endMs > rangeStart;
+          });
+          const meetingConflict = this.data.meetings.some((item) =>
+            item.hostId === booking.hostId && item.source === "MANUAL" &&
+            item.status !== "CANCELLED" && item.status !== "COMPLETED" &&
+            item.startTime.getTime() < rangeEnd && item.endTime.getTime() > rangeStart
+          );
+          if (bookingConflict || meetingConflict) throw new Error("That requested time conflicts with another booking or meeting.");
+          booking.startTime = nextStart;
+          booking.endTime = nextEnd;
+          if (linkedMeeting) {
+            linkedMeeting.startTime = nextStart;
+            linkedMeeting.endTime = nextEnd;
+            linkedMeeting.updatedAt = now;
+          }
+          booking.reminder15SentAt = null;
+          booking.reminder5SentAt = null;
+        }
+        booking.updatedAt = now;
+      }
+      request.status = params.decision === "APPROVE" ? "APPROVED" : "REJECTED";
+      request.hostResponse = params.hostResponse?.trim() || null;
+      request.updatedAt = now;
+      request.resolvedAt = now;
+      try {
+        this.persist();
+      } catch (error) {
+        Object.assign(booking, bookingSnapshot);
+        Object.assign(request, requestSnapshot);
+        if (linkedMeeting && meetingSnapshot) Object.assign(linkedMeeting, meetingSnapshot);
+        throw error;
+      }
+      return request;
+    });
+  }
+
+  async updateBookingManagementToken(bookingId: string, tokenHash: string, expiresAt: Date): Promise<void> {
+    return globalLock.acquire(async () => {
+      const booking = this.data.bookings.find((item) => item.id === bookingId);
+      if (!booking) throw new Error("Booking not found.");
+      booking.managementTokenHash = tokenHash;
+      booking.managementTokenExpiresAt = expiresAt;
+      booking.updatedAt = new Date();
+      this.persist();
+    });
+  }
+
+  async updateBookingConfirmationEmail(bookingId: string, sent: boolean, errorMessage?: string | null): Promise<void> {
+    return globalLock.acquire(async () => {
+      const booking = this.data.bookings.find((item) => item.id === bookingId);
+      if (!booking) return;
+      booking.confirmationEmailSentAt = sent ? new Date() : null;
+      booking.confirmationEmailError = sent ? null : (errorMessage || "Email delivery failed.");
+      booking.updatedAt = new Date();
+      this.persist();
+    });
+  }
+
+  async getBookingsDueForReminders(now = new Date()): Promise<Array<{ booking: Booking; reminder: 15 | 5 }>> {
+    const due: Array<{ booking: Booking; reminder: 15 | 5 }> = [];
+    for (const booking of this.data.bookings) {
+      if (booking.status !== "CONFIRMED") continue;
+      const reminders = getDueBookingReminderOffsets(booking.startTime, now, {
+        fifteenMinute: Boolean(booking.reminder15SentAt),
+        fiveMinute: Boolean(booking.reminder5SentAt),
+      });
+      for (const reminder of reminders) due.push({ booking, reminder });
+    }
+    return due;
+  }
+
+  async markBookingReminderSent(bookingId: string, reminder: 15 | 5): Promise<void> {
+    return globalLock.acquire(async () => {
+      const booking = this.data.bookings.find((item) => item.id === bookingId);
+      if (!booking) return;
+      if (reminder === 15) booking.reminder15SentAt = new Date();
+      else booking.reminder5SentAt = new Date();
+      booking.updatedAt = new Date();
+      this.persist();
     });
   }
 
