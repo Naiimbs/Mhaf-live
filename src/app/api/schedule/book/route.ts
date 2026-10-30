@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createHash, randomBytes } from "node:crypto";
 import { createBooking } from "@/lib/scheduling/booking";
 import { resolveLiveKitSettings } from "@/lib/livekit/config";
 
@@ -10,7 +11,9 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const result = await createBooking(body);
+    const managementToken = randomBytes(32).toString("base64url");
+    const managementTokenHash = createHash("sha256").update(managementToken).digest("hex");
+    const result = await createBooking(body, managementTokenHash);
 
     if (!result.success) {
       const isConflict = result.error.includes("BOOKING_CONFLICT") || result.error.includes("TIME_NOT_AVAILABLE");
@@ -26,6 +29,7 @@ export async function POST(request: Request) {
       const proto = request.headers.get("x-forwarded-proto") || (hostHeader?.includes("localhost") ? "http" : "https");
       const appUrl = hostHeader ? `${proto}://${hostHeader}` : (process.env.NEXT_PUBLIC_APP_URL || "https://meet.naiimbsili.com");
       const roomUrl = `${appUrl}/rooms/${result.booking.uid}`;
+      const managementUrl = `${appUrl}/book/manage/${managementToken}`;
 
       const emailPromises: Promise<any>[] = [
         sendMeetingConfirmationEmail({
@@ -36,6 +40,7 @@ export async function POST(request: Request) {
           endTime: result.booking.endTime,
           roomUrl,
           bookingUid: result.booking.uid,
+          managementUrl,
           hostName: host?.name || "MHAF Live Host",
         }),
       ];
@@ -58,6 +63,12 @@ export async function POST(request: Request) {
       }
 
       const emailResults = await Promise.allSettled(emailPromises);
+      const attendeeEmailResult = emailResults[0];
+      const confirmationSent = attendeeEmailResult?.status === "fulfilled";
+      const confirmationError = attendeeEmailResult?.status === "rejected"
+        ? (attendeeEmailResult.reason instanceof Error ? attendeeEmailResult.reason.message : "Email delivery failed.")
+        : null;
+      await db.updateBookingConfirmationEmail(result.booking.id, confirmationSent, confirmationError);
       emailResults.forEach((emailResult, index) => {
         if (emailResult.status === "rejected") {
           const emailType = index === 0 ? "attendee_confirmation" : "host_notification";
@@ -77,7 +88,13 @@ export async function POST(request: Request) {
       console.warn("[Booking API] Email delivery trigger warning:", error);
     }
 
-    return NextResponse.json({ success: true, booking: result.booking }, { status: 201 });
+    const savedBooking = await (await import("@/lib/db")).db.findBookingById(result.booking.id);
+    return NextResponse.json({
+      success: true,
+      booking: savedBooking || result.booking,
+      confirmationEmailSent: Boolean(savedBooking?.confirmationEmailSentAt),
+      confirmationEmailError: savedBooking?.confirmationEmailError || null,
+    }, { status: 201 });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "An unexpected error occurred while booking." },
