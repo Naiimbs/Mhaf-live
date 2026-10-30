@@ -36,10 +36,10 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col justify-center items-center bg-background px-4 py-12">
       <div className="w-full max-w-md space-y-6">
         <div className="text-center space-y-2">
-          <Link href="/" className="inline-flex items-center" aria-label="MHAF Live home">
+          <Link href="/" className="inline-flex items-center" aria-label="mhaf meet home">
             <BrandLogo size="large" priority />
           </Link>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Sign in to MHAF Live</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Sign in to mhaf meet</h1>
           <p className="text-sm text-muted-foreground">
             Enter your host email and we’ll send you a secure sign-in link.
           </p>

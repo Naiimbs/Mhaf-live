@@ -217,6 +217,14 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
     return grouped;
   }, [days, events, hostTimeZone]);
 
+  // In timeline view: today is the first line, followed by upcoming days, then past days
+  const timelineDays = React.useMemo(() => {
+    const today = getLocalDateString(new Date(), hostTimeZone);
+    const upcoming = days.filter((d) => d >= today);
+    const past = days.filter((d) => d < today).reverse();
+    return [...upcoming, ...past];
+  }, [days, hostTimeZone]);
+
   const formatRange = () => {
     const formatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
     const first = formatter.format(dateAtUtcNoon(weekStart));
@@ -472,7 +480,7 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
           <div className="flex h-72 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Loading calendar…</div>
         ) : viewMode === "timeline" ? (
           <div className="divide-y divide-border p-4 sm:p-6 space-y-6">
-            {days.map((day) => {
+            {timelineDays.map((day) => {
               const date = dateAtUtcNoon(day);
               const weekday = new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "UTC" }).format(date);
               const formattedDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(date);
