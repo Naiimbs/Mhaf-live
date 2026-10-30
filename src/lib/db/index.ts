@@ -513,6 +513,16 @@ class DatabaseStore {
       .sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
   }
 
+  async getBookingByManagementTokenHash(tokenHash: string): Promise<Booking | null> {
+    const now = Date.now();
+    const booking = this.data.bookings.find((item) =>
+      item.managementTokenHash === tokenHash &&
+      item.managementTokenExpiresAt &&
+      item.managementTokenExpiresAt.getTime() > now
+    );
+    return booking || null;
+  }
+
   async getBookingByUid(uid: string): Promise<Booking | null> {
     const booking = this.data.bookings.find((b) => b.uid === uid);
     return booking || null;
