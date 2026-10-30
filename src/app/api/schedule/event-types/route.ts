@@ -10,6 +10,7 @@ const CreateEventTypeSchema = z.object({
   slug: z.string().trim().regex(/^[a-z0-9-]+$/i, "Slug must contain only alphanumeric characters and hyphens.").max(60).optional().or(z.literal("")),
   bufferBeforeMin: z.coerce.number().int().min(0).max(60).optional(),
   bufferAfterMin: z.coerce.number().int().min(0).max(60).optional(),
+  recipientEmail: z.string().trim().email("Enter a valid recipient email.").max(254).optional().or(z.literal("")),
 });
 
 export async function GET() {
@@ -51,7 +52,32 @@ export async function POST(request: Request) {
       bufferAfterMin: parsed.data.bufferAfterMin,
     });
 
-    return NextResponse.json({ success: true, eventType }, { status: 201 });
+    const requestUrl = new URL(request.url);
+    const forwardedHost = request.headers.get("x-forwarded-host") || request.headers.get("host");
+    const forwardedProto = request.headers.get("x-forwarded-proto") || requestUrl.protocol.replace(":", "");
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || (forwardedHost ? `${forwardedProto}://${forwardedHost}` : requestUrl.origin);
+    const bookingUrl = `${appUrl}/book/${encodeURIComponent(host.id)}/${encodeURIComponent(eventType.slug)}`;
+
+    let emailSent = false;
+    let emailError: string | null = null;
+    if (parsed.data.recipientEmail) {
+      try {
+        const { sendBookingLinkEmail } = await import("@/lib/email/mailer");
+        await sendBookingLinkEmail({
+          to: parsed.data.recipientEmail,
+          hostName: host.name || "Your meeting host",
+          title: eventType.title,
+          durationMinutes: eventType.durationMinutes,
+          bookingUrl,
+        });
+        emailSent = true;
+      } catch (error) {
+        emailError = error instanceof Error ? error.message : "Email delivery failed.";
+        console.error("[Booking Link API] Invitation email failed:", { message: emailError });
+      }
+    }
+
+    return NextResponse.json({ success: true, eventType, bookingUrl, emailSent, emailError }, { status: 201 });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to create booking link." },
