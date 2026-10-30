@@ -64,8 +64,9 @@ export default async function BookingConfirmationPage({
                 You're Scheduled!
               </h1>
               <p className="text-sm text-muted-foreground mt-0.5">
-                Un e-mail de confirmation contenant votre lien d'accès direct à la réunion a été envoyé à{" "}
+                {booking.confirmationEmailSentAt ? "Confirmation email sent to " : "Your booking is confirmed, but the confirmation email could not be delivered to "}
                 <strong className="text-foreground">{booking.attendeeEmail}</strong>.
+                {!booking.confirmationEmailSentAt && " Please contact your host to resend it."}
               </p>
             </div>
           </div>
