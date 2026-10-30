@@ -25,7 +25,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { bookingId, action } = await request.json();
+    const body = await request.json();
+    const { bookingId, action } = body;
 
     if (action === "CANCEL") {
       const cancelled = await db.cancelBooking(bookingId, host.id);
