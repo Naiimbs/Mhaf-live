@@ -564,10 +564,17 @@ export async function sendBookingChangeRequestNotification(params: { to: string;
   const from = getMeetingEmailFrom(process.env.EMAIL_FROM, process.env.SMTP_USER);
   const label = params.type === "CANCEL" ? "Cancellation request" : "Reschedule request";
   const requested = params.requestedStartTime ? params.requestedStartTime.toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" }) : "";
+  const escapeHtml = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;");
+  const safeName = escapeHtml(params.attendeeName);
+  const safeEmail = escapeHtml(params.attendeeEmail);
+  const safeTitle = escapeHtml(params.meetingTitle);
+  const safeReason = escapeHtml(params.reason);
+  const safeDashboardUrl = escapeHtml(params.dashboardUrl);
+  const safeRequested = escapeHtml(requested);
   await transporter.sendMail({
     from, to: params.to, subject: label + ": " + params.meetingTitle + " — MHAF Live",
     text: "Hello,\n\n" + params.attendeeName + " (" + params.attendeeEmail + ") requested " + label.toLowerCase() + " for " + params.meetingTitle + ".\nReason: " + params.reason + (requested ? "\nPreferred time: " + requested : "") + "\n\nReview in your dashboard: " + params.dashboardUrl,
-    html: "<div style='font-family:Arial,sans-serif;background:#09090b;color:#fafafa;padding:32px'><main style='max-width:560px;margin:auto;background:#121215;border:1px solid #27272a;border-radius:14px;padding:28px'><p style='color:#38bdf8'>MHAF LIVE · BOOKING REQUEST</p><h1>" + label + "</h1><p>" + params.attendeeName + " (" + params.attendeeEmail + ") requested a change to <strong>" + params.meetingTitle + "</strong>.</p><p><strong>Reason</strong></p><p style='white-space:pre-wrap;color:#d4d4d8'>" + params.reason + "</p>" + (requested ? "<p>Preferred time: " + requested + "</p>" : "") + "<p><a href='" + params.dashboardUrl + "' style='background:#10b981;color:#042f2e;padding:12px 18px;border-radius:8px;text-decoration:none;font-weight:bold'>Review request</a></p></main></div>",
+    html: "<div style='font-family:Arial,sans-serif;background:#09090b;color:#fafafa;padding:32px'><main style='max-width:560px;margin:auto;background:#121215;border:1px solid #27272a;border-radius:14px;padding:28px'><p style='color:#38bdf8'>MHAF LIVE · BOOKING REQUEST</p><h1>" + label + "</h1><p>" + safeName + " (" + safeEmail + ") requested a change to <strong>" + safeTitle + "</strong>.</p><p><strong>Reason</strong></p><p style='white-space:pre-wrap;color:#d4d4d8'>" + safeReason + "</p>" + (safeRequested ? "<p>Preferred time: " + safeRequested + "</p>" : "") + "<p><a href='" + safeDashboardUrl + "' style='background:#10b981;color:#042f2e;padding:12px 18px;border-radius:8px;text-decoration:none;font-weight:bold'>Review request</a></p></main></div>",
   });
 }
 
