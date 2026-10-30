@@ -41,7 +41,7 @@ export function AnnouncementBanner() {
           {isFr ? "La planification et les réunions vidéo réunies dans un seul parcours." : "Scheduling and video meetings, brought into one workflow."}
         </span>
         <a
-          href="#features"
+          href="#audience"
           className="inline-flex items-center font-medium text-foreground underline-offset-4 hover:underline"
         >
           {isFr ? "À qui s’adresse la plateforme ?" : "See who it’s for"} <ArrowRight className="ml-1 h-3 w-3" />

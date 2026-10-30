@@ -34,7 +34,7 @@ export function HeroSection({ onRequestDemo }: HeroSectionProps) {
                 <Link href="/register">{t("landing.ctaStart")} <ArrowRight className="h-4 w-4" /></Link>
               </Button>
               <Button size="lg" variant="outline" onClick={onRequestDemo}>
-                {isFr ? "Demander une démo" : "Request an enterprise demo"}
+                {isFr ? "Discuter de votre besoin" : "Discuss your use case"}
               </Button>
             </div>
             <p className="mt-4 text-xs text-muted-foreground">
