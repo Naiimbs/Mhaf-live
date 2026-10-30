@@ -1,9 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { AccessToken } from "livekit-server-sdk";
 import { db } from "@/lib/db";
 import { getCurrentHost } from "@/lib/auth/session";
 import { resolveLiveKitSettings } from "@/lib/livekit/config";
+import { extractClientIp } from "@/lib/client-ip";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 interface TokenMintRequest {
   roomUid: string;
@@ -41,6 +43,9 @@ async function handleConnectionDetails({ roomUid, requestedName }: TokenMintRequ
       { status: 410 }
     );
   }
+
+  // Active join -> reset the 15-minute leave countdown timer
+  await db.recordRoomParticipantJoin(roomUid);
 
   const isInstantMeeting = meeting?.source === "INSTANT" || Boolean(
     booking && (booking.uid.startsWith("instant-") || booking.attendeeNotes?.includes("[instant]"))
@@ -137,6 +142,15 @@ async function handleConnectionDetails({ roomUid, requestedName }: TokenMintRequ
 }
 
 export async function GET(request: Request) {
+  const clientIp = extractClientIp(request as NextRequest);
+  const rateLimit = checkRateLimit(`connection-details:${clientIp}`, 30, 60_000);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Too many room access requests. Please wait before trying again." },
+      { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } }
+    );
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const roomUid = searchParams.get("room") || searchParams.get("uid") || "";
@@ -151,6 +165,15 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const clientIp = extractClientIp(request as NextRequest);
+  const rateLimit = checkRateLimit(`connection-details:${clientIp}`, 30, 60_000);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Too many room access requests. Please wait before trying again." },
+      { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } }
+    );
+  }
+
   try {
     const body = await request.json().catch(() => ({}));
     const roomUid = body.room || body.uid || body.roomUid || "";
