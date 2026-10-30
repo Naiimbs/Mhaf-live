@@ -42,9 +42,6 @@ async function handleConnectionDetails({ roomUid, requestedName }: TokenMintRequ
     );
   }
 
-  // Active join -> reset the 15-minute leave countdown timer
-  await db.recordRoomParticipantJoin(roomUid);
-
   const isInstantMeeting = meeting?.source === "INSTANT" || Boolean(
     booking && (booking.uid.startsWith("instant-") || booking.attendeeNotes?.includes("[instant]"))
   );
