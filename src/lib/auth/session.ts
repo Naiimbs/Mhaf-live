@@ -70,17 +70,7 @@ export async function requireHostAuth(): Promise<User> {
   return host;
 }
 
-export async function loginHost(email: string, password: string): Promise<{ success: true; user: User } | { success: false; error: string }> {
-  const user = await db.findUserByEmail(email);
-  if (!user || !user.passwordHash) {
-    return { success: false, error: "Invalid email or password." };
-  }
-
-  const isValid = await verifyPassword(password, user.passwordHash);
-  if (!isValid) {
-    return { success: false, error: "Invalid email or password." };
-  }
-
+export async function createHostSession(user: User): Promise<void> {
   const token = await createSessionToken(user);
   const expires = new Date(Date.now() + SESSION_DURATION_SEC * 1000);
   await db.createSession(user.id, token, expires);
@@ -93,7 +83,20 @@ export async function loginHost(email: string, password: string): Promise<{ succ
     path: "/",
     expires,
   });
+}
 
+export async function loginHost(email: string, password: string): Promise<{ success: true; user: User } | { success: false; error: string }> {
+  const user = await db.findUserByEmail(email);
+  if (!user || !user.passwordHash) {
+    return { success: false, error: "Invalid email or password." };
+  }
+
+  const isValid = await verifyPassword(password, user.passwordHash);
+  if (!isValid) {
+    return { success: false, error: "Invalid email or password." };
+  }
+
+  await createHostSession(user);
   return { success: true, user };
 }
 
@@ -123,19 +126,7 @@ export async function registerHost(
       timezone: timezone || "UTC",
     });
 
-    const token = await createSessionToken(user);
-    const expires = new Date(Date.now() + SESSION_DURATION_SEC * 1000);
-    await db.createSession(user.id, token, expires);
-
-    const cookieStore = await cookies();
-    cookieStore.set(COOKIE_NAME, token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      expires,
-    });
-
+    await createHostSession(user);
     return { success: true, user };
   } catch (err: any) {
     return { success: false, error: err.message || "Registration failed." };
