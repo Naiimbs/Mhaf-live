@@ -28,6 +28,8 @@ interface BookingItem {
   endTime: string;
   status: "CONFIRMED" | "CANCELLED" | "COMPLETED";
   createdAt: string;
+  confirmationEmailSentAt?: string | null;
+  confirmationEmailError?: string | null;
 }
 
 export default function HostBookingsPage() {
@@ -268,6 +270,12 @@ export default function HostBookingsPage() {
                     <div className="rounded-lg bg-muted/50 p-2.5 text-xs text-muted-foreground max-w-xl">
                       <span className="font-semibold text-foreground">Attendee Notes: </span>
                       {b.attendeeNotes}
+                    </div>
+                  )}
+                  {b.attendeeEmail && b.attendeeEmail !== "instant@mhaf.live" && (
+                    <div className="text-xs text-muted-foreground">
+                      <span className="font-semibold text-foreground">Confirmation email: </span>
+                      {b.confirmationEmailSentAt ? "Sent " + new Date(b.confirmationEmailSentAt).toLocaleString() : b.confirmationEmailError ? "Delivery failed — resend available" : "No delivery record"}
                     </div>
                   )}
 
