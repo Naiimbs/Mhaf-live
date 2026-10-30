@@ -73,7 +73,6 @@ export async function calculateAvailableSlots(
   });
   const activeMeetings = allMeetings.filter(
     (meeting) =>
-      meeting.source === "MANUAL" &&
       meeting.status !== "CANCELLED" &&
       meeting.status !== "COMPLETED"
   );
@@ -102,18 +101,17 @@ export async function calculateAvailableSlots(
           meeting.endTime.getTime() > protectedStartMs
       );
 
-      if (!isTooSoon && !bookingCollision && !meetingCollision) {
-        const start = new Date(slotStartMs);
-        const end = new Date(slotEndMs);
-        slots.push({
-          slotId: `slot_${slotStartMs}`,
-          startTimeUtc: start.toISOString(),
-          endTimeUtc: end.toISOString(),
-          displayTime: timeFormatter.format(start),
-          durationMinutes: eventType.durationMinutes,
-          available: true,
-        });
-      }
+      // Keep occupied and too-soon slots visible, but mark them unavailable.
+      const start = new Date(slotStartMs);
+      const end = new Date(slotEndMs);
+      slots.push({
+        slotId: `slot_${slotStartMs}`,
+        startTimeUtc: start.toISOString(),
+        endTimeUtc: end.toISOString(),
+        displayTime: timeFormatter.format(start),
+        durationMinutes: eventType.durationMinutes,
+        available: !isTooSoon && !bookingCollision && !meetingCollision,
+      });
 
       slotStartMs += stepMs;
     }
