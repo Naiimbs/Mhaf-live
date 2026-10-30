@@ -49,7 +49,7 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
     }
 
     if (!email.trim()) {
-      errs.email = isFr ? "L’adresse e-mail professionnelle est requise." : "Work email is required.";
+      errs.email = isFr ? "L’adresse e-mail est requise." : "Email address is required.";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       errs.email = isFr ? "Veuillez saisir une adresse e-mail valide." : "Please enter a valid work email address.";
     }
@@ -171,14 +171,14 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
                 htmlFor="demo-email"
                 className="block text-xs font-semibold text-foreground mb-1"
               >
-                {isFr ? "E-mail professionnel" : "Work Email"} <span className="text-destructive">*</span>
+                {isFr ? "Adresse e-mail" : "Email address"} <span className="text-destructive">*</span>
               </label>
               <input
                 id="demo-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@company.com"
+                placeholder="you@example.com"
                 className={`w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 ${
                   errors.email
                     ? "border-destructive focus:ring-destructive"
@@ -198,14 +198,14 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
                 htmlFor="demo-org"
                 className="block text-xs font-semibold text-foreground mb-1"
               >
-                {isFr ? "Entreprise, cabinet ou équipe" : "Business, practice, or team"} <span className="text-destructive">*</span>
+                {isFr ? "Entreprise, cabinet, équipe ou indépendant" : "Business, practice, team, or independent"} <span className="text-destructive">*</span>
               </label>
               <input
                 id="demo-org"
                 type="text"
                 value={organization}
                 onChange={(e) => setOrganization(e.target.value)}
-                placeholder="Your business or team name (or Independent)"
+                placeholder="Your organization or “Independent”"
                 className={`w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 ${
                   errors.organization
                     ? "border-destructive focus:ring-destructive"
@@ -235,6 +235,7 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
               >
                 <option value="Independent professional / client consultations">{isFr ? "Indépendant / consultations clients" : "Independent professional / client consultations"}</option>
                 <option value="Team meetings / project collaboration">{isFr ? "Réunions d’équipe / collaboration projet" : "Team meetings / project collaboration"}</option>
+                <option value="Agency / client services">{isFr ? "Agence / services clients" : "Agency / client services"}</option>
                 <option value="Client booking and scheduling">{isFr ? "Réservation client et planification" : "Client booking and scheduling"}</option>
                 <option value="Self-hosted / deployment evaluation">{isFr ? "Auto-hébergement / évaluation du déploiement" : "Self-hosted / deployment evaluation"}</option>
               </select>
