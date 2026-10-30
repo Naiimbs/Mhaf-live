@@ -14,7 +14,7 @@ export function Footer() {
           </div>
           <nav aria-label="Footer" className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
             <Link href="/register" className="hover:text-foreground">Create account</Link>
-            <Link href="/login" className="hover:text-foreground">Sign in</Link>
+            <Link href="/onboarding" className="hover:text-foreground">Sign in</Link>
             <Link href="#workflow" className="hover:text-foreground">How it works</Link>
           </nav>
         </div>
