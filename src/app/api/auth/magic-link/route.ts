@@ -1,16 +1,33 @@
 import { createHash, randomBytes } from "node:crypto";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { checkRateLimit } from "@/lib/db/demo-requests";
+import { extractClientIp } from "@/lib/client-ip";
 import { db } from "@/lib/db";
 import { sendMagicLinkEmail } from "@/lib/email/mailer";
 
 export const runtime = "nodejs";
 const TOKEN_TTL_MS = 15 * 60 * 1000;
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  // Apply the IP limit before parsing the body or looking up an account.
+  // This is process-local and intended for the current single-container deployment.
+  const clientIp = extractClientIp(request);
+  const ipLimit = checkRateLimit(`magic-link:ip:${clientIp}`, 10, 15 * 60 * 1000);
+
+  if (!ipLimit.allowed) {
+    return NextResponse.json(
+      { success: false, error: "Too many sign-in requests. Please try again later." },
+      {
+        status: 429,
+        headers: { "Retry-After": ipLimit.resetSeconds.toString() },
+      }
+    );
+  }
+
   try {
     const body = await request.json();
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
-    if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (!email || email.length > 254 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
       return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
     }
 
