@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getCurrentHost } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { sendBookingChangeResultEmail } from "@/lib/email/mailer";
+import { calculateAvailableSlots } from "@/lib/scheduling/slots";
+import { getLocalDateString } from "@/lib/scheduling/timezone";
 
 export async function GET() {
   const host = await getCurrentHost();
@@ -36,6 +38,21 @@ export async function POST(request: Request) {
     if (action === "REVIEW_REQUEST") {
       if (typeof body.requestId !== "string" || !["APPROVE", "REJECT"].includes(body.decision)) {
         return NextResponse.json({ error: "A valid request ID and decision are required." }, { status: 400 });
+      }
+      if (body.decision === "APPROVE") {
+        const pending = await db.getBookingChangeRequestById(body.requestId, host.id);
+        if (!pending) return NextResponse.json({ error: "Change request not found." }, { status: 404 });
+        if (pending.type === "RESCHEDULE" && pending.requestedStartTime) {
+          const original = await db.findBookingById(pending.bookingId);
+          const eventType = original ? await db.findEventTypeById(original.eventTypeId) : null;
+          if (!original || !eventType) return NextResponse.json({ error: "Original booking details are unavailable." }, { status: 404 });
+          const requestedStart = pending.requestedStartTime;
+          const requestedEnd = new Date(requestedStart.getTime() + eventType.durationMinutes * 60_000);
+          const dateString = getLocalDateString(requestedStart, host.timezone || "UTC");
+          const availability = await calculateAvailableSlots({ hostId: host.id, eventSlug: eventType.slug, dateString, attendeeTimezone: host.timezone || "UTC" });
+          const isAvailable = availability.slots.some((slot) => slot.available && slot.startTimeUtc === requestedStart.toISOString() && slot.endTimeUtc === requestedEnd.toISOString());
+          if (!isAvailable) return NextResponse.json({ error: "The requested time is no longer available in your schedule. Ask the attendee to suggest another time." }, { status: 409 });
+        }
       }
       const changeRequest = await db.resolveBookingChangeRequest({ requestId: body.requestId, hostId: host.id, decision: body.decision, hostResponse: typeof body.hostResponse === "string" ? body.hostResponse : undefined });
       const booking = await db.findBookingById(changeRequest.bookingId);
