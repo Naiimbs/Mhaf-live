@@ -27,6 +27,7 @@ import {
   Pin,
   PinOff,
   Maximize2,
+  Minimize2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand-logo";
@@ -89,6 +90,8 @@ function RemoteParticipantTile({
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const [hasVideo, setHasVideo] = React.useState(false);
   const [isAudioMuted, setIsAudioMuted] = React.useState(false);
+  const [isSpeaking, setIsSpeaking] = React.useState(participant.isSpeaking || false);
+  const [fitMode, setFitMode] = React.useState<"fill" | "fit">("fill");
   const [, forceUpdate] = React.useReducer((x) => x + 1, 0);
 
   React.useEffect(() => {
@@ -143,16 +146,22 @@ function RemoteParticipantTile({
       forceUpdate();
     };
 
+    const handleSpeaking = (speaking: boolean) => {
+      setIsSpeaking(speaking);
+    };
+
     participant.on(ParticipantEvent.TrackSubscribed, handleUpdate);
     participant.on(ParticipantEvent.TrackUnsubscribed, handleUpdate);
     participant.on(ParticipantEvent.TrackMuted, handleUpdate);
     participant.on(ParticipantEvent.TrackUnmuted, handleUpdate);
+    participant.on(ParticipantEvent.IsSpeakingChanged, handleSpeaking);
 
     return () => {
       participant.off(ParticipantEvent.TrackSubscribed, handleUpdate);
       participant.off(ParticipantEvent.TrackUnsubscribed, handleUpdate);
       participant.off(ParticipantEvent.TrackMuted, handleUpdate);
       participant.off(ParticipantEvent.TrackUnmuted, handleUpdate);
+      participant.off(ParticipantEvent.IsSpeakingChanged, handleSpeaking);
       if (attachedVideoTrack && videoRef.current) {
         attachedVideoTrack.detach(videoRef.current);
       }
@@ -163,67 +172,75 @@ function RemoteParticipantTile({
   }, [participant]);
 
   const pName = participant.name || participant.identity || "Guest";
-  const [isPortrait, setIsPortrait] = React.useState(false);
-
-  const handleLoadedMetadata = () => {
-    if (videoRef.current) {
-      setIsPortrait(videoRef.current.videoHeight > videoRef.current.videoWidth);
-    }
-  };
 
   return (
     <div
-      className={`relative w-full rounded-2xl border ${
-        isPinned ? "border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]" : "border-zinc-800"
-      } bg-zinc-900 overflow-hidden shadow-md flex items-center justify-center transition-all ${
-        isTwoPersonLayout
-          ? "h-full flex-1 min-h-0 min-w-0"
-          : isPortrait
-          ? "aspect-[9/16] max-h-[75vh]"
-          : "aspect-video max-h-[70vh]"
+      className={`group relative h-full w-full min-h-0 min-w-0 flex-1 rounded-2xl border transition-all duration-200 overflow-hidden shadow-md flex items-center justify-center ${
+        isPinned
+          ? "border-emerald-500 ring-2 ring-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.35)]"
+          : isSpeaking
+          ? "border-blue-500 ring-2 ring-blue-500 shadow-[0_0_20px_rgba(37,99,235,0.4)]"
+          : "border-zinc-800/80 hover:border-zinc-700 bg-zinc-900"
       }`}
     >
       <video
         ref={videoRef}
         autoPlay
         playsInline
-        onLoadedMetadata={handleLoadedMetadata}
         className={`h-full w-full transition-opacity duration-300 ${
-          isPortrait ? "object-contain bg-zinc-950" : "object-cover"
+          fitMode === "fit" ? "object-contain bg-zinc-950" : "object-cover"
         } ${hasVideo ? "opacity-100" : "opacity-0"}`}
       />
       <audio ref={audioRef} autoPlay />
 
       {!hasVideo && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-400 space-y-2">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-800 text-zinc-400 border border-zinc-700 shadow-sm">
-            <Users className="h-7 w-7 text-primary" />
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-400 space-y-2 bg-gradient-to-b from-zinc-900 to-zinc-950">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-800/90 text-white font-bold text-xl border border-zinc-700/80 shadow-md">
+            {pName.charAt(0).toUpperCase()}
           </div>
           <span className="text-xs font-semibold text-zinc-200">{pName}</span>
           <span className="text-[11px] text-zinc-500 font-mono">Camera Off</span>
         </div>
       )}
 
-      {/* Participant Name Badge */}
-      <div className="absolute bottom-3 left-3 flex items-center gap-2 bg-zinc-950/80 backdrop-blur-md px-2.5 py-1 rounded-md text-xs font-mono text-zinc-300 border border-zinc-800 shadow-sm">
+      {/* Participant Name Badge (Teams Style) */}
+      <div className="absolute bottom-3 left-3 z-20 flex items-center gap-2 bg-black/65 backdrop-blur-md px-2.5 py-1 rounded-lg text-xs font-mono text-zinc-200 border border-white/10 shadow-md">
         <span>{pName}</span>
-        {isAudioMuted && <MicOff className="h-3 w-3 text-destructive" />}
+        {isAudioMuted ? (
+          <MicOff className="h-3 w-3 text-red-400" />
+        ) : isSpeaking ? (
+          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" title="Speaking" />
+        ) : null}
       </div>
 
-      {onTogglePin && (
+      {/* Top-Right Floating Controls (Teams Style) */}
+      <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
         <button
           type="button"
-          onClick={onTogglePin}
-          className={`absolute top-3 right-3 z-10 p-1.5 rounded-lg border text-xs backdrop-blur-md transition-colors ${
-            isPinned
-              ? "bg-emerald-600/90 text-white border-emerald-400"
-              : "bg-zinc-950/70 text-zinc-400 hover:text-white border-zinc-800"
-          }`}
-          title={isPinned ? "Détacher" : "Épingler en vue principale"}
+          onClick={() => setFitMode(fitMode === "fill" ? "fit" : "fill")}
+          className="p-1.5 rounded-lg border border-white/10 bg-black/60 text-zinc-300 hover:text-white hover:bg-black/80 backdrop-blur-md text-xs transition-colors shadow-sm"
+          title={fitMode === "fill" ? "Fit to frame (show entire video)" : "Fill frame (crop borders)"}
+          aria-label={fitMode === "fill" ? "Fit to frame" : "Fill frame"}
         >
-          {isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+          {fitMode === "fill" ? <Maximize2 className="h-3.5 w-3.5" /> : <Minimize2 className="h-3.5 w-3.5" />}
         </button>
-      )}
+
+        {onTogglePin && (
+          <button
+            type="button"
+            onClick={onTogglePin}
+            className={`p-1.5 rounded-lg border text-xs backdrop-blur-md transition-colors shadow-sm ${
+              isPinned
+                ? "bg-emerald-600/90 text-white border-emerald-400"
+                : "bg-black/60 text-zinc-300 hover:text-white border-white/10 hover:bg-black/80"
+            }`}
+            title={isPinned ? "Détacher" : "Épingler en vue principale"}
+            aria-label={isPinned ? "Unpin participant" : "Pin participant"}
+          >
+            {isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -617,6 +634,8 @@ export function ActiveRoom({
 
   const [pinnedParticipantId, setPinnedParticipantId] = React.useState<string | null>(null);
   const [localIsPortrait, setLocalIsPortrait] = React.useState(false);
+  const [localFitMode, setLocalFitMode] = React.useState<"fill" | "fit">("fill");
+  const [localIsSpeaking, setLocalIsSpeaking] = React.useState(false);
   const recorderRef = React.useRef<MeetingRecorder | null>(null);
   const [recorderState, setRecorderState] = React.useState<RecorderState>({
     isRecording: false,
@@ -941,6 +960,11 @@ export function ActiveRoom({
             await room.localParticipant.publishTrack(track);
           }
         }
+
+        // Listen to local speaking events for Microsoft Teams-style active speaker ring
+        room.localParticipant.on(ParticipantEvent.IsSpeakingChanged, (speaking: boolean) => {
+          if (mounted) setLocalIsSpeaking(speaking);
+        });
       } catch (err: any) {
         console.warn("[ActiveRoom] LiveKit connection failed:", err.message);
         localTracksRef.current.forEach((track) => track.stop());
@@ -1375,31 +1399,55 @@ export function ActiveRoom({
           /* Optimized 2-Participant Layout: 100% viewport space, zero wasted black bars */
           <div className="flex-1 h-full w-full min-h-0 min-w-0 p-2 sm:p-3 flex flex-col md:flex-row gap-2 sm:gap-3 items-stretch justify-stretch overflow-hidden bg-zinc-950">
             {/* Local User Tile */}
-            <div className="relative flex-1 h-full w-full min-h-0 min-w-0 rounded-2xl border border-zinc-800 bg-zinc-900 overflow-hidden shadow-md flex items-center justify-center">
+            <div
+              className={`group relative flex-1 h-full w-full min-h-0 min-w-0 rounded-2xl border transition-all duration-200 overflow-hidden shadow-md flex items-center justify-center ${
+                localIsSpeaking
+                  ? "border-blue-500 ring-2 ring-blue-500 shadow-[0_0_20px_rgba(37,99,235,0.4)]"
+                  : "border-zinc-800 hover:border-zinc-700 bg-zinc-900"
+              }`}
+            >
               <video
                 ref={localVideoRef}
                 autoPlay
                 playsInline
                 muted
                 onLoadedMetadata={handleLocalVideoMetadata}
-                className={`h-full w-full ${
-                  localIsPortrait ? "object-contain bg-zinc-950" : "object-cover"
-                } transform -scale-x-100 transition-opacity ${videoEnabled ? "opacity-100" : "opacity-0"}`}
+                className={`h-full w-full transition-opacity duration-300 ${
+                  localFitMode === "fit" ? "object-contain bg-zinc-950" : "object-cover"
+                } transform -scale-x-100 ${videoEnabled ? "opacity-100" : "opacity-0"}`}
               />
 
               {!videoEnabled && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-400 space-y-2">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-800 text-zinc-400 border border-zinc-700">
-                    <VideoOff className="h-6 w-6" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-400 space-y-2 bg-gradient-to-b from-zinc-900 to-zinc-950">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-800/90 text-white font-bold text-xl border border-zinc-700/80 shadow-md">
+                    {displayName.charAt(0).toUpperCase()}
                   </div>
-                  <span className="text-xs font-medium">{displayName} (Camera Off)</span>
+                  <span className="text-xs font-semibold text-zinc-200">{displayName} (You)</span>
+                  <span className="text-[11px] text-zinc-500 font-mono">Camera Off</span>
                 </div>
               )}
 
-              {/* Tile Label */}
-              <div className="absolute bottom-3 left-3 flex items-center gap-2 bg-zinc-950/80 backdrop-blur-md px-2.5 py-1 rounded-md text-xs font-mono text-zinc-300 border border-zinc-800">
+              {/* Participant Name Badge (Teams Style) */}
+              <div className="absolute bottom-3 left-3 z-20 flex items-center gap-2 bg-black/65 backdrop-blur-md px-2.5 py-1 rounded-lg text-xs font-mono text-zinc-200 border border-white/10 shadow-md">
                 <span>{displayName} (You)</span>
-                {!audioEnabled && <MicOff className="h-3 w-3 text-destructive" />}
+                {!audioEnabled ? (
+                  <MicOff className="h-3 w-3 text-red-400" />
+                ) : localIsSpeaking ? (
+                  <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" title="Speaking" />
+                ) : null}
+              </div>
+
+              {/* Top-Right Fit/Fill Toggle (Teams Style) */}
+              <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
+                <button
+                  type="button"
+                  onClick={() => setLocalFitMode(localFitMode === "fill" ? "fit" : "fill")}
+                  className="p-1.5 rounded-lg border border-white/10 bg-black/60 text-zinc-300 hover:text-white hover:bg-black/80 backdrop-blur-md text-xs transition-colors shadow-sm"
+                  title={localFitMode === "fill" ? "Fit to frame (show entire video)" : "Fill frame (crop borders)"}
+                  aria-label={localFitMode === "fill" ? "Fit to frame" : "Fill frame"}
+                >
+                  {localFitMode === "fill" ? <Maximize2 className="h-3.5 w-3.5" /> : <Minimize2 className="h-3.5 w-3.5" />}
+                </button>
               </div>
             </div>
 
@@ -1416,62 +1464,134 @@ export function ActiveRoom({
             />
           </div>
         ) : (
-          /* Main Stage Multi-Video Grid (> 1 remote participant or waiting) */
-          <div className="flex-1 p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 items-center justify-center overflow-auto bg-zinc-950">
-            {/* Local User Tile */}
-            <div className="relative aspect-video w-full max-h-[70vh] rounded-2xl border border-zinc-800 bg-zinc-900 overflow-hidden shadow-md flex items-center justify-center">
-              <video
-                ref={localVideoRef}
-                autoPlay
-                playsInline
-                muted
-                onLoadedMetadata={handleLocalVideoMetadata}
-                className={`h-full w-full ${
-                  localIsPortrait ? "object-contain bg-zinc-950" : "object-cover"
-                } transform -scale-x-100 transition-opacity ${videoEnabled ? "opacity-100" : "opacity-0"}`}
-              />
-
-              {!videoEnabled && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-400 space-y-2">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-800 text-zinc-400 border border-zinc-700">
-                    <VideoOff className="h-6 w-6" />
+          /* Main Stage Multi-Video Grid (3+ participants or waiting room, Teams-inspired gallery) */
+          <div className="flex-1 h-full w-full min-h-0 min-w-0 p-2 sm:p-3 overflow-hidden bg-zinc-950 flex flex-col justify-center">
+            {remoteParticipants.length === 0 ? (
+              /* Waiting state: local user + invite card */
+              <div className="h-full w-full grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 items-stretch justify-stretch">
+                <div
+                  className={`group relative h-full w-full min-h-0 min-w-0 rounded-2xl border transition-all duration-200 overflow-hidden shadow-md flex items-center justify-center ${
+                    localIsSpeaking
+                      ? "border-blue-500 ring-2 ring-blue-500 shadow-[0_0_20px_rgba(37,99,235,0.4)]"
+                      : "border-zinc-800 bg-zinc-900"
+                  }`}
+                >
+                  <video
+                    ref={localVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    onLoadedMetadata={handleLocalVideoMetadata}
+                    className={`h-full w-full transition-opacity duration-300 ${
+                      localFitMode === "fit" ? "object-contain bg-zinc-950" : "object-cover"
+                    } transform -scale-x-100 ${videoEnabled ? "opacity-100" : "opacity-0"}`}
+                  />
+                  {!videoEnabled && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-400 space-y-2 bg-gradient-to-b from-zinc-900 to-zinc-950">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-800/90 text-white font-bold text-xl border border-zinc-700/80 shadow-md">
+                        {displayName.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="text-xs font-semibold text-zinc-200">{displayName} (You)</span>
+                      <span className="text-[11px] text-zinc-500 font-mono">Camera Off</span>
+                    </div>
+                  )}
+                  <div className="absolute bottom-3 left-3 z-20 flex items-center gap-2 bg-black/65 backdrop-blur-md px-2.5 py-1 rounded-lg text-xs font-mono text-zinc-200 border border-white/10 shadow-md">
+                    <span>{displayName} (You)</span>
+                    {!audioEnabled && <MicOff className="h-3 w-3 text-red-400" />}
                   </div>
-                  <span className="text-xs font-medium">{displayName} (Camera Off)</span>
                 </div>
-              )}
 
-              {/* Tile Label */}
-              <div className="absolute bottom-3 left-3 flex items-center gap-2 bg-zinc-950/80 backdrop-blur-md px-2.5 py-1 rounded-md text-xs font-mono text-zinc-300 border border-zinc-800">
-                <span>{displayName} (You)</span>
-                {!audioEnabled && <MicOff className="h-3 w-3 text-destructive" />}
+                <div className="relative h-full w-full min-h-0 min-w-0 rounded-2xl border border-zinc-800/80 bg-zinc-900/40 backdrop-blur-md overflow-hidden shadow-md flex flex-col items-center justify-center text-zinc-400 p-6 text-center space-y-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-800/80 text-zinc-400 border border-zinc-700 shadow-inner">
+                    <Users className="h-7 w-7 text-primary" />
+                  </div>
+                  <div className="max-w-md space-y-1.5">
+                    <p className="text-sm font-semibold text-zinc-200">
+                      {expectedInviteeName ? `Waiting for ${expectedInviteeName} to join` : "Waiting for other participants"}
+                    </p>
+                    <p className="text-xs text-zinc-400 leading-relaxed">
+                      Share the invite link using the button above. Connected participants will appear in Microsoft Teams-style Gallery view.
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
-
-            {/* Remote Participants or Waiting Placeholder */}
-            {remoteParticipants.length > 0 ? (
-              remoteParticipants.map((p) => (
-                <RemoteParticipantTile
-                  key={p.identity}
-                  participant={p}
-                  isPinned={pinnedParticipantId === p.identity}
-                  onTogglePin={() =>
-                    setPinnedParticipantId(pinnedParticipantId === p.identity ? null : p.identity)
-                  }
-                />
-              ))
             ) : (
-              <div className="relative aspect-video w-full max-h-[70vh] rounded-2xl border border-zinc-800/80 bg-zinc-900/50 overflow-hidden shadow-md flex flex-col items-center justify-center text-zinc-500 p-6 text-center space-y-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-800/80 text-zinc-500 border border-zinc-700">
-                  <Users className="h-6 w-6" />
+              /* 3 or more participants: Adaptive Microsoft Teams Gallery Grid */
+              <div
+                className={`h-full w-full min-h-0 min-w-0 grid gap-2 sm:gap-3 items-stretch justify-stretch ${
+                  remoteParticipants.length === 2
+                    ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 sm:[&>*:nth-child(3):last-child]:col-span-2 sm:[&>*:nth-child(3):last-child]:max-w-[65%] sm:[&>*:nth-child(3):last-child]:mx-auto lg:[&>*:nth-child(3):last-child]:col-span-1 lg:[&>*:nth-child(3):last-child]:max-w-none"
+                    : remoteParticipants.length === 3
+                    ? "grid-cols-1 sm:grid-cols-2 sm:grid-rows-2"
+                    : remoteParticipants.length <= 5
+                    ? "grid-cols-2 lg:grid-cols-3"
+                    : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"
+                }`}
+              >
+                {/* Local User Tile */}
+                <div
+                  className={`group relative h-full w-full min-h-0 min-w-0 flex-1 rounded-2xl border transition-all duration-200 overflow-hidden shadow-md flex items-center justify-center ${
+                    localIsSpeaking
+                      ? "border-blue-500 ring-2 ring-blue-500 shadow-[0_0_20px_rgba(37,99,235,0.4)]"
+                      : "border-zinc-800 hover:border-zinc-700 bg-zinc-900"
+                  }`}
+                >
+                  <video
+                    ref={localVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    onLoadedMetadata={handleLocalVideoMetadata}
+                    className={`h-full w-full transition-opacity duration-300 ${
+                      localFitMode === "fit" ? "object-contain bg-zinc-950" : "object-cover"
+                    } transform -scale-x-100 ${videoEnabled ? "opacity-100" : "opacity-0"}`}
+                  />
+
+                  {!videoEnabled && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-400 space-y-2 bg-gradient-to-b from-zinc-900 to-zinc-950">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-800/90 text-white font-bold text-xl border border-zinc-700/80 shadow-md">
+                        {displayName.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="text-xs font-semibold text-zinc-200">{displayName} (You)</span>
+                      <span className="text-[11px] text-zinc-500 font-mono">Camera Off</span>
+                    </div>
+                  )}
+
+                  {/* Participant Name Badge (Teams Style) */}
+                  <div className="absolute bottom-3 left-3 z-20 flex items-center gap-2 bg-black/65 backdrop-blur-md px-2.5 py-1 rounded-lg text-xs font-mono text-zinc-200 border border-white/10 shadow-md">
+                    <span>{displayName} (You)</span>
+                    {!audioEnabled ? (
+                      <MicOff className="h-3 w-3 text-red-400" />
+                    ) : localIsSpeaking ? (
+                      <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" title="Speaking" />
+                    ) : null}
+                  </div>
+
+                  {/* Top-Right Fit/Fill Toggle (Teams Style) */}
+                  <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
+                    <button
+                      type="button"
+                      onClick={() => setLocalFitMode(localFitMode === "fill" ? "fit" : "fill")}
+                      className="p-1.5 rounded-lg border border-white/10 bg-black/60 text-zinc-300 hover:text-white hover:bg-black/80 backdrop-blur-md text-xs transition-colors shadow-sm"
+                      title={localFitMode === "fill" ? "Fit to frame (show entire video)" : "Fill frame (crop borders)"}
+                      aria-label={localFitMode === "fill" ? "Fit to frame" : "Fill frame"}
+                    >
+                      {localFitMode === "fill" ? <Maximize2 className="h-3.5 w-3.5" /> : <Minimize2 className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs font-medium text-zinc-400">
-                    {expectedInviteeName ? `Waiting for ${expectedInviteeName} to join` : "Waiting for other participants"}
-                  </p>
-                  <p className="text-[11px] text-zinc-500 mt-0.5">
-                    Share the invite link using the button above. Connected participants will appear here.
-                  </p>
-                </div>
+
+                {/* Remote Participants */}
+                {remoteParticipants.map((p) => (
+                  <RemoteParticipantTile
+                    key={p.identity}
+                    participant={p}
+                    isPinned={pinnedParticipantId === p.identity}
+                    onTogglePin={() =>
+                      setPinnedParticipantId(pinnedParticipantId === p.identity ? null : p.identity)
+                    }
+                  />
+                ))}
               </div>
             )}
           </div>

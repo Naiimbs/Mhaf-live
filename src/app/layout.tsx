@@ -10,13 +10,16 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "meet — High-Assurance Video Meetings & Autonomous Scheduling",
+  title: "mhaf meet — Secure Meetings. Better Decisions.",
   description:
-    "Low-latency WebRTC video conferencing, timezone-aware scheduling, and verifiable attendance analytics without mandatory guest accounts.",
+    "Secure video calls, intelligent scheduling, and high-assurance WebRTC meetings without mandatory guest accounts.",
   icons: {
-    icon: "/favicon.ico",
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/icon.png", sizes: "512x512", type: "image/png" },
+    ],
     shortcut: "/favicon.ico",
-    apple: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
   },
   keywords: [
     "WebRTC",

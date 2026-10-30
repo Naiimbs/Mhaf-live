@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   CalendarDays,
@@ -126,10 +127,14 @@ export function DashboardLayoutShell({
             title="mhaf meet"
           >
             {collapsed ? (
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10">
-                <span className="font-bold text-white tracking-wider text-base">m</span>
-                <span className="text-[#FD2E2D] font-bold text-base">•</span>
-              </div>
+              <Image
+                src="/icon.png"
+                alt="mhaf meet"
+                width={36}
+                height={36}
+                className="h-9 w-9 rounded-xl object-contain shadow-sm"
+                priority
+              />
             ) : (
               <BrandLogo size="medium" variant="white" priority />
             )}

@@ -45,7 +45,7 @@ function VerifyMagicLinkContent() {
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Confirm your sign-in</h1>
           <p className="text-sm text-muted-foreground">
-            Continue to securely sign in to your MHAF Live host dashboard.
+            Continue to securely sign in to your mhaf meet host dashboard.
           </p>
         </div>
         <div className="rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-sm space-y-4">
