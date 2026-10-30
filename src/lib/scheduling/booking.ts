@@ -69,7 +69,10 @@ export async function createBooking(
     const requestedStart = startTime.toISOString();
     const requestedEnd = endTime.toISOString();
     const matchingSlot = available.slots.some(
-      (slot) => slot.startTimeUtc === requestedStart && slot.endTimeUtc === requestedEnd
+      (slot) =>
+        slot.available &&
+        slot.startTimeUtc === requestedStart &&
+        slot.endTimeUtc === requestedEnd
     );
     if (!matchingSlot) {
       return {
