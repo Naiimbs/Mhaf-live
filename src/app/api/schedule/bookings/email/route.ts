@@ -40,7 +40,6 @@ export async function POST(request: Request) {
       );
     }
 
-    await db.updateBookingManagementToken(booking.id, managementTokenHash, new Date(Date.now() + 180 * 24 * 60 * 60_000));
     try {
     await sendMeetingConfirmationEmail({
       to: booking.attendeeEmail,
@@ -53,6 +52,7 @@ export async function POST(request: Request) {
       managementUrl: `${appUrl}/book/manage/${managementToken}`,
       hostName,
     });
+    await db.updateBookingManagementToken(booking.id, managementTokenHash, new Date(Date.now() + 180 * 24 * 60 * 60_000));
     await db.updateBookingConfirmationEmail(booking.id, true, null);
     } catch (emailError) {
       await db.updateBookingConfirmationEmail(booking.id, false, emailError instanceof Error ? emailError.message : "Email delivery failed.");
