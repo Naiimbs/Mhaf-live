@@ -6,6 +6,16 @@ import { Calendar, Clock, User, Mail, AlertTriangle, CheckCircle, XCircle, Arrow
 import { Button } from "@/components/ui/button";
 import { InstantMeetingButton } from "@/components/dashboard/instant-meeting-button";
 
+interface BookingChangeRequestItem {
+  id: string;
+  type: "CANCEL" | "RESCHEDULE";
+  reason: string;
+  requestedStartTime: string | null;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  createdAt: string;
+  booking: { id: string; uid: string; attendeeName: string; attendeeEmail: string; startTime: string; endTime: string; status: string; title: string } | null;
+}
+
 interface BookingItem {
   id: string;
   uid: string;
@@ -18,10 +28,14 @@ interface BookingItem {
   endTime: string;
   status: "CONFIRMED" | "CANCELLED" | "COMPLETED";
   createdAt: string;
+  confirmationEmailSentAt?: string | null;
+  confirmationEmailError?: string | null;
 }
 
 export default function HostBookingsPage() {
   const [bookings, setBookings] = React.useState<BookingItem[]>([]);
+  const [changeRequests, setChangeRequests] = React.useState<BookingChangeRequestItem[]>([]);
+  const [reviewingRequestId, setReviewingRequestId] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [cancellingId, setCancellingId] = React.useState<string | null>(null);
   const [sendingEmailId, setSendingEmailId] = React.useState<string | null>(null);
@@ -34,6 +48,7 @@ export default function HostBookingsPage() {
       if (!res.ok) throw new Error("Failed to load bookings");
       const data = await res.json();
       setBookings(data.bookings || []);
+      setChangeRequests(data.changeRequests || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -72,6 +87,22 @@ export default function HostBookingsPage() {
     }
   };
 
+  const handleReviewRequest = async (requestId: string, decision: "APPROVE" | "REJECT") => {
+    const label = decision === "APPROVE" ? "approve" : "reject";
+    if (!confirm("Are you sure you want to " + label + " this attendee request?")) return;
+    setReviewingRequestId(requestId);
+    try {
+      const res = await fetch("/api/schedule/bookings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "REVIEW_REQUEST", requestId, decision }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Unable to review request.");
+      await loadBookings();
+      if (!data.attendeeNotified) alert("Decision saved, but the attendee notification email could not be sent.");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Unable to review request.");
+    } finally {
+      setReviewingRequestId(null);
+    }
+  };
   const handleSendConfirmationEmail = async (bookingId: string) => {
     setSendingEmailId(bookingId);
     setEmailStatus(null);
@@ -111,6 +142,21 @@ export default function HostBookingsPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
+      {changeRequests.some((item) => item.status === "PENDING") && (
+        <section className="space-y-3">
+          <div><h2 className="text-lg font-semibold">Attendee requests</h2><p className="text-xs text-muted-foreground">Cancellation and reschedule requests require your approval. The original booking stays active until you approve.</p></div>
+          {changeRequests.filter((item) => item.status === "PENDING").map((item) => (
+            <article key={item.id} className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-semibold">{item.type === "CANCEL" ? "Cancellation request" : "Reschedule request"}</span><span className="text-xs text-muted-foreground">{new Date(item.createdAt).toLocaleString()}</span></div>
+              {item.booking && <p className="text-sm">{item.booking.attendeeName} · {item.booking.title} · {new Date(item.booking.startTime).toLocaleString()}</p>}
+              <div className="rounded-lg bg-background/70 p-3 text-sm"><p className="text-xs font-semibold text-muted-foreground mb-1">Reason provided</p><p className="whitespace-pre-wrap">{item.reason}</p></div>
+              {item.type === "RESCHEDULE" && item.requestedStartTime && <p className="text-sm"><strong>Preferred new time:</strong> {new Date(item.requestedStartTime).toLocaleString()}</p>}
+              <div className="flex flex-wrap gap-2"><Button size="sm" disabled={reviewingRequestId === item.id} onClick={() => handleReviewRequest(item.id, "APPROVE")}>{reviewingRequestId === item.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Approve"}</Button><Button size="sm" variant="outline" disabled={reviewingRequestId === item.id} onClick={() => handleReviewRequest(item.id, "REJECT")}>Reject</Button></div>
+            </article>
+          ))}
+        </section>
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
@@ -224,6 +270,12 @@ export default function HostBookingsPage() {
                     <div className="rounded-lg bg-muted/50 p-2.5 text-xs text-muted-foreground max-w-xl">
                       <span className="font-semibold text-foreground">Attendee Notes: </span>
                       {b.attendeeNotes}
+                    </div>
+                  )}
+                  {b.attendeeEmail && b.attendeeEmail !== "instant@mhaf.live" && (
+                    <div className="text-xs text-muted-foreground">
+                      <span className="font-semibold text-foreground">Confirmation email: </span>
+                      {b.confirmationEmailSentAt ? "Sent " + new Date(b.confirmationEmailSentAt).toLocaleString() : b.confirmationEmailError ? "Delivery failed — resend available" : "No delivery record"}
                     </div>
                   )}
 

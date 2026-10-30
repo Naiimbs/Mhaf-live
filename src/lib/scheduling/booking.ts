@@ -17,7 +17,8 @@ export const CreateBookingSchema = z.object({
 export type CreateBookingInput = z.infer<typeof CreateBookingSchema>;
 
 export async function createBooking(
-  input: CreateBookingInput
+  input: CreateBookingInput,
+  managementTokenHash?: string
 ): Promise<{ success: true; booking: Booking } | { success: false; error: string }> {
   const parseResult = CreateBookingSchema.safeParse(input);
   if (!parseResult.success) {
@@ -98,5 +99,6 @@ export async function createBooking(
     endTime,
     bufferBeforeMin: eventType.bufferBeforeMin,
     bufferAfterMin: eventType.bufferAfterMin,
+    managementTokenHash,
   });
 }

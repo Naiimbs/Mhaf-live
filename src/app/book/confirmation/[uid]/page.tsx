@@ -45,6 +45,8 @@ export default async function BookingConfirmationPage({
         startTime: new Date(booking.startTime).toISOString(),
         endTime: new Date(booking.endTime).toISOString(),
         status: booking.status,
+        confirmationEmailSentAt: booking.confirmationEmailSentAt,
+        confirmationEmailError: booking.confirmationEmailError,
       }}
       host={host ? { name: host.name, email: host.email } : null}
     />

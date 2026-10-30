@@ -16,6 +16,8 @@ interface ConfirmationViewProps {
     startTime: string | Date;
     endTime: string | Date;
     status: string;
+    confirmationEmailSentAt?: any;
+    confirmationEmailError?: string | null;
   };
   host: {
     name: string | null;
@@ -58,16 +60,24 @@ export function ConfirmationView({ booking, host }: ConfirmationViewProps) {
                 {isFr ? "Votre réunion est réservée !" : "You're Scheduled!"}
               </h1>
               <p className="text-sm text-muted-foreground mt-0.5">
-                {isFr ? (
-                  <>
-                    Un e-mail de confirmation contenant votre lien d'accès direct à la réunion a été envoyé à{" "}
-                    <strong className="text-foreground">{booking.attendeeEmail}</strong>.
-                  </>
+                {booking.confirmationEmailSentAt ? (
+                  isFr ? (
+                    <>Un e-mail de confirmation contenant votre lien d'accès direct a été envoyé à <strong className="text-foreground">{booking.attendeeEmail}</strong>.</>
+                  ) : (
+                    <>Confirmation email sent to <strong className="text-foreground">{booking.attendeeEmail}</strong>.</>
+                  )
+                ) : booking.confirmationEmailError ? (
+                  isFr ? (
+                    <>Votre réservation est confirmée, mais l'e-mail de confirmation n'a pas pu être remis à <strong className="text-foreground">{booking.attendeeEmail}</strong>. Veuillez contacter votre hôte pour le renvoyer.</>
+                  ) : (
+                    <>Your booking is confirmed, but the confirmation email could not be delivered to <strong className="text-foreground">{booking.attendeeEmail}</strong>. Please contact your host to resend it.</>
+                  )
                 ) : (
-                  <>
-                    A confirmation email with your direct meeting room access link has been sent to{" "}
-                    <strong className="text-foreground">{booking.attendeeEmail}</strong>.
-                  </>
+                  isFr ? (
+                    <>Votre réservation est confirmée pour <strong className="text-foreground">{booking.attendeeEmail}</strong>.</>
+                  ) : (
+                    <>Your booking is confirmed for <strong className="text-foreground">{booking.attendeeEmail}</strong>.</>
+                  )
                 )}
               </p>
             </div>

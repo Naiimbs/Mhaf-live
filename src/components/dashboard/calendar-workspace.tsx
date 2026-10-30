@@ -127,6 +127,7 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
   const [createLinkOpen, setCreateLinkOpen] = React.useState(false);
   const [creatingLink, setCreatingLink] = React.useState(false);
   const [createLinkError, setCreateLinkError] = React.useState<string | null>(null);
+  const [sendLinkByEmail, setSendLinkByEmail] = React.useState(false);
 
   React.useEffect(() => {
     setBookingTypes(eventTypes);
@@ -152,6 +153,7 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
       title: String(form.get("title") || "").trim(),
       durationMinutes: Number(form.get("durationMinutes") || 30),
       description: String(form.get("description") || "").trim(),
+      recipientEmail: sendLinkByEmail ? String(form.get("recipientEmail") || "").trim() : "",
     };
     try {
       const res = await fetch("/api/schedule/event-types", {
@@ -163,7 +165,19 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
       if (!res.ok) throw new Error(data.error || "Could not create booking link.");
       setBookingTypes((prev) => [...prev, data.eventType]);
       setCreateLinkOpen(false);
-      setCopyMessage(`Booking link created: “${data.eventType.title}”`);
+      if (sendLinkByEmail && data.emailSent) {
+        setCopyMessage("Booking link sent to " + payload.recipientEmail);
+      } else if (sendLinkByEmail) {
+        setCopyMessage("Link created, but email could not be sent. Copy it from Your booking links.");
+      } else {
+        try {
+          await navigator.clipboard.writeText(data.bookingUrl);
+          setCopyMessage("Booking link created and copied to clipboard.");
+        } catch {
+          setCopyMessage("Booking link created. Open Your booking links to copy it.");
+        }
+      }
+      setSendLinkByEmail(false);
     } catch (err: any) {
       setCreateLinkError(err.message || "Failed to create booking link.");
     } finally {
@@ -885,8 +899,23 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none"
               />
             </label>
+            <div className="rounded-lg border border-border p-3 space-y-3">
+              <label className="flex items-center justify-between gap-3 cursor-pointer">
+                <span className="space-y-0.5">
+                  <span className="block text-xs font-medium">Send booking link by email</span>
+                  <span className="block text-[11px] text-muted-foreground">Turn off to create the link and copy it directly.</span>
+                </span>
+                <input type="checkbox" name="sendByEmail" checked={sendLinkByEmail} onChange={(event) => setSendLinkByEmail(event.target.checked)} className="h-4 w-4 accent-primary" />
+              </label>
+              {sendLinkByEmail && (
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-medium">Recipient email</span>
+                  <input name="recipientEmail" type="email" required maxLength={254} placeholder="client@example.com" className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+                </label>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">
-              A shareable URL will be created. You can copy and send it directly via WhatsApp, SMS, or Email.
+              The booking link is always created. You can email it now or copy it to share through WhatsApp, SMS, or another channel.
             </p>
             <div className="flex justify-end gap-2 pt-1">
               <Button type="button" variant="outline" onClick={() => setCreateLinkOpen(false)}>
@@ -894,7 +923,7 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
               </Button>
               <Button type="submit" disabled={creatingLink} className="gap-2">
                 {creatingLink ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                Create link
+                {sendLinkByEmail ? "Create & send" : "Create & copy"}
               </Button>
             </div>
           </form>

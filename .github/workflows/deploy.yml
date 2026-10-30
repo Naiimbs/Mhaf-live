@@ -148,6 +148,12 @@ jobs:
             exit 1
           fi
 
+          REMINDER_SECRET="$(sed -n 's/^BOOKING_REMINDER_CRON_SECRET=//p' "$ENV_FILE" | tail -n 1 | tr -d '"\047[:space:]\r')"
+          if [ "${#REMINDER_SECRET}" -lt 32 ] || echo "$REMINDER_SECRET" | grep -Eiq 'placeholder|replace_with|dev-secret'; then
+            echo "BOOKING_REMINDER_CRON_SECRET must be a unique secret of at least 32 characters in $ENV_FILE."
+            exit 1
+          fi
+
           LIVEKIT_URL_VALUE="$(sed -n 's/^LIVEKIT_URL=//p' "$ENV_FILE" | tail -n 1 | tr -d '"\047[:space:]\r')"
           if [ -z "$LIVEKIT_URL_VALUE" ]; then
             LIVEKIT_URL_VALUE="$(sed -n 's/^NEXT_PUBLIC_LIVEKIT_URL=//p' "$ENV_FILE" | tail -n 1 | tr -d '"\047[:space:]\r')"
@@ -392,4 +398,16 @@ jobs:
             docker rm "$ROLLBACK"
           fi
           echo "MHAF Live deployed and healthy on 127.0.0.1:18083."
+
+          # Persistent scheduler sidecar calls the protected endpoint every minute over the private Docker network.
+          echo "Starting MHAF Live booking reminder scheduler..."
+          docker rm -f mhaf-live-reminders >/dev/null 2>&1 || true
+          docker run -d --name mhaf-live-reminders --restart unless-stopped --network mhaf-network --env BOOKING_REMINDER_CRON_SECRET="$REMINDER_SECRET" --entrypoint node "$IMAGE" -e 'const url="http://mhaf-live:3000/api/internal/booking-reminders"; const secret=process.env.BOOKING_REMINDER_CRON_SECRET; if(!secret||secret.length<32) process.exit(2); (async()=>{for(;;){try{const r=await fetch(url,{headers:{authorization:"Bearer "+secret},signal:AbortSignal.timeout(20000)});if(!r.ok) console.error("[reminder-scheduler] endpoint returned",r.status);else console.log("[reminder-scheduler]",await r.text());}catch(e){console.error("[reminder-scheduler]",e.message);} await new Promise(resolve=>setTimeout(resolve,60000));}})();'
+          sleep 2
+          if [ "$(docker inspect --format '{{.State.Running}}' mhaf-live-reminders 2>/dev/null || echo false)" != "true" ]; then
+            echo "Booking reminder scheduler container is not running."
+            docker logs --tail 50 mhaf-live-reminders || true
+            exit 1
+          fi
+          echo "Booking reminder scheduler is running (60-second interval)."
           REMOTE

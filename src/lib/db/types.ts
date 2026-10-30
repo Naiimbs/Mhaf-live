@@ -69,8 +69,31 @@ export interface Booking {
   status: BookingStatus;
   lastLeftAt?: Date | null;
   completedAt?: Date | null;
+  managementTokenHash?: string | null;
+  managementTokenExpiresAt?: Date | null;
+  confirmationEmailSentAt?: Date | null;
+  confirmationEmailError?: string | null;
+  reminder15SentAt?: Date | null;
+  reminder5SentAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export type BookingChangeRequestType = "CANCEL" | "RESCHEDULE";
+export type BookingChangeRequestStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+export interface BookingChangeRequest {
+  id: string;
+  bookingId: string;
+  hostId: string;
+  type: BookingChangeRequestType;
+  reason: string;
+  requestedStartTime: Date | null;
+  status: BookingChangeRequestStatus;
+  hostResponse: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  resolvedAt: Date | null;
 }
 
 export type MeetingSource = "BOOKING" | "MANUAL" | "INSTANT";
