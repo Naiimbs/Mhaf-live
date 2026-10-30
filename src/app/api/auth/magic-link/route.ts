@@ -22,7 +22,7 @@ export async function POST(request: Request) {
       await db.createMagicLinkToken(user.id, tokenHash, expires);
 
       const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || new URL(request.url).origin;
-      const link = new URL("/api/auth/magic-link/verify", appUrl);
+      const link = new URL("/auth/verify", appUrl);
       link.searchParams.set("token", rawToken);
       await sendMagicLinkEmail(user.email, link.toString());
     }
