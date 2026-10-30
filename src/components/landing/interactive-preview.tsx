@@ -274,7 +274,7 @@ export function InteractivePreview() {
                           }}
                           className="flex-1 text-xs"
                         >
-                          {testMicActive ? "{isFr ? "Arrêter le test audio" : "Stop Mic Test"}" : "{isFr ? "Tester le microphone" : "Test Audio Input"}"}
+                          {testMicActive ? (isFr ? "Arrêter le test audio" : "Stop Mic Test") : (isFr ? "Tester le microphone" : "Test Audio Input")}
                         </Button>
                         <Button
                           variant={cameraActive ? "outline" : "default"}
@@ -282,7 +282,7 @@ export function InteractivePreview() {
                           onClick={() => setCameraActive(!cameraActive)}
                           className="flex-1 text-xs"
                         >
-                          {cameraActive ? "{isFr ? "Désactiver la vidéo" : "Turn Off Video"}" : "{isFr ? "Activer la vidéo" : "Enable Video"}"}
+                          {cameraActive ? (isFr ? "Désactiver la vidéo" : "Turn Off Video") : (isFr ? "Activer la vidéo" : "Enable Video")}
                         </Button>
                       </div>
 
