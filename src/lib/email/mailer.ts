@@ -532,3 +532,27 @@ export async function sendMagicLinkEmail(to: string, magicLink: string): Promise
     html: `<!doctype html><html lang="en"><body style="margin:0;padding:32px;background:#09090b;color:#fafafa;font-family:Arial,sans-serif"><main style="max-width:520px;margin:auto;padding:32px;background:#121215;border:1px solid #27272a;border-radius:16px"><h1 style="font-size:22px">Sign in to MHAF Live</h1><p style="color:#a1a1aa;line-height:1.6">Click below to securely access your host dashboard.</p><p style="margin:28px 0"><a href="${safeLink}" style="display:inline-block;padding:13px 22px;border-radius:9px;background:#10b981;color:#042f2e;text-decoration:none;font-weight:700">Sign in to MHAF Live</a></p><p style="color:#a1a1aa;font-size:13px;line-height:1.6">This link expires in 15 minutes and can only be used once. If you did not request it, you can ignore this email.</p></main></body></html>`,
   });
 }
+
+export async function sendBookingLinkEmail(params: {
+  to: string;
+  hostName: string;
+  title: string;
+  durationMinutes: number;
+  bookingUrl: string;
+}) {
+  const transporter = getTransporter();
+  const from = getMeetingEmailFrom(process.env.EMAIL_FROM, process.env.SMTP_USER);
+  const escapeHtml = (value: string) =>
+    value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const title = escapeHtml(params.title);
+  const hostName = escapeHtml(params.hostName);
+  const url = escapeHtml(params.bookingUrl);
+
+  return transporter.sendMail({
+    from,
+    to: params.to,
+    subject: `Choose a time for ${params.title} — MHAF Live`,
+    text: `Hello,\n\n${params.hostName} invited you to book a ${params.durationMinutes}-minute meeting: ${params.title}.\n\nChoose an available time here: ${params.bookingUrl}\n\nMHAF Live`,
+    html: `<!doctype html><html lang="en"><body style="margin:0;padding:32px;background:#09090b;color:#fafafa;font-family:Arial,sans-serif"><main style="max-width:540px;margin:auto;padding:32px;background:#121215;border:1px solid #27272a;border-radius:16px"><p style="color:#38bdf8;font-size:12px;font-weight:700;letter-spacing:.08em">MHAF LIVE · BOOKING INVITATION</p><h1 style="font-size:24px">You're invited to book a meeting</h1><p style="color:#a1a1aa;line-height:1.6">${hostName} invited you to schedule <strong style="color:#fafafa">${title}</strong> (${params.durationMinutes} minutes).</p><p style="margin:28px 0"><a href="${url}" style="display:inline-block;padding:13px 22px;border-radius:9px;background:#10b981;color:#042f2e;text-decoration:none;font-weight:700">Choose a time</a></p><p style="color:#a1a1aa;font-size:13px;line-height:1.6">You'll be able to choose from the host's available time slots. Your meeting will be confirmed after you complete the booking.</p><p style="color:#71717a;font-size:12px;word-break:break-all">If the button doesn't work, open: ${url}</p></main></body></html>`,
+  });
+}
