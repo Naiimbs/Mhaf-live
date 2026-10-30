@@ -17,6 +17,8 @@ interface ConfirmationViewProps {
     endTime: string | Date;
     status: string;
     confirmationEmailSentAt?: any;
+    confirmationEmailError?: string | null;
+  };
   host: {
     name: string | null;
     email: string;
