@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     }
 
     const user = await db.findUserByEmail(email);
-    if (user) {
+    if (user && !(await db.hasRecentMagicLinkToken(user.id, new Date(Date.now() - 60 * 1000)))) {
       const rawToken = randomBytes(32).toString("hex");
       const tokenHash = createHash("sha256").update(rawToken).digest("hex");
       const expires = new Date(Date.now() + TOKEN_TTL_MS);
