@@ -3,24 +3,26 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createHostSession } from "@/lib/auth/session";
 
-export async function GET(request: Request) {
-  const url = new URL(request.url);
-  const rawToken = url.searchParams.get("token") || "";
-  if (!/^[a-f0-9]{64}$/i.test(rawToken)) {
-    return NextResponse.redirect(new URL("/login?magicLink=invalid", request.url));
-  }
+export const runtime = "nodejs";
 
+export async function POST(request: Request) {
   try {
-    const tokenHash = createHash("sha256").update(rawToken).digest("hex");
+    const body = await request.json();
+    const token = typeof body.token === "string" ? body.token : "";
+    if (!/^[a-f0-9]{64}$/i.test(token)) {
+      return NextResponse.json({ error: "This sign-in link is invalid or has expired." }, { status: 400 });
+    }
+
+    const tokenHash = createHash("sha256").update(token).digest("hex");
     const user = await db.consumeMagicLinkToken(tokenHash);
     if (!user) {
-      return NextResponse.redirect(new URL("/login?magicLink=invalid", request.url));
+      return NextResponse.json({ error: "This sign-in link is invalid or has expired." }, { status: 400 });
     }
 
     await createHostSession(user);
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[auth] Magic-link verification failed:", error instanceof Error ? error.message : "Unknown error");
-    return NextResponse.redirect(new URL("/login?magicLink=error", request.url));
+    return NextResponse.json({ error: "We could not verify this sign-in link. Please request a new one." }, { status: 500 });
   }
 }
