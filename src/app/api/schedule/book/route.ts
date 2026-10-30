@@ -57,7 +57,22 @@ export async function POST(request: Request) {
         );
       }
 
-      await Promise.allSettled(emailPromises);
+      const emailResults = await Promise.allSettled(emailPromises);
+      emailResults.forEach((emailResult, index) => {
+        if (emailResult.status === "rejected") {
+          const emailType = index === 0 ? "attendee_confirmation" : "host_notification";
+          const errorMessage =
+            emailResult.reason instanceof Error
+              ? emailResult.reason.message
+              : "Unknown email delivery error";
+
+          // Keep attendee/host addresses and booking details out of logs.
+          console.error("[Booking API] Email delivery failed:", {
+            emailType,
+            message: errorMessage,
+          });
+        }
+      });
     } catch (error) {
       console.warn("[Booking API] Email delivery trigger warning:", error);
     }
