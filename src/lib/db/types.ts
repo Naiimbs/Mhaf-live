@@ -12,6 +12,15 @@ export interface User {
   updatedAt: Date;
 }
 
+export interface MagicLinkToken {
+  id: string;
+  tokenHash: string;
+  userId: string;
+  expires: Date;
+  consumedAt: Date | null;
+  createdAt: Date;
+}
+
 export interface Session {
   id: string;
   sessionToken: string;

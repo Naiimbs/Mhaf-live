@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { defineConfig } from "@playwright/test";
 import { loadEnvConfig } from "@next/env";
 
@@ -10,7 +11,8 @@ const e2eLiveKitEnv = {
   LIVEKIT_API_KEY: "mhaf-e2e-test-key",
   LIVEKIT_API_SECRET: "mhaf-e2e-test-secret",
 };
-Object.assign(process.env, e2eLiveKitEnv);
+const e2eAuthEnv = { MHAF_E2E_AUTH_HARNESS_SECRET: randomBytes(32).toString("hex") };
+Object.assign(process.env, e2eLiveKitEnv, e2eAuthEnv);
 
 export default defineConfig({
   testDir: "./tests",
@@ -55,10 +57,10 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "bun run start",
+    command: "bun run dev",
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 60000,
-    env: e2eLiveKitEnv,
+    env: { ...e2eLiveKitEnv, ...e2eAuthEnv },
   },
 });
