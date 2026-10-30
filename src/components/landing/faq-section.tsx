@@ -12,28 +12,28 @@ import { Badge } from "@/components/ui/badge";
 export function FaqSection() {
   const faqs = [
     {
-      q: "Do meeting participants or guests need an account to join?",
-      a: "No. Guests can enter meeting rooms immediately using a unique, cryptographically signed room link. The host mints a short-lived participant token on the server with restricted grants (canPublish: true, roomAdmin: false), allowing instant entry without passwords or profile setup.",
+      q: "Do guests need an account to join a meeting?",
+      a: "No account is required for invited guests. A guest joins through a room link, and the application issues a restricted participant token on the server. Hosts still use an authenticated workspace to manage meetings.",
     },
     {
-      q: "How does the scheduling engine prevent double-booking conflicts?",
-      a: "Inspired by Cal.diy's scheduling math, the engine translates the host's operating windows, timezones, and existing bookings into discrete prospective intervals. When an attendee reserves a slot, an atomic database transaction verifies slot availability before writing the record, rejecting collisions deterministically.",
+      q: "How does scheduling handle conflicting bookings?",
+      a: "The current scheduling flow calculates availability using the host's schedule and existing bookings, then checks for conflicts when a booking is submitted. Database-level, cross-instance atomic reservation is a planned hardening step; we do not claim that guarantee yet.",
     },
     {
-      q: "How is post-meeting speech transcription handled?",
-      a: "Standard LiveKit webhooks report room lifecycle events (joined/left/closed), but do not transport speech or text. To ensure high fidelity and resilience, MHAF Live uses LiveKit Egress to export composite audio (.m4a) to S3 upon call conclusion, triggering an asynchronous speech-to-text pipeline (Deepgram / Whisper) for diarized speaker summaries.",
+      q: "Are attendance analytics and meeting summaries available today?",
+      a: "Not yet. The landing-page analytics view is illustrative. Verified webhook ingestion is being introduced first; participant history, attendance dashboards, recording, transcription, and AI summaries will be marked available only after their end-to-end flows are implemented and tested.",
     },
     {
-      q: "Can MHAF Live be deployed completely on-premise or self-hosted?",
-      a: "Yes. The entire application server is a standard Next.js App Router application backed by PostgreSQL. The real-time media layer can connect to an open-source LiveKit SFU server deployed on Docker or Kubernetes, ensuring total data sovereignty.",
+      q: "Can MHAF Live use a self-hosted LiveKit server?",
+      a: "The application reads its LiveKit connection settings from server-side environment configuration, so it can be configured for a compatible LiveKit deployment. Data residency also depends on where the application, database, and any future recording storage are hosted.",
     },
     {
-      q: "How are participant tokens and room privileges secured?",
-      a: "Client browsers never possess LiveKit API keys or secrets. All access tokens are signed server-side in the /api/connection-details route handler using the LiveKit Server SDK. Administrative actions (muting remote participants, kicking, locking rooms) require verified host sessions.",
+      q: "How are room tokens protected?",
+      a: "LiveKit tokens are signed on the server using the LiveKit Server SDK. The browser does not receive the LiveKit API secret, and guest tokens are issued without room-administrator privileges.",
     },
     {
       q: "Does MHAF Live track continuous GPS or live location?",
-      a: "No. MHAF Live is strictly a real-time video conferencing, calendar scheduling, and meeting intelligence platform. It does not perform continuous GPS tracking, live geolocation monitoring, or background mobile tracking.",
+      a: "No. MHAF Live is designed for video meetings, scheduling, and meeting workflows. It does not require continuous GPS tracking or background location monitoring.",
     },
   ];
 

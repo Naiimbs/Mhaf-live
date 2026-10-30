@@ -114,7 +114,7 @@ export function InteractivePreview() {
                           <Clock className="h-4 w-4 text-primary" /> Available Time Windows
                         </span>
                         <p className="text-xs text-muted-foreground mb-4">
-                          Slots generated dynamically based on host availability matrix and existing booking collision checks.
+                          Sample slots for this interactive preview. They are not fetched from a live host calendar.
                         </p>
                         <div className="grid grid-cols-3 gap-2.5">
                           {timeSlots.map((slot) => (
@@ -163,7 +163,7 @@ export function InteractivePreview() {
                           onClick={() => setBookingConfirmed(true)}
                           disabled={!selectedSlot}
                         >
-                          Confirm & Generate Instant Room Link
+                          Preview booking confirmation
                         </Button>
                       </div>
                     </div>
@@ -173,11 +173,10 @@ export function InteractivePreview() {
                         <CheckCircle className="h-6 w-6" />
                       </div>
                       <h4 className="text-lg font-bold text-foreground">
-                        Time Slot Reserved Atomically
+                        Booking Preview
                       </h4>
                       <p className="text-xs text-muted-foreground max-w-md mx-auto">
-                        In production, this initiates a PostgreSQL transaction with collision locks,
-                        mints the LiveKit room, and dispatches .ics calendar invites.
+                        This is a front-end demonstration only. No slot is reserved, no room is created, and no invitation is sent.
                       </p>
                       <Button
                         variant="outline"

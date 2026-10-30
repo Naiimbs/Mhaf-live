@@ -5,6 +5,24 @@ import { ArrowRight, Sparkles, X } from "lucide-react";
 
 export function AnnouncementBanner() {
   const [dismissed, setDismissed] = React.useState(false);
+  const storageKey = "mhaf-announcement-dismissed-v1";
+
+  React.useEffect(() => {
+    try {
+      setDismissed(window.localStorage.getItem(storageKey) === "true");
+    } catch {
+      // Keep the banner available for this visit when storage is unavailable.
+    }
+  }, []);
+
+  const dismiss = () => {
+    setDismissed(true);
+    try {
+      window.localStorage.setItem(storageKey, "true");
+    } catch {
+      // Ignore storage restrictions.
+    }
+  };
 
   if (dismissed) return null;
 
@@ -18,17 +36,17 @@ export function AnnouncementBanner() {
           <Sparkles className="h-3 w-3" /> Architecture Blueprint
         </span>
         <span className="hidden sm:inline">
-          MHAF Live v1.0 specifications & reference audit are published.
+          Secure meetings, scheduling, and a clearer way to collaborate.
         </span>
         <a
-          href="#preview"
+          href="#features"
           className="inline-flex items-center font-medium text-foreground underline-offset-4 hover:underline"
         >
-          Explore Live Preview <ArrowRight className="ml-1 h-3 w-3" />
+          Explore the platform <ArrowRight className="ml-1 h-3 w-3" />
         </a>
       </div>
       <button
-        onClick={() => setDismissed(true)}
+        onClick={dismiss}
         aria-label="Dismiss banner"
         className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >

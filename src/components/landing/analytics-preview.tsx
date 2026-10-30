@@ -22,8 +22,7 @@ export function AnalyticsPreview() {
             Granular Attendance Analytics & Heatmaps
           </h2>
           <p className="mt-4 text-base text-muted-foreground">
-            Webhook-driven participant session reconciliation captures exact join/leave timestamps,
-            dropouts, and net engagement duration.
+            Designed to present participant join/leave events, reconnections, and session duration once the analytics pipeline is connected.
           </p>
         </div>
 
@@ -31,7 +30,7 @@ export function AnalyticsPreview() {
         <div className="max-w-4xl mx-auto mb-6 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 px-4 text-xs text-amber-700 dark:text-amber-400">
           <Info className="h-4 w-4 shrink-0" />
           <span>
-            <strong>Illustrative Simulation:</strong> Below is a UI visualization of session data modeled from PostgreSQL `ParticipantEvent` logs. Full operational ingestion connects in Phase 4.
+            <strong>Illustrative sample only:</strong> The names, timeline, and metrics below are demonstration data. They are not live attendee analytics.
           </span>
         </div>
 

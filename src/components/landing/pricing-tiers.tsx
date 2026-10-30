@@ -81,7 +81,7 @@ export function PricingTiers({ onRequestDemo }: PricingTiersProps) {
           </p>
 
           <div className="mt-4 inline-flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 font-medium">
-            <Info className="h-3.5 w-3.5" /> Note: Commercial tiers represent proposed pricing targets for upcoming releases.
+            <Info className="h-3.5 w-3.5" /> Commercial tiers and prices are proposals only; they are not currently available for purchase.
           </div>
         </div>
 
@@ -127,7 +127,7 @@ export function PricingTiers({ onRequestDemo }: PricingTiersProps) {
               <CardContent className="p-6 sm:p-8 pt-0 flex-1">
                 <div className="border-t border-border/60 pt-6">
                   <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block mb-3">
-                    Features Included
+                    Proposed capabilities
                   </span>
                   <ul className="space-y-2.5 text-xs sm:text-sm text-muted-foreground">
                     {tier.features.map((feat, fIdx) => (

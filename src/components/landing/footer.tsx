@@ -31,9 +31,15 @@ export function Footer() {
             <Link href="#workflow" className="hover:text-foreground">
               {isFr ? "Comment ça marche" : "How it works"}
             </Link>
+            <Link href="https://github.com/Naiimbs/Mhaf-live" target="_blank" rel="noreferrer" className="hover:text-foreground">
+              GitHub
+            </Link>
+            <Link href="#security" className="hover:text-foreground">
+              {isFr ? "Sécurité" : "Security"}
+            </Link>
           </nav>
         </div>
-        <div className="mt-6 border-t border-border pt-4 text-[11px] text-muted-foreground">© {new Date().getFullYear()} meet</div>
+        <div className="mt-6 border-t border-border pt-4 text-[11px] text-muted-foreground">© {new Date().getFullYear()} MHAF Live</div>
       </div>
     </footer>
   );

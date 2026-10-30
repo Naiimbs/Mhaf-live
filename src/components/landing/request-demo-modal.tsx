@@ -283,8 +283,7 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
               <CheckCircle2 className="h-6 w-6" />
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Thank you, <strong>{fullName}</strong>. In this development preview, your
-              inquiry for <strong>{organization}</strong> is staged locally without external email dispatch.
+              Thank you, <strong>{fullName}</strong>. Your request for <strong>{organization}</strong> has been recorded. Our team can follow up using the work email you provided.
             </p>
             <div className="rounded-lg border border-border bg-muted/30 p-3 font-mono text-xs text-muted-foreground text-left space-y-1">
               {submittedData?.id && (

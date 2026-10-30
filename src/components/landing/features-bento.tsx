@@ -15,8 +15,7 @@ export function FeaturesBento() {
             Everything needed for modern video collaboration.
           </h2>
           <p className="mt-4 text-base text-muted-foreground">
-            A cohesive suite combining real-time WebRTC media, scheduling algorithms,
-            and deterministic attendance analytics.
+            A connected workflow for real-time meetings and scheduling, with attendance and intelligence capabilities being developed in measured stages.
           </p>
         </div>
 
@@ -39,7 +38,7 @@ export function FeaturesBento() {
               <CardDescription className="text-base mt-2">
                 Built on LiveKit's Selective Forwarding Unit (SFU) architecture.
                 Supports adaptive simulcast, dynacast, screen sharing, and reliable
-                in-room data channels with sub-100ms latency.
+                in-room data channels. Actual call quality depends on network conditions and deployment.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-8 pt-0">
@@ -73,15 +72,14 @@ export function FeaturesBento() {
                 Timezone-Aware Scheduling
               </CardTitle>
               <CardDescription className="text-sm mt-2">
-                Mathematical slot generation eliminates double-booking. Configurable
-                buffer periods, advance notice buffers, and direct room link generation.
+                Timezone-aware availability and booking conflict checks help hosts coordinate meetings. Cross-instance atomic booking protection remains a hardening item.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-8 pt-0">
               <div className="rounded-lg border border-border bg-muted/40 p-3 font-mono text-xs text-muted-foreground">
                 <span className="text-foreground font-semibold">GET /api/schedule/slots</span>
                 <div className="mt-1 text-[11px] opacity-80">
-                  Calculates open intervals across host availability rules & existing bookings atomically.
+                  Calculates candidate intervals from host availability and existing bookings.
                 </div>
               </div>
             </CardContent>
@@ -94,20 +92,19 @@ export function FeaturesBento() {
                 <BarChart3 className="h-6 w-6" />
               </div>
               <Badge variant="secondary" className="w-fit font-mono text-[11px] mb-2">
-                Real-Time Auditing
+                Roadmap capability
               </Badge>
               <CardTitle className="text-xl">
                 Attendance Timelines & Heatmaps
               </CardTitle>
               <CardDescription className="text-sm mt-2">
-                Webhook-driven lifecycle tracking captures exact join/leave timestamps,
-                reconnection events, and calculates verified net attendance duration.
+                Designed to turn verified LiveKit lifecycle events into participant timelines and attendance duration. The analytics dashboard is not yet operational.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-8 pt-0">
               <div className="space-y-2">
                 <div className="flex justify-between text-xs text-muted-foreground font-mono">
-                  <span>Participant Retention</span>
+                  <span>Illustrative retention</span>
                   <span className="text-emerald-500 font-semibold">96.4%</span>
                 </div>
                 <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
@@ -129,12 +126,10 @@ export function FeaturesBento() {
                 </Badge>
               </div>
               <CardTitle className="text-xl sm:text-2xl mt-4">
-                Verifiable Post-Meeting Intelligence
+                Post-Meeting Intelligence
               </CardTitle>
               <CardDescription className="text-base mt-2">
-                Audio is captured via LiveKit Egress, transferred securely to cloud
-                object storage, and processed asynchronously for speaker diarization,
-                structured meeting summaries, and actionable tasks.
+                Planned pipeline: capture meeting audio, process it asynchronously, and produce speaker-aware transcripts, structured summaries, and action items. Recording and AI processing are not yet enabled.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-8 pt-0">
@@ -142,19 +137,19 @@ export function FeaturesBento() {
                 <div className="rounded-lg border border-border bg-card p-3.5">
                   <span className="text-xs font-semibold text-foreground">1. Audio Egress</span>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Archived directly to S3 upon room close webhook.
+                    Planned: archive audio after the room ends.
                   </p>
                 </div>
                 <div className="rounded-lg border border-border bg-card p-3.5">
                   <span className="text-xs font-semibold text-foreground">2. Diarized STT</span>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Speaker identity timestamped with high confidence.
+                    Planned: speaker-labelled text with timestamps.
                   </p>
                 </div>
                 <div className="rounded-lg border border-border bg-card p-3.5">
                   <span className="text-xs font-semibold text-foreground">3. Action Items</span>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Structured JSON outputs with assigned owners.
+                    Planned: structured action items for follow-up.
                   </p>
                 </div>
               </div>

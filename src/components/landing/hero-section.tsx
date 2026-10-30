@@ -5,28 +5,14 @@ import { ArrowRight, CalendarDays, Clock3, Globe2, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/lib/i18n/language-context";
 
-export function HeroSection() {
-  const { t, isFr } = useLanguage();
+interface HeroSectionProps { onRequestDemo: () => void; }
 
+export function HeroSection({ onRequestDemo }: HeroSectionProps) {
+  const { t, isFr } = useLanguage();
   const previewEvents = [
-    {
-      time: "09:30",
-      title: isFr ? "Consultation produit" : "Product consultation",
-      person: "Maya Laurent",
-      tone: "bg-sky-500/10 border-sky-500/30 text-sky-700 dark:text-sky-300",
-    },
-    {
-      time: "11:00",
-      title: isFr ? "Point d'équipe" : "Project check-in",
-      person: isFr ? "Planification équipe" : "Team planning",
-      tone: "bg-violet-500/10 border-violet-500/30 text-violet-700 dark:text-violet-300",
-    },
-    {
-      time: "14:00",
-      title: isFr ? "Sync express" : "Quick sync",
-      person: isFr ? "Réunion instantanée" : "Instant meeting",
-      tone: "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300",
-    },
+    { time: "09:30", title: isFr ? "Consultation produit" : "Product consultation", person: "Maya Laurent", tone: "bg-sky-500/10 border-sky-500/30 text-sky-700 dark:text-sky-300" },
+    { time: "11:00", title: isFr ? "Point d'équipe" : "Project check-in", person: isFr ? "Planification équipe" : "Team planning", tone: "bg-violet-500/10 border-violet-500/30 text-violet-700 dark:text-violet-300" },
+    { time: "14:00", title: isFr ? "Sync express" : "Quick sync", person: isFr ? "Réunion instantanée" : "Instant meeting", tone: "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300" },
   ];
 
   return (
@@ -42,15 +28,13 @@ export function HeroSection() {
             <h1 className="mt-6 text-4xl font-extrabold leading-[1.08] tracking-tight text-foreground sm:text-5xl md:text-6xl">
               {t("landing.heroTitle1")}<br /><span className="text-primary">{t("landing.heroTitle2")}</span>
             </h1>
-            <p className="mt-6 max-w-lg text-base leading-7 text-muted-foreground sm:text-lg">
-              {t("landing.heroDesc")}
-            </p>
+            <p className="mt-6 max-w-lg text-base leading-7 text-muted-foreground sm:text-lg">{t("landing.heroDesc")}</p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button size="lg" asChild className="gap-2 shadow-sm">
                 <Link href="/register">{t("landing.ctaStart")} <ArrowRight className="h-4 w-4" /></Link>
               </Button>
-              <Button size="lg" variant="outline" asChild>
-                <Link href="/login">{t("landing.ctaSignIn")}</Link>
+              <Button size="lg" variant="outline" onClick={onRequestDemo}>
+                {isFr ? "Demander une démo" : "Request an enterprise demo"}
               </Button>
             </div>
             <p className="mt-4 text-xs text-muted-foreground">
@@ -59,16 +43,11 @@ export function HeroSection() {
                 : "Guests book through your dedicated booking link. Meeting controls stay in your host workspace."}
             </p>
           </div>
-
           <div id="calendar" className="relative rounded-2xl border border-border bg-card p-4 shadow-xl shadow-black/5 sm:p-6">
             <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                  {isFr ? "Espace hôte" : "Host workspace"}
-                </p>
-                <h2 className="mt-1 text-xl font-bold tracking-tight">
-                  {isFr ? "Votre semaine en un coup d'œil" : "Your week, at a glance"}
-                </h2>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{isFr ? "Espace hôte" : "Host workspace"}</p>
+                <h2 className="mt-1 text-xl font-bold tracking-tight">{isFr ? "Votre semaine en un coup d'œil" : "Your week, at a glance"}</h2>
               </div>
               <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/60 px-2.5 py-1 text-[11px] font-medium text-muted-foreground"><Globe2 className="h-3 w-3" /> Africa/Tunis</span>
             </div>

@@ -5,39 +5,39 @@ export function TrustSection() {
   const principles = [
     {
       icon: Lock,
-      title: "Signed Room Tokens",
+      title: "Server-Signed Room Access",
       description:
-        "Every session access token is minted server-side with strict grants (roomAdmin, canPublish, canSubscribe). Zero client secret exposure.",
+        "LiveKit access tokens are minted on the server. API keys and signing secrets are never sent to the browser.",
     },
     {
       icon: Server,
-      title: "Self-Hostable SFU",
+      title: "Flexible Media Deployment",
       description:
-        "Designed to deploy either against managed LiveKit Cloud or your own Dockerized LiveKit instance for complete data sovereignty.",
+        "The media connection is configurable for a managed LiveKit service or a compatible self-hosted LiveKit deployment.",
     },
     {
       icon: ShieldCheck,
-      title: "Zero Third-Party Telemetry",
+      title: "Privacy-Conscious Room Access",
       description:
-        "No invasive third-party analytics scripts or trackers injected into meeting rooms. All logs remain inside your PostgreSQL cluster.",
+        "Meeting access is controlled through scoped, short-lived tokens rather than exposing media-server credentials to participants.",
     },
     {
       icon: Cpu,
-      title: "Isolated AI Pipeline",
+      title: "Meeting Intelligence Roadmap",
       description:
-        "Audio egress and speech transcription operate asynchronously in segregated worker queues, keeping the real-time media SFU unburdened.",
+        "Attendance insights, audio archival, transcription, and summaries are planned capabilities. They are not presented as live features until verified end to end.",
     },
   ];
 
   return (
-    <section className="border-y border-border/60 bg-muted/30 py-12">
+    <section id="security" className="border-y border-border/60 bg-muted/30 py-12">
       <div className="container max-w-7xl px-4 sm:px-8">
         <div className="text-center max-w-2xl mx-auto">
           <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-            Architecture Commitments & Security Architecture
+            Security & deployment principles
           </p>
           <h2 className="mt-2 text-xl font-bold tracking-tight text-foreground sm:text-2xl">
-            Built on verifiable engineering, not marketing claims.
+            Designed around clear trust boundaries and honest capability status.
           </h2>
         </div>
 
