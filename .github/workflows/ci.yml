@@ -25,6 +25,6 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
       - name: Type-check application
-        run: npx tsc --noEmit
+        run: npx tsc --noEmit -p tsconfig.app.json
       - name: Run unit tests
         run: npm run test:unit
