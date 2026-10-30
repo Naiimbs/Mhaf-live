@@ -501,7 +501,26 @@ export async function sendHostBookingNotificationEmail({
 }
 
 
+type E2EGlobal = typeof globalThis & { __mhafE2EMagicLinks?: Map<string, string> };
+
+export function consumeE2EMagicLink(email: string): string | null {
+  if (process.env.NODE_ENV !== "development" || !process.env.MHAF_E2E_AUTH_HARNESS_SECRET) return null;
+  const links = (globalThis as E2EGlobal).__mhafE2EMagicLinks;
+  const key = email.trim().toLowerCase();
+  const link = links?.get(key) ?? null;
+  links?.delete(key);
+  return link;
+}
+
 export async function sendMagicLinkEmail(to: string, magicLink: string): Promise<void> {
+  // Local Playwright sink: disabled in production and requires an explicit dev-only secret.
+  if (process.env.NODE_ENV === "development" && process.env.MHAF_E2E_AUTH_HARNESS_SECRET) {
+    const root = globalThis as E2EGlobal;
+    root.__mhafE2EMagicLinks ??= new Map<string, string>();
+    root.__mhafE2EMagicLinks.set(to.trim().toLowerCase(), magicLink);
+    return;
+  }
+
   const transporter = getTransporter();
   const from = getMeetingEmailFrom(process.env.EMAIL_FROM, process.env.SMTP_USER);
   const safeLink = magicLink.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");

@@ -50,6 +50,37 @@ test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests",
 
     await expect(page).toHaveURL(/\/dashboard/);
     await expect(page.getByText(uniqueEmail)).toBeVisible();
+
+    // Re-authenticate using the actual one-time magic-link flow, without SMTP.
+    await page.request.post("/api/auth/logout");
+    await page.goto("/login");
+    const magicLinkResponse = await request.post("/api/auth/magic-link", {
+      data: { email: uniqueEmail },
+    });
+    expect(magicLinkResponse.status()).toBe(200);
+    expect((await magicLinkResponse.json()).success).toBe(true);
+
+    const capturedLinkResponse = await request.get(
+      `/api/__e2e__/magic-link?email=${encodeURIComponent(uniqueEmail)}`,
+      { headers: { "x-mhaf-e2e-secret": "mhaf-playwright-local-only-secret" } }
+    );
+    expect(capturedLinkResponse.status()).toBe(200);
+    const { url } = await capturedLinkResponse.json();
+    expect(url).toContain("/auth/verify?token=");
+
+    await page.goto(url);
+    await page.getByRole("button", { name: "Continue to dashboard" }).click();
+    await expect(page).toHaveURL(/\/dashboard/);
+    await expect(page.getByText(uniqueEmail)).toBeVisible();
+
+    // Restore the availability regression coverage using the magic-link session.
+    await page.goto("/dashboard/availability");
+    await expect(page.locator("h1")).toContainText("Weekly Availability Schedule");
+    await page.selectOption("#end-time-1", "18:00");
+    await page.click("#save-availability-btn");
+    await expect(page.locator("#availability-feedback-alert")).toContainText(
+      "Weekly availability and operating timezone saved successfully."
+    );
   });
 
   test("5. Legacy password login API is disabled", async ({ request }) => {
