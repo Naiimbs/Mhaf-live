@@ -54,6 +54,17 @@ const config: Config = {
           live: "hsl(var(--live-status-active))",
           recording: "hsl(var(--media-recording))",
         },
+        brand: {
+          navy: "#09264D",
+          "navy-dark": "#07172F",
+          "navy-light": "#0E386E",
+          blue: "#01377A",
+          "blue-bright": "#1D4ED8",
+          coral: "#FD2E2D",
+          "coral-hover": "#E02424",
+          "coral-light": "#FFF1F1",
+          ice: "#F8FAFC",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

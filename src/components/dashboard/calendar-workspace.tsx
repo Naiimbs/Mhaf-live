@@ -19,6 +19,8 @@ import {
   User,
   Video,
   X,
+  Share2,
+  BarChart2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +35,7 @@ import {
   getWeekdayForLocalDate,
   getZonedDateParts,
 } from "@/lib/scheduling/timezone";
+import { MeetingIllustration } from "./meeting-illustration";
 
 interface CalendarEvent {
   id: string;
@@ -53,30 +56,17 @@ interface CalendarWorkspaceProps {
   eventTypes: Array<{ id: string; slug: string; title: string; durationMinutes: number; description?: string | null }>;
 }
 
-const HOUR_START = 7;
-const HOUR_END = 21;
-const HOUR_HEIGHT = 64;
+const HOUR_START = 0;
+const HOUR_END = 23;
+const HOUR_HEIGHT = 48;
 
 function getVisibleHourRange(events: CalendarEvent[], timeZone: string) {
-  let start = HOUR_START;
-  let end = HOUR_END;
-  for (const event of events) {
-    const eventStart = new Date(event.startTime);
-    const eventEnd = new Date(event.endTime);
-    const startParts = getZonedDateParts(eventStart, timeZone);
-    const endParts = getZonedDateParts(eventEnd, timeZone);
-    const startDate = getLocalDateString(eventStart, timeZone);
-    const endDate = getLocalDateString(eventEnd, timeZone);
-    start = Math.min(start, startParts.hour);
-    const endMinute = endDate === startDate ? endParts.hour * 60 + endParts.minute : 24 * 60;
-    end = Math.max(end, Math.ceil(endMinute / 60));
-  }
-  start = Math.max(0, start);
-  end = Math.min(24, Math.max(start + 1, end));
+  let start = 0;
+  let end = 23;
   return {
     start,
     end,
-    hours: Array.from({ length: end - start + 1 }, (_, index) => start + index),
+    hours: Array.from({ length: 24 }, (_, index) => index),
   };
 }
 
@@ -100,9 +90,11 @@ function formatClock(iso: string, timeZone: string): string {
 }
 
 function sourceStyles(source: CalendarEvent["source"]) {
-  if (source === "BOOKING") return "border-sky-500/40 bg-sky-500/10 text-sky-800 dark:text-sky-200";
-  if (source === "MANUAL") return "border-violet-500/40 bg-violet-500/10 text-violet-800 dark:text-violet-200";
-  return "border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-200";
+  if (source === "BOOKING")
+    return "border-blue-300/80 bg-blue-50/95 text-blue-950 dark:bg-blue-950/40 dark:text-blue-200 dark:border-blue-800/40";
+  if (source === "MANUAL")
+    return "border-purple-300/80 bg-purple-50/95 text-purple-950 dark:bg-purple-950/40 dark:text-purple-200 dark:border-purple-800/40";
+  return "border-[#FD2E2D]/40 bg-[#FD2E2D]/10 text-[#09264D] dark:bg-red-950/30 dark:text-red-200 dark:border-red-800/40";
 }
 
 function sourceLabel(source: CalendarEvent["source"]) {
@@ -322,17 +314,46 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
 
   return (
     <div className="space-y-6">
-      <section className="flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.15em] text-primary"><CalendarDays className="h-4 w-4" />Calendar</div>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">Your meetings, in one week.</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Bookings and meetings shown in your host time zone.</p>
+      <section className="flex flex-col gap-4 pb-1 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3.5">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 shadow-xs shrink-0">
+            <CalendarDays className="h-6 w-6" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+              Your meetings, in one week.
+            </h1>
+            <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
+              Bookings and meetings shown in your host time zone.
+            </p>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-2 text-xs text-muted-foreground"><Globe2 className="h-3.5 w-3.5 text-primary" />{hostTimeZone}</span>
-          <Button variant="outline" onClick={() => { setCreateLinkError(null); setCreateLinkOpen(true); }} className="gap-1.5"><Plus className="h-4 w-4" />New booking link</Button>
-          <Button variant="outline" onClick={() => { setCreateError(null); setCreatedRoomUrl(null); setCreateOpen(true); }} className="gap-1.5"><CalendarPlus className="h-4 w-4" />Schedule meeting</Button>
-          <Button onClick={startInstantMeeting} disabled={startingInstant} className="gap-1.5">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <span className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-xs text-muted-foreground font-medium shadow-xs">
+            <Globe2 className="h-3.5 w-3.5 text-primary" />
+            {hostTimeZone}
+          </span>
+          <Button
+            variant="outline"
+            onClick={() => { setCreateLinkError(null); setCreateLinkOpen(true); }}
+            className="gap-1.5 rounded-xl border-slate-300 dark:border-slate-700 font-medium text-xs sm:text-sm shadow-xs"
+          >
+            <Plus className="h-4 w-4" />
+            New booking link
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => { setCreateError(null); setCreatedRoomUrl(null); setCreateOpen(true); }}
+            className="gap-1.5 rounded-xl border-slate-300 dark:border-slate-700 font-medium text-xs sm:text-sm shadow-xs"
+          >
+            <CalendarPlus className="h-4 w-4" />
+            Schedule meeting
+          </Button>
+          <Button
+            onClick={startInstantMeeting}
+            disabled={startingInstant}
+            className="gap-1.5 rounded-xl bg-[#01377A] hover:bg-[#09264D] text-white shadow-md shadow-blue-900/20 font-semibold text-xs sm:text-sm transition-all"
+          >
             {startingInstant ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
             Start instant
           </Button>
@@ -357,16 +378,43 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
 
       <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm" aria-label="Weekly calendar">
         <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div><h2 className="font-semibold">{formatRange()}</h2><p className="mt-0.5 text-xs text-muted-foreground">Week starts Monday · {events.length} event{events.length === 1 ? "" : "s"}</p></div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1">
+              <Button
+                size="icon"
+                variant="outline"
+                className="h-8 w-8 rounded-lg"
+                aria-label="Previous week"
+                onClick={() => setWeekStart((current) => addDays(current, -7))}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="outline"
+                className="h-8 w-8 rounded-lg"
+                aria-label="Next week"
+                onClick={() => setWeekStart((current) => addDays(current, 7))}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-foreground">{formatRange()}</h2>
+              <p className="text-xs text-muted-foreground">
+                Week starts Monday · {events.length} event{events.length === 1 ? "" : "s"}
+              </p>
+            </div>
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             {/* View Switcher: Calendar vs Timeline */}
-            <div className="flex items-center rounded-lg border border-border bg-muted/40 p-0.5">
+            <div className="flex items-center rounded-xl border border-border bg-muted/40 p-0.5">
               <button
                 type="button"
                 onClick={() => setViewMode("calendar")}
-                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
                   viewMode === "calendar"
-                    ? "bg-card text-foreground shadow-sm"
+                    ? "bg-[#09264D] text-white shadow-xs"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
                 title="Weekly Grid View"
@@ -377,9 +425,9 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
               <button
                 type="button"
                 onClick={() => setViewMode("timeline")}
-                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
                   viewMode === "timeline"
-                    ? "bg-card text-foreground shadow-sm"
+                    ? "bg-[#09264D] text-white shadow-xs"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
                 title="Timeline / Agenda View"
@@ -389,10 +437,33 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
               </button>
             </div>
 
-            <Button size="sm" variant="outline" onClick={() => setWeekStart(mondayOf(getLocalDateString(new Date(), hostTimeZone)))}>Today</Button>
-            <div className="flex items-center">
-              <Button size="icon" variant="outline" aria-label="Previous week" onClick={() => setWeekStart((current) => addDays(current, -7))}><ChevronLeft className="h-4 w-4" /></Button>
-              <Button size="icon" variant="outline" className="ml-1" aria-label="Next week" onClick={() => setWeekStart((current) => addDays(current, 7))}><ChevronRight className="h-4 w-4" /></Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 rounded-lg text-xs font-medium"
+              onClick={() => setWeekStart(mondayOf(getLocalDateString(new Date(), hostTimeZone)))}
+            >
+              Today
+            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                size="icon"
+                variant="outline"
+                className="h-8 w-8 rounded-lg"
+                aria-label="Previous week"
+                onClick={() => setWeekStart((current) => addDays(current, -7))}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="outline"
+                className="h-8 w-8 rounded-lg"
+                aria-label="Next week"
+                onClick={() => setWeekStart((current) => addDays(current, 7))}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </div>
@@ -546,45 +617,119 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
         ) : (
           <div className="overflow-x-auto">
             <div className="min-w-[980px]">
-              <div className="grid grid-cols-[58px_repeat(7,minmax(0,1fr))] border-b border-border bg-muted/20">
-                <div className="border-r border-border p-2 text-[10px] text-muted-foreground">{hostTimeZone}</div>
+              <div className="grid grid-cols-[68px_repeat(7,minmax(0,1fr))] border-b border-border bg-muted/20">
+                <div className="border-r border-border p-2.5 text-[11px] font-mono text-muted-foreground flex items-center justify-center">
+                  {hostTimeZone}
+                </div>
                 {days.map((day) => {
                   const date = dateAtUtcNoon(day);
                   const weekday = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "UTC" }).format(date);
-                  return <div key={day} className={`border-r border-border px-2 py-2 text-center ${day === getLocalDateString(new Date(), hostTimeZone) ? "bg-primary/5" : ""}`}>
-                    <div className="text-[10px] font-semibold uppercase text-muted-foreground">{weekday}</div>
-                    <div className="mt-0.5 text-sm font-semibold">{date.getUTCDate()}</div>
-                  </div>;
+                  const isToday = day === getLocalDateString(new Date(), hostTimeZone);
+                  return (
+                    <div
+                      key={day}
+                      className={`border-r border-border/80 px-2 py-3 text-center ${
+                        isToday ? "bg-primary/[0.03]" : ""
+                      }`}
+                    >
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                        {weekday}
+                      </div>
+                      <div className="mt-1 flex justify-center">
+                        {isToday ? (
+                          <span className="inline-flex h-8 w-14 items-center justify-center rounded-lg bg-[#09264D] text-white text-sm font-bold shadow-sm">
+                            {date.getUTCDate()}
+                          </span>
+                        ) : (
+                          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-sm font-semibold text-foreground">
+                            {date.getUTCDate()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
                 })}
               </div>
-              <div className="grid grid-cols-[58px_repeat(7,minmax(0,1fr))]">
-                <div className="relative border-r border-border" style={{ height: `${(hourRange.end - hourRange.start) * HOUR_HEIGHT}px` }}>
-                  {hourRange.hours.slice(0, -1).map((hour) => <div key={hour} className="absolute right-2 -translate-y-1/2 text-[10px] text-muted-foreground" style={{ top: `${(hour - hourRange.start) * HOUR_HEIGHT}px` }}>{String(hour).padStart(2, "0")}:00</div>)}
+              <div className="grid grid-cols-[68px_repeat(7,minmax(0,1fr))]">
+                <div className="relative border-r border-border/80" style={{ height: `${(hourRange.end - hourRange.start) * HOUR_HEIGHT}px` }}>
+                  {hourRange.hours.slice(0, -1).map((hour) => (
+                    <div
+                      key={hour}
+                      className="absolute right-2 -translate-y-1/2 text-[11px] font-mono text-muted-foreground/80"
+                      style={{ top: `${(hour - hourRange.start) * HOUR_HEIGHT}px` }}
+                    >
+                      {String(hour).padStart(2, "0")}:00
+                    </div>
+                  ))}
                 </div>
                 {days.map((day) => {
                   const dayEvents = eventsForDay.get(day) || [];
-                  return <div key={day} className="relative border-r border-border" style={{ height: `${(hourRange.end - hourRange.start) * HOUR_HEIGHT}px` }}>
-                    {hourRange.hours.slice(0, -1).map((hour) => <div key={hour} className="absolute inset-x-0 border-t border-border/60" style={{ top: `${(hour - hourRange.start) * HOUR_HEIGHT}px` }} />)}
-                    {dayEvents.map((event) => {
-                      const local = getZonedDateParts(new Date(event.startTime), hostTimeZone);
-                      const minuteOfDay = local.hour * 60 + local.minute;
-                      const top = ((minuteOfDay - hourRange.start * 60) / 60) * HOUR_HEIGHT;
-                      if (top < 0 || top >= (hourRange.end - hourRange.start) * HOUR_HEIGHT) return null;
-                      const durationMinutes = Math.max(20, (Date.parse(event.endTime) - Date.parse(event.startTime)) / 60_000);
-                      const height = Math.max(34, Math.min(durationMinutes / 60 * HOUR_HEIGHT, (hourRange.end - hourRange.start) * HOUR_HEIGHT - top));
-                      const cancelled = event.status === "CANCELLED" || event.status === "COMPLETED";
-                      return (
-                        <article key={event.id} className={`absolute left-1 right-1 z-10 overflow-hidden rounded-lg border px-2 py-1.5 shadow-sm ${cancelled ? "border-border bg-muted/60 text-muted-foreground opacity-70" : sourceStyles(event.source)}`} style={{ top: `${top + 2}px`, height: `${height - 4}px` }}>
-                          <div className="flex items-start justify-between gap-1">
-                            {cancelled ? <span className="truncate text-[11px] font-semibold line-through">{event.title}</span> : <Link href={`/rooms/${event.uid}`} className="truncate text-[11px] font-semibold hover:underline" title={`Open ${event.title}`}>{event.title}</Link>}
-                            {!cancelled && <button type="button" onClick={() => cancelEvent(event)} disabled={cancellingId === event.id} aria-label={`Cancel ${event.title}`} title="Cancel event" className="shrink-0 rounded p-0.5 opacity-70 hover:bg-black/5 hover:opacity-100 disabled:opacity-40"><X className="h-3 w-3" /></button>}
-                          </div>
-                          <p className="mt-0.5 truncate text-[10px] opacity-80">{formatClock(event.startTime, hostTimeZone)} · {event.attendeeName || sourceLabel(event.source)}</p>
-                          <span className="mt-1 inline-flex text-[9px] font-bold tracking-wide opacity-75">{cancelled ? event.status : sourceLabel(event.source)}</span>
-                        </article>
-                      );
-                    })}
-                  </div>;
+                  return (
+                    <div key={day} className="relative border-r border-border/80" style={{ height: `${(hourRange.end - hourRange.start) * HOUR_HEIGHT}px` }}>
+                      {hourRange.hours.slice(0, -1).map((hour) => (
+                        <div
+                          key={hour}
+                          className="absolute inset-x-0 border-t border-border/60"
+                          style={{ top: `${(hour - hourRange.start) * HOUR_HEIGHT}px` }}
+                        />
+                      ))}
+                      {dayEvents.map((event) => {
+                        const local = getZonedDateParts(new Date(event.startTime), hostTimeZone);
+                        const minuteOfDay = local.hour * 60 + local.minute;
+                        const top = ((minuteOfDay - hourRange.start * 60) / 60) * HOUR_HEIGHT;
+                        if (top < 0 || top >= (hourRange.end - hourRange.start) * HOUR_HEIGHT) return null;
+                        const durationMinutes = Math.max(20, (Date.parse(event.endTime) - Date.parse(event.startTime)) / 60_000);
+                        const height = Math.max(34, Math.min(durationMinutes / 60 * HOUR_HEIGHT, (hourRange.end - hourRange.start) * HOUR_HEIGHT - top));
+                        const cancelled = event.status === "CANCELLED" || event.status === "COMPLETED";
+                        return (
+                          <article
+                            key={event.id}
+                            className={`absolute left-1 right-1 z-10 overflow-hidden rounded-xl border px-2.5 py-1.5 shadow-xs transition-all ${
+                              cancelled
+                                ? "border-border bg-muted/60 text-muted-foreground opacity-60"
+                                : sourceStyles(event.source)
+                            }`}
+                            style={{ top: `${top + 2}px`, height: `${height - 4}px` }}
+                          >
+                            <div className="flex items-start justify-between gap-1">
+                              {cancelled ? (
+                                <span className="truncate text-xs font-semibold line-through">
+                                  {event.title}
+                                </span>
+                              ) : (
+                                <Link
+                                  href={`/rooms/${event.uid}`}
+                                  className="truncate text-xs font-semibold hover:underline flex items-center gap-1"
+                                  title={`Open ${event.title}`}
+                                >
+                                  <Video className="h-3 w-3 shrink-0 opacity-70" />
+                                  {event.title}
+                                </Link>
+                              )}
+                              {!cancelled && (
+                                <button
+                                  type="button"
+                                  onClick={() => cancelEvent(event)}
+                                  disabled={cancellingId === event.id}
+                                  aria-label={`Cancel ${event.title}`}
+                                  title="Cancel event"
+                                  className="shrink-0 rounded p-0.5 opacity-60 hover:bg-black/10 hover:opacity-100 disabled:opacity-40"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              )}
+                            </div>
+                            <p className="mt-0.5 truncate text-[10px] opacity-85 font-mono">
+                              {formatClock(event.startTime, hostTimeZone)} · {event.attendeeName || sourceLabel(event.source)}
+                            </p>
+                            <span className="mt-0.5 inline-flex text-[9px] font-bold tracking-wider uppercase opacity-80">
+                              {cancelled ? event.status : sourceLabel(event.source)}
+                            </span>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  );
                 })}
               </div>
             </div>
@@ -592,33 +737,45 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
         )}
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-2xl border border-border bg-card p-5">
+      <section className="grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
           <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2 className="font-semibold">Your booking links</h2>
-              <p className="mt-1 text-xs text-muted-foreground">Share these links with clients to let them pick an available slot on your calendar.</p>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 shrink-0">
+                <Share2 className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-foreground">Your booking links</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Share these links with clients to let them pick an available slot on your calendar.
+                </p>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline" onClick={() => setCreateLinkOpen(true)} className="gap-1.5 text-xs">
-                <Plus className="h-3.5 w-3.5" />
-                New booking link
-              </Button>
-              <CalendarDays className="h-5 w-5 text-primary" />
-            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setCreateLinkOpen(true)}
+              className="gap-1.5 text-xs rounded-xl border-slate-300 dark:border-slate-700"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              New booking link
+            </Button>
           </div>
           {bookingTypes.length === 0 ? (
-            <p className="mt-4 text-sm text-muted-foreground">No active booking types are available yet.</p>
+            <p className="mt-6 text-sm text-muted-foreground text-center py-6 border border-dashed border-border rounded-xl">
+              No active booking types are available yet. Create one to begin accepting meetings.
+            </p>
           ) : (
-            <div className="mt-4 divide-y divide-border">
+            <div className="mt-5 divide-y divide-border">
               {bookingTypes.map((type) => {
                 const href = `/book/${hostId || "me"}/${type.slug}`;
                 return (
-                  <div key={type.id} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                  <div key={type.id} className="flex items-center justify-between gap-3 py-3.5 first:pt-1 last:pb-1">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{type.title}</p>
+                      <p className="truncate text-sm font-semibold text-foreground">{type.title}</p>
                       <p className="mt-0.5 text-xs text-muted-foreground">
-                        {type.durationMinutes} minutes{type.description ? ` • ${type.description}` : ""}
+                        <span className="font-medium text-foreground/80">{type.durationMinutes} minutes</span>
+                        {type.description ? ` · ${type.description}` : ""}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -626,13 +783,13 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
                         size="sm"
                         variant="secondary"
                         onClick={() => copyBookingLink(href)}
-                        className="gap-1.5 text-xs"
+                        className="gap-1.5 text-xs rounded-lg"
                         title="Copy direct booking link for client"
                       >
                         <Copy className="h-3 w-3" />
                         Copy link
                       </Button>
-                      <Button size="sm" variant="outline" asChild className="gap-1.5 text-xs">
+                      <Button size="sm" variant="outline" asChild className="gap-1.5 text-xs rounded-lg">
                         <Link href={href} target="_blank">
                           Open <ExternalLink className="h-3 w-3" />
                         </Link>
@@ -644,13 +801,40 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
             </div>
           )}
         </div>
-        <div className="rounded-2xl border border-border bg-muted/20 p-5">
-          <h2 className="font-semibold">Three ways to meet</h2>
-          <ul className="mt-3 space-y-3 text-xs text-muted-foreground">
-            <li className="flex gap-2"><span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-sky-500" /><span><strong className="text-foreground">Booking</strong> — a guest reserves through your public page.</span></li>
-            <li className="flex gap-2"><span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-violet-500" /><span><strong className="text-foreground">Scheduled</strong> — you pick a time and share the room link.</span></li>
-            <li className="flex gap-2"><span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-amber-500" /><span><strong className="text-foreground">Instant</strong> — start a room now; no booking is created.</span></li>
-          </ul>
+
+        {/* Three Ways to Meet Card matching Image 2 */}
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-brand-blue dark:text-blue-400">
+                <BarChart2 className="h-4 w-4" />
+              </div>
+              <h2 className="text-base font-bold text-foreground">Three ways to meet</h2>
+            </div>
+
+            <ul className="mt-4 space-y-2.5 text-xs text-muted-foreground">
+              <li className="flex items-start gap-2.5">
+                <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-blue-600 shadow-xs" />
+                <span>
+                  <strong className="text-foreground font-semibold">Booking</strong> — a guest reserves through your public page.
+                </span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500 shadow-xs" />
+                <span>
+                  <strong className="text-foreground font-semibold">Scheduled</strong> — you pick a time and share the room link.
+                </span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-[#FD2E2D] shadow-xs" />
+                <span>
+                  <strong className="text-foreground font-semibold">Instant</strong> — start a room now, no booking is created.
+                </span>
+              </li>
+            </ul>
+          </div>
+
+          <MeetingIllustration className="mt-4" />
         </div>
       </section>
 
