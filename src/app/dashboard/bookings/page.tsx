@@ -94,7 +94,7 @@ export default function HostBookingsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Unable to review request.");
       await loadBookings();
-      if (!data.attendeeNotified) setEmailStatus({ id: requestId, success: false, message: "Decision saved, but attendee notification email could not be sent." });
+      if (!data.attendeeNotified) alert("Decision saved, but the attendee notification email could not be sent.");
     } catch (err) {
       alert(err instanceof Error ? err.message : "Unable to review request.");
     } finally {
