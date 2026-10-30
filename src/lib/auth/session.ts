@@ -6,8 +6,14 @@ import { db } from "@/lib/db";
 import { User } from "@/lib/db/types";
 
 const COOKIE_NAME = "mhaf_session";
+const configuredJwtSecret = process.env.NEXTAUTH_SECRET?.trim();
+
+if (process.env.NODE_ENV === "production" && (!configuredJwtSecret || configuredJwtSecret.length < 32)) {
+  throw new Error("NEXTAUTH_SECRET must be configured with at least 32 characters in production.");
+}
+
 const JWT_SECRET = new TextEncoder().encode(
-  process.env.NEXTAUTH_SECRET || "mhaf-live-dev-secret-key-minimum-32-chars-long"
+  configuredJwtSecret || "mhaf-live-dev-secret-key-minimum-32-chars-long"
 );
 const SESSION_DURATION_SEC = 7 * 24 * 60 * 60; // 7 days
 
