@@ -2,8 +2,10 @@ import * as React from "react";
 import { BarChart3, Clock, Users, ArrowDownRight, Info } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useLanguage } from "@/lib/i18n/language-context";
 
 export function AnalyticsPreview() {
+  const { isFr } = useLanguage();
   const participants = [
     { name: "Amine (Host)", joined: "00:00", left: "45:00", duration: "45 min", pct: 100, status: "Active Speaker" },
     { name: "Sarah K. (Product)", joined: "02:15", left: "45:00", duration: "42 min 45s", pct: 95, status: "Unmuted / Video" },
@@ -16,14 +18,13 @@ export function AnalyticsPreview() {
       <div className="container max-w-7xl px-4 sm:px-8">
         <div className="text-center max-w-2xl mx-auto mb-14">
           <Badge variant="outline" className="font-mono text-xs mb-3">
-            Auditing & Verification
+            {isFr ? "Suivi et vérification" : "Auditing & Verification"}
           </Badge>
           <h2 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-            Granular Attendance Analytics & Heatmaps
+            {isFr ? "Analyse de présence et cartes de participation" : "Granular Attendance Analytics & Heatmaps"}
           </h2>
           <p className="mt-4 text-base text-muted-foreground">
-            Webhook-driven participant session reconciliation captures exact join/leave timestamps,
-            dropouts, and net engagement duration.
+            {isFr ? "Conçu pour présenter les arrivées, départs, reconnexions et durées de présence lorsque le pipeline analytique sera connecté." : "Designed to present participant join/leave events, reconnections, and session duration once the analytics pipeline is connected."}
           </p>
         </div>
 
@@ -31,7 +32,7 @@ export function AnalyticsPreview() {
         <div className="max-w-4xl mx-auto mb-6 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 px-4 text-xs text-amber-700 dark:text-amber-400">
           <Info className="h-4 w-4 shrink-0" />
           <span>
-            <strong>Illustrative Simulation:</strong> Below is a UI visualization of session data modeled from PostgreSQL `ParticipantEvent` logs. Full operational ingestion connects in Phase 4.
+            <strong>{isFr ? "Exemple illustratif uniquement :" : "Illustrative sample only:"}</strong> {isFr ? "Les noms, la chronologie et les mesures ci-dessous sont fictifs. Il ne s’agit pas de statistiques réelles." : "The names, timeline, and metrics below are demonstration data. They are not live attendee analytics."}
           </span>
         </div>
 
@@ -54,13 +55,13 @@ export function AnalyticsPreview() {
 
               <div className="flex items-center gap-4 text-right">
                 <div>
-                  <div className="text-xs text-muted-foreground font-medium">Avg Engagement</div>
+                  <div className="text-xs text-muted-foreground font-medium">{isFr ? "Engagement moyen" : "Avg Engagement"}</div>
                   <div className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
                     91.5%
                   </div>
                 </div>
                 <div>
-                  <div className="text-xs text-muted-foreground font-medium">Net Attendees</div>
+                  <div className="text-xs text-muted-foreground font-medium">{isFr ? "Participants nets" : "Net Attendees"}</div>
                   <div className="text-xl font-bold font-mono text-foreground">
                     4 / 4
                   </div>
@@ -108,21 +109,21 @@ export function AnalyticsPreview() {
             {/* Summary Insights Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-border">
               <div className="rounded-lg border border-border bg-muted/30 p-3">
-                <span className="text-xs text-muted-foreground block">Diarized Audio Duration</span>
+                <span className="text-xs text-muted-foreground block">{isFr ? "Durée audio transcrite" : "Diarized Audio Duration"}</span>
                 <span className="text-base font-bold font-mono text-foreground mt-0.5 block">
                   38m 42s
                 </span>
               </div>
               <div className="rounded-lg border border-border bg-muted/30 p-3">
-                <span className="text-xs text-muted-foreground block">Mid-Call Disconnects</span>
+                <span className="text-xs text-muted-foreground block">{isFr ? "Déconnexions en réunion" : "Mid-Call Disconnects"}</span>
                 <span className="text-base font-bold font-mono text-emerald-500 mt-0.5 block">
-                  0 Dropouts
+                  {isFr ? "0 déconnexion" : "0 Dropouts"}
                 </span>
               </div>
               <div className="rounded-lg border border-border bg-muted/30 p-3">
-                <span className="text-xs text-muted-foreground block">Action Items Captured</span>
+                <span className="text-xs text-muted-foreground block">{isFr ? "Actions identifiées" : "Action Items Captured"}</span>
                 <span className="text-base font-bold font-mono text-foreground mt-0.5 block">
-                  5 Key Deliverables
+                  {isFr ? "5 actions clés" : "5 Key Deliverables"}
                 </span>
               </div>
             </div>

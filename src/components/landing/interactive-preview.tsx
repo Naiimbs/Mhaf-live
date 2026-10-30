@@ -17,8 +17,10 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useLanguage } from "@/lib/i18n/language-context";
 
 export function InteractivePreview() {
+  const { isFr } = useLanguage();
   // Scheduling demo state
   const [selectedDuration, setSelectedDuration] = React.useState<number>(30);
   const [selectedSlot, setSelectedSlot] = React.useState<string | null>("14:30");
@@ -37,14 +39,13 @@ export function InteractivePreview() {
       <div className="container max-w-7xl px-4 sm:px-8">
         <div className="text-center max-w-2xl mx-auto mb-12">
           <Badge variant="outline" className="font-mono text-xs mb-3">
-            Interactive Prototype Preview
+            {isFr ? "Aperçu interactif du produit" : "Interactive Prototype Preview"}
           </Badge>
           <h2 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-            Test the MHAF Live experience right here.
+            {isFr ? "Découvrez un aperçu interactif du produit." : "Explore an interactive product preview."}
           </h2>
           <p className="mt-3 text-base text-muted-foreground">
-            Experience how the autonomous scheduling engine and PreJoin room staging
-            operate before initiating a live call.
+            {isFr ? "Découvrez un exemple de réservation et l’interface de préparation à une réunion. Ce prototype n’est relié ni à un calendrier ni à une salle en direct." : "Explore a sample booking journey and the room pre-join interface. This prototype is not connected to a live calendar or meeting room."}
           </p>
         </div>
 
@@ -54,10 +55,10 @@ export function InteractivePreview() {
             <div className="flex justify-center mb-8">
               <TabsList className="grid w-full max-w-md grid-cols-2">
                 <TabsTrigger value="scheduling" className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" /> 1. Scheduling Flow
+                  <Calendar className="h-4 w-4" /> {isFr ? "1. Parcours de réservation" : "1. Scheduling Flow"}
                 </TabsTrigger>
                 <TabsTrigger value="room-staging" className="flex items-center gap-2">
-                  <Video className="h-4 w-4" /> 2. PreJoin Room Staging
+                  <Video className="h-4 w-4" /> {isFr ? "2. Aperçu de préparation" : "2. Room setup preview"}
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -70,17 +71,17 @@ export function InteractivePreview() {
                     <div>
                       <div className="flex items-center gap-2">
                         <Badge variant="secondary" className="font-mono text-xs">
-                          Cal.diy Algorithm Demo
+                          {isFr ? "Aperçu du parcours de réservation" : "Booking concept preview"}
                         </Badge>
                         <span className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Globe className="h-3 w-3" /> Auto-detected: UTC+1
+                          <Globe className="h-3 w-3" /> {isFr ? "Fuseau horaire d’exemple : Africa/Tunis" : "Example timezone: Africa/Tunis"}
                         </span>
                       </div>
                       <CardTitle className="text-xl sm:text-2xl mt-2">
-                        Executive Consultation & Review
+                        {isFr ? "Consultation client" : "Client consultation"}
                       </CardTitle>
                       <CardDescription className="text-sm mt-1">
-                        Select a duration and choose an open slot to preview the instant booking flow.
+                        {isFr ? "Choisissez une durée et un horaire fictifs pour voir un exemple de confirmation." : "Choose a sample duration and time to see how a booking confirmation could look."}
                       </CardDescription>
                     </div>
 
@@ -111,10 +112,10 @@ export function InteractivePreview() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
                       <div>
                         <span className="text-sm font-semibold text-foreground flex items-center gap-1.5 mb-3">
-                          <Clock className="h-4 w-4 text-primary" /> Available Time Windows
+                          <Clock className="h-4 w-4 text-primary" /> {isFr ? "Horaires d’exemple" : "Sample time options"}
                         </span>
                         <p className="text-xs text-muted-foreground mb-4">
-                          Slots generated dynamically based on host availability matrix and existing booking collision checks.
+                          {isFr ? "Ces horaires sont fictifs et ne proviennent pas du calendrier réel d’un hôte." : "Sample slots for this interactive preview. They are not fetched from a live host calendar."}
                         </p>
                         <div className="grid grid-cols-3 gap-2.5">
                           {timeSlots.map((slot) => (
@@ -135,23 +136,23 @@ export function InteractivePreview() {
 
                       <div className="rounded-xl border border-border bg-muted/40 p-5 space-y-4">
                         <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-                          Booking Confirmation Summary
+                          {isFr ? "Résumé de réservation illustratif" : "Illustrative booking summary"}
                         </span>
                         <div className="space-y-1.5 text-sm">
                           <div className="flex justify-between">
-                            <span className="text-muted-foreground">Event:</span>
+                            <span className="text-muted-foreground">{isFr ? "Événement :" : "Event:"}</span>
                             <span className="font-semibold text-foreground">
                               {selectedDuration}-Minute Architecture Sync
                             </span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-muted-foreground">Selected Time:</span>
+                            <span className="text-muted-foreground">{isFr ? "Horaire choisi :" : "Selected Time:"}</span>
                             <span className="font-mono font-semibold text-foreground">
-                              Today at {selectedSlot ?? "None selected"}
+                              {isFr ? "Aujourd’hui à" : "Today at"} {selectedSlot ?? (isFr ? "Aucun horaire" : "None selected")}
                             </span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-muted-foreground">Meeting URL:</span>
+                            <span className="text-muted-foreground">{isFr ? "Lien de réunion :" : "Meeting URL:"}</span>
                             <span className="font-mono text-xs text-primary">
                               mhaf.live/rooms/mhaf-30min
                             </span>
@@ -163,7 +164,7 @@ export function InteractivePreview() {
                           onClick={() => setBookingConfirmed(true)}
                           disabled={!selectedSlot}
                         >
-                          Confirm & Generate Instant Room Link
+                          {isFr ? "Voir un exemple de confirmation" : "Preview booking confirmation"}
                         </Button>
                       </div>
                     </div>
@@ -173,18 +174,17 @@ export function InteractivePreview() {
                         <CheckCircle className="h-6 w-6" />
                       </div>
                       <h4 className="text-lg font-bold text-foreground">
-                        Time Slot Reserved Atomically
+                        {isFr ? "Aperçu de réservation" : "Booking Preview"}
                       </h4>
                       <p className="text-xs text-muted-foreground max-w-md mx-auto">
-                        In production, this initiates a PostgreSQL transaction with collision locks,
-                        mints the LiveKit room, and dispatches .ics calendar invites.
+                        {isFr ? "Il s’agit uniquement d’une démonstration visuelle. Aucun créneau n’est réservé, aucune salle n’est créée et aucune invitation n’est envoyée." : "This is a front-end demonstration only. No slot is reserved, no room is created, and no invitation is sent."}
                       </p>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => setBookingConfirmed(false)}
                       >
-                        Reset Demo
+                        {isFr ? "Réinitialiser" : "Reset Demo"}
                       </Button>
                     </div>
                   )}
@@ -199,13 +199,13 @@ export function InteractivePreview() {
                   <div className="flex items-center justify-between">
                     <div>
                       <Badge variant="secondary" className="font-mono text-xs mb-1">
-                        LiveKit PreJoin Pattern
+                        {isFr ? "Aperçu de l’interface de préparation" : "Room setup interface preview"}
                       </Badge>
                       <CardTitle className="text-xl sm:text-2xl mt-1">
-                        Hardware Staging & Device Check
+                        {isFr ? "Commandes de la caméra et du microphone" : "Camera and microphone controls"}
                       </CardTitle>
                       <CardDescription className="text-sm mt-1">
-                        Simulate camera framing, microphone level detection, and audio meter test before joining the room.
+                        {isFr ? "Découvrez les commandes de caméra et de microphone affichées avant de rejoindre une réunion." : "Preview the camera and microphone controls you would see before joining a meeting."}
                       </CardDescription>
                     </div>
                   </div>
@@ -221,16 +221,16 @@ export function InteractivePreview() {
                             YOU
                           </div>
                           <span className="text-xs font-semibold text-foreground">
-                            Face Framing Good
+                            {isFr ? "Cadrage du visage correct" : "Face Framing Good"}
                           </span>
                           <span className="text-[11px] text-muted-foreground font-mono">
-                            HD Video Stream (Simulated Preview)
+                            {isFr ? "Flux vidéo HD (aperçu simulé)" : "HD Video Stream (Simulated Preview)"}
                           </span>
                         </div>
                       ) : (
                         <div className="flex flex-col items-center justify-center text-muted-foreground">
                           <Camera className="h-8 w-8 mb-2 opacity-50" />
-                          <span className="text-xs">Camera is Off</span>
+                          <span className="text-xs">{isFr ? "Caméra désactivée" : "Camera is Off"}</span>
                         </div>
                       )}
 
@@ -247,7 +247,7 @@ export function InteractivePreview() {
                       <div>
                         <div className="flex justify-between items-center text-xs mb-1.5">
                           <span className="font-medium text-foreground flex items-center gap-1.5">
-                            <Mic className="h-3.5 w-3.5 text-primary" /> Microphone Audio Level
+                            <Mic className="h-3.5 w-3.5 text-primary" /> {isFr ? "Niveau audio du microphone" : "Microphone Audio Level"}
                           </span>
                           <span className="font-mono text-muted-foreground text-[11px]">
                             {testMicActive ? `${micVolume}%` : "Inactive"}
@@ -274,7 +274,7 @@ export function InteractivePreview() {
                           }}
                           className="flex-1 text-xs"
                         >
-                          {testMicActive ? "Stop Mic Test" : "Test Audio Input"}
+                          {testMicActive ? (isFr ? "Arrêter le test audio" : "Stop Mic Test") : (isFr ? "Tester le microphone" : "Test Audio Input")}
                         </Button>
                         <Button
                           variant={cameraActive ? "outline" : "default"}
@@ -282,15 +282,15 @@ export function InteractivePreview() {
                           onClick={() => setCameraActive(!cameraActive)}
                           className="flex-1 text-xs"
                         >
-                          {cameraActive ? "Turn Off Video" : "Enable Video"}
+                          {cameraActive ? (isFr ? "Désactiver la vidéo" : "Turn Off Video") : (isFr ? "Activer la vidéo" : "Enable Video")}
                         </Button>
                       </div>
 
                       <div className="rounded-lg border border-border bg-card p-3 text-[11px] text-muted-foreground space-y-1">
                         <span className="font-semibold text-foreground block">
-                          Verified Integration Note:
+                          {isFr ? "Note sur le prototype :" : "Prototype note:"}
                         </span>
-                        Standard WebRTC PreJoin executes in browser sandbox via `navigator.mediaDevices.getUserMedia` before triggering token minting at `/api/connection-details`.
+                        {isFr ? "Cette simulation est uniquement visuelle. Elle n’accède ni à votre caméra ni à votre microphone et ne demande aucun jeton de réunion." : "This is a visual simulation only. It does not access your camera or microphone or request a meeting token."}
                       </div>
                     </div>
                   </div>
