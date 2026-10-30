@@ -771,6 +771,17 @@ class DatabaseStore {
     });
   }
 
+  async updateBookingManagementToken(bookingId: string, tokenHash: string, expiresAt: Date): Promise<void> {
+    return globalLock.acquire(async () => {
+      const booking = this.data.bookings.find((item) => item.id === bookingId);
+      if (!booking) throw new Error("Booking not found.");
+      booking.managementTokenHash = tokenHash;
+      booking.managementTokenExpiresAt = expiresAt;
+      booking.updatedAt = new Date();
+      this.persist();
+    });
+  }
+
   async updateBookingConfirmationEmail(bookingId: string, sent: boolean, errorMessage?: string | null): Promise<void> {
     return globalLock.acquire(async () => {
       const booking = this.data.bookings.find((item) => item.id === bookingId);
