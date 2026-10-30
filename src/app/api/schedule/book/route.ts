@@ -86,6 +86,12 @@ export async function POST(request: Request) {
       });
     } catch (error) {
       console.warn("[Booking API] Email delivery trigger warning:", error);
+      try {
+        const { db } = await import("@/lib/db");
+        await db.updateBookingConfirmationEmail(result.booking.id, false, error instanceof Error ? error.message : "Email delivery failed.");
+      } catch (statusError) {
+        console.error("[Booking API] Could not persist confirmation email status:", statusError instanceof Error ? statusError.message : "Unknown error");
+      }
     }
 
     const savedBooking = await (await import("@/lib/db")).db.findBookingById(result.booking.id);
