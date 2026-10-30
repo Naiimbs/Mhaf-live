@@ -11,6 +11,7 @@ import { ProductSections } from "@/components/landing/product-sections";
 import { InteractivePreview } from "@/components/landing/interactive-preview";
 import { AnalyticsPreview } from "@/components/landing/analytics-preview";
 import { PricingTiers } from "@/components/landing/pricing-tiers";
+import { AudienceSection } from "@/components/landing/audience-section";
 import { FaqSection } from "@/components/landing/faq-section";
 import { Footer } from "@/components/landing/footer";
 import { RequestDemoModal } from "@/components/landing/request-demo-modal";
@@ -33,6 +34,7 @@ export function LandingPageClient() {
         <ProductSections />
         <InteractivePreview />
         <AnalyticsPreview />
+        <AudienceSection onRequestDemo={openDemo} />
         <PricingTiers onRequestDemo={openDemo} />
         <FaqSection />
       </main>
