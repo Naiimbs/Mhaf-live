@@ -304,12 +304,16 @@ class DatabaseStore {
   }
 
   // --- One-time email authentication tokens ---
-  async createMagicLinkToken(userId: string, tokenHash: string, expires: Date): Promise<MagicLinkToken> {
+  async createMagicLinkToken(userId: string, tokenHash: string, expires: Date): Promise<MagicLinkToken | null> {
     return globalLock.acquire(async () => {
       const now = new Date();
       this.data.magicLinkTokens = this.data.magicLinkTokens.filter(
-        (token) => token.expires.getTime() > now.getTime() && !token.consumedAt
+        (token) => token.expires.getTime() > now.getTime() - 24 * 60 * 60 * 1000
       );
+      const recentRequests = this.data.magicLinkTokens.filter(
+        (token) => token.userId === userId && token.createdAt.getTime() > now.getTime() - 15 * 60 * 1000
+      );
+      if (recentRequests.length >= 3) return null;
       const token: MagicLinkToken = {
         id: `mlt_${randomUUID()}`,
         tokenHash,
