@@ -1,11 +1,7 @@
 import * as React from "react";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentHost, logoutHost } from "@/lib/auth/session";
-import { Video, Calendar, Clock, LogOut, ExternalLink, User } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { BrandLogo } from "@/components/brand-logo";
+import { DashboardLayoutShell } from "@/components/dashboard/dashboard-layout-shell";
 
 export default async function DashboardLayout({
   children,
@@ -17,79 +13,15 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
+  async function handleLogout() {
+    "use server";
+    await logoutHost();
+    redirect("/login");
+  }
+
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground">
-      {/* Top Header */}
-      <header className="sticky top-0 z-40 border-b border-border bg-card/90 backdrop-blur-md">
-        <div className="container flex h-16 max-w-7xl items-center justify-between px-4 sm:px-8">
-          <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center" aria-label="meet home">
-              <BrandLogo size="medium" priority />
-            </Link>
-
-            <nav aria-label="Dashboard Navigation" className="hidden sm:flex items-center gap-1">
-              <Link
-                href="/dashboard"
-                className="px-3 py-1.5 rounded-md text-sm font-medium text-foreground hover:bg-muted transition-colors"
-              >
-                Calendar
-              </Link>
-              <Link
-                href="/dashboard/availability"
-                className="px-3 py-1.5 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              >
-                Availability
-              </Link>
-              <Link
-                href="/dashboard/bookings"
-                className="px-3 py-1.5 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              >
-                Bookings
-              </Link>
-            </nav>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground bg-muted px-2.5 py-1 rounded-md border border-border">
-              <User className="h-3 w-3 text-primary" />
-              <span className="truncate max-w-[120px] sm:max-w-none">{host.email}</span>
-              <span className="hidden sm:inline opacity-60">({host.timezone})</span>
-            </div>
-
-            <ThemeToggle id="dashboard-theme-toggle" />
-
-            <form
-              action={async () => {
-                "use server";
-                await logoutHost();
-                redirect("/login");
-              }}
-            >
-              <Button variant="outline" size="sm" type="submit" className="gap-1.5 text-xs">
-                <LogOut className="h-3.5 w-3.5" /> Sign Out
-              </Button>
-            </form>
-          </div>
-        </div>
-
-        {/* Mobile secondary tab strip */}
-        <div className="flex sm:hidden overflow-x-auto border-t border-border px-4 py-2 gap-2 text-xs bg-muted/30">
-          <Link href="/dashboard" className="px-2.5 py-1 rounded bg-card font-medium">
-            Calendar
-          </Link>
-          <Link href="/dashboard/availability" className="px-2.5 py-1 rounded text-muted-foreground">
-            Availability
-          </Link>
-          <Link href="/dashboard/bookings" className="px-2.5 py-1 rounded text-muted-foreground">
-            Bookings
-          </Link>
-        </div>
-      </header>
-
-      {/* Main Content Area */}
-      <main className="flex-1 container max-w-7xl px-4 py-8 sm:px-8">
-        {children}
-      </main>
-    </div>
+    <DashboardLayoutShell host={host} logoutAction={handleLogout}>
+      {children}
+    </DashboardLayoutShell>
   );
 }

@@ -1088,7 +1088,7 @@ export function ActiveRoom({
       {/* Top Session Bar */}
       <header className="h-14 border-b border-zinc-800 bg-zinc-900/90 px-4 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
-          <BrandLogo size="small" className="border-zinc-700" />
+          <BrandLogo size="small" variant="white" />
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-mono bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded">
