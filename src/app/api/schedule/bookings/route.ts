@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentHost } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { sendBookingChangeResultEmail } from "@/lib/email/mailer";
 
 export async function GET() {
   const host = await getCurrentHost();
@@ -8,8 +9,13 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const bookings = await db.getBookingsByHostId(host.id);
-  return NextResponse.json({ bookings });
+  const [bookings, requests] = await Promise.all([db.getBookingsByHostId(host.id), db.getBookingChangeRequestsByHostId(host.id)]);
+  const changeRequests = await Promise.all(requests.map(async (item) => {
+    const booking = await db.findBookingById(item.bookingId);
+    const eventType = booking ? await db.findEventTypeById(booking.eventTypeId) : null;
+    return { ...item, booking: booking ? { id: booking.id, uid: booking.uid, attendeeName: booking.attendeeName, attendeeEmail: booking.attendeeEmail, startTime: booking.startTime, endTime: booking.endTime, status: booking.status, title: eventType?.title || "MHAF Live meeting" } : null };
+  }));
+  return NextResponse.json({ bookings, changeRequests });
 }
 
 export async function POST(request: Request) {
