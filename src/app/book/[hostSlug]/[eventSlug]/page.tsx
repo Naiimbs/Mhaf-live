@@ -37,14 +37,21 @@ function addIsoDays(dateString: string, days: number): string {
 }
 
 const COMMON_TIMEZONES = [
+  "Europe/Paris",
+  "Africa/Tunis",
+  "Africa/Casablanca",
+  "Africa/Algiers",
+  "Europe/Brussels",
+  "Europe/London",
+  "Europe/Berlin",
+  "Europe/Madrid",
+  "Europe/Rome",
   "UTC",
   "America/New_York",
   "America/Chicago",
   "America/Denver",
   "America/Los_Angeles",
-  "Europe/London",
-  "Europe/Paris",
-  "Africa/Casablanca",
+  "America/Montreal",
   "Asia/Dubai",
   "Asia/Singapore",
   "Asia/Tokyo",
@@ -154,6 +161,7 @@ export default function PublicBookingPage() {
         attendeeEmail,
         attendeeNotes: attendeeNotes || null,
         locale,
+        attendeeTimezone,
       };
 
       const res = await fetch("/api/schedule/book", {

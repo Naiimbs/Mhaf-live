@@ -17,11 +17,10 @@ interface ConfirmationViewProps {
     endTime: string | Date;
     status: string;
     confirmationEmailSentAt?: any;
-    confirmationEmailError?: string | null;
-  };
   host: {
     name: string | null;
     email: string;
+    timezone?: string;
   } | null;
 }
 
@@ -29,6 +28,14 @@ export function ConfirmationView({ booking, host }: ConfirmationViewProps) {
   const { isFr } = useLanguage();
   const start = new Date(booking.startTime);
   const end = new Date(booking.endTime);
+  const [activeTz, setActiveTz] = React.useState<string>(() => host?.timezone || "Europe/Paris");
+
+  React.useEffect(() => {
+    try {
+      const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (detected) setActiveTz(detected);
+    } catch {}
+  }, []);
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -93,13 +100,13 @@ export function ConfirmationView({ booking, host }: ConfirmationViewProps) {
                 <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                   <Calendar className="h-4 w-4 text-primary" />
                   <span>
-                    {start.toLocaleDateString(isFr ? "fr-FR" : "en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
+                    {start.toLocaleDateString(isFr ? "fr-FR" : "en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric", timeZone: activeTz })}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 text-sm font-mono text-muted-foreground">
                   <Clock className="h-4 w-4 text-primary" />
                   <span>
-                    {start.toTimeString().substring(0, 5)} – {end.toTimeString().substring(0, 5)} (UTC)
+                    {start.toLocaleTimeString(isFr ? "fr-FR" : "en-US", { hour: "2-digit", minute: "2-digit", timeZone: activeTz })} – {end.toLocaleTimeString(isFr ? "fr-FR" : "en-US", { hour: "2-digit", minute: "2-digit", timeZone: activeTz })} <span className="text-[11px] text-muted-foreground font-sans">({activeTz})</span>
                   </span>
                 </div>
               </div>

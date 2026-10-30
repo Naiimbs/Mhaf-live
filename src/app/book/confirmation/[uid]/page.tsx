@@ -48,7 +48,7 @@ export default async function BookingConfirmationPage({
         confirmationEmailSentAt: booking.confirmationEmailSentAt,
         confirmationEmailError: booking.confirmationEmailError,
       }}
-      host={host ? { name: host.name, email: host.email } : null}
+      host={host ? { name: host.name, email: host.email, timezone: host.timezone } : null}
     />
   );
 }

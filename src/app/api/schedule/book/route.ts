@@ -38,6 +38,11 @@ export async function POST(request: Request) {
           ? body.locale
           : cookieLocale || (request.headers.get("accept-language")?.includes("fr") ? "fr" : "en");
 
+      const attendeeTimezone = typeof body.attendeeTimezone === "string" && body.attendeeTimezone.trim()
+        ? body.attendeeTimezone.trim()
+        : host?.timezone || "Europe/Paris";
+      const hostTimezone = host?.timezone || attendeeTimezone || "Europe/Paris";
+
       const emailPromises: Promise<any>[] = [
         sendMeetingConfirmationEmail({
           to: result.booking.attendeeEmail,
@@ -50,6 +55,7 @@ export async function POST(request: Request) {
           managementUrl,
           hostName: host?.name || (locale === "fr" ? "Hôte mhaf meet" : "mhaf meet Host"),
           locale,
+          timezone: attendeeTimezone,
         }),
       ];
 
@@ -67,6 +73,7 @@ export async function POST(request: Request) {
             bookingUid: result.booking.uid,
             notes: (result.booking as any).notes || undefined,
             locale,
+            timezone: hostTimezone,
           })
         );
       }

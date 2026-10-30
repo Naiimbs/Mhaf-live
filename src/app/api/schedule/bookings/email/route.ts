@@ -60,6 +60,7 @@ export async function POST(request: Request) {
       managementUrl: `${appUrl}/book/manage/${managementToken}`,
       hostName,
       locale,
+      timezone: host?.timezone || "Europe/Paris",
     });
     await db.updateBookingManagementToken(booking.id, managementTokenHash, new Date(Date.now() + 180 * 24 * 60 * 60_000));
     await db.updateBookingConfirmationEmail(booking.id, true, null);

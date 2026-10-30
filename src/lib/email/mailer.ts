@@ -13,6 +13,7 @@ interface SendConfirmationEmailParams {
   managementUrl?: string;
   hostName?: string;
   locale?: "en" | "fr";
+  timezone?: string;
 }
 
 export function getMeetingEmailFrom(configuredFrom: string | undefined, smtpUser: string | undefined): string {
@@ -154,6 +155,7 @@ export async function sendMeetingConfirmationEmail({
   managementUrl,
   hostName = "meet Host",
   locale = "fr",
+  timezone = "Europe/Paris",
 }: SendConfirmationEmailParams) {
   const transporter = getTransporter();
   const from = getMeetingEmailFrom(process.env.EMAIL_FROM, process.env.SMTP_USER);
@@ -163,21 +165,25 @@ export async function sendMeetingConfirmationEmail({
 
   const isFrench = locale === "fr";
   const dateLocale = isFrench ? "fr-FR" : "en-US";
+  const tz = timezone || "Europe/Paris";
 
-  const formattedDate = startDate.toLocaleDateString(dateLocale, {
+  const dateOptions: Intl.DateTimeFormatOptions = {
     weekday: "long",
     year: "numeric",
     month: "long",
     day: "numeric",
-  });
+  };
+  const timeOptions: Intl.DateTimeFormatOptions = {
+    hour: "2-digit",
+    minute: "2-digit",
+  };
+  try {
+    dateOptions.timeZone = tz;
+    timeOptions.timeZone = tz;
+  } catch {}
 
-  const formattedTime = `${startDate.toLocaleTimeString(dateLocale, {
-    hour: "2-digit",
-    minute: "2-digit",
-  })} – ${endDate.toLocaleTimeString(dateLocale, {
-    hour: "2-digit",
-    minute: "2-digit",
-  })}`;
+  const formattedDate = startDate.toLocaleDateString(dateLocale, dateOptions);
+  const formattedTime = `${startDate.toLocaleTimeString(dateLocale, timeOptions)} – ${endDate.toLocaleTimeString(dateLocale, timeOptions)}`;
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://meet.naiimbsili.com";
   const fullRoomUrl = roomUrl.startsWith("http") ? roomUrl : `${appUrl}${roomUrl}`;
@@ -309,7 +315,7 @@ export async function sendMeetingConfirmationEmail({
       </div>
       <div class="card-row">
         <span class="label">${timeLabel}</span>
-        <span class="value">${formattedTime}</span>
+        <span class="value">${formattedTime} <span style="font-size:11px;color:#71717a;font-weight:normal">(${tz})</span></span>
       </div>
       <div class="card-row">
         <span class="label">${uidLabel}</span>
@@ -340,7 +346,7 @@ export async function sendMeetingConfirmationEmail({
     from,
     to,
     subject,
-    text: `${greeting}\n\n${intro.replace(/<[^>]+>/g, "")}\n${topicLabel} ${meetingTitle}\n${dateLabel} ${formattedDate}\n${timeLabel} ${formattedTime}\n\n${fallbackLabel} ${fullRoomUrl}\n\n${managementUrl ? `${isFrench ? "Gérer votre réservation" : "Manage your reservation"}: ${managementUrl}\n\n` : ""}${uidLabel} ${bookingUid}\n\nmeet`,
+    text: `${greeting}\n\n${intro.replace(/<[^>]+>/g, "")}\n${topicLabel} ${meetingTitle}\n${dateLabel} ${formattedDate}\n${timeLabel} ${formattedTime} (${tz})\n\n${fallbackLabel} ${fullRoomUrl}\n\n${managementUrl ? `${isFrench ? "Gérer votre réservation" : "Manage your reservation"}: ${managementUrl}\n\n` : ""}${uidLabel} ${bookingUid}\n\nmeet`,
     html,
     attachments: getEmailBrandAttachments(),
   });
@@ -360,6 +366,7 @@ export interface SendHostBookingNotificationParams {
   bookingUid: string;
   notes?: string;
   locale?: "en" | "fr";
+  timezone?: string;
 }
 
 export async function sendHostBookingNotificationEmail({
@@ -374,6 +381,7 @@ export async function sendHostBookingNotificationEmail({
   bookingUid,
   notes,
   locale = "fr",
+  timezone = "Europe/Paris",
 }: SendHostBookingNotificationParams) {
   const transporter = getTransporter();
   const from = getMeetingEmailFrom(process.env.EMAIL_FROM, process.env.SMTP_USER);
@@ -383,21 +391,25 @@ export async function sendHostBookingNotificationEmail({
 
   const isFrench = locale === "fr";
   const dateLocale = isFrench ? "fr-FR" : "en-US";
+  const tz = timezone || "Europe/Paris";
 
-  const formattedDate = startDate.toLocaleDateString(dateLocale, {
+  const dateOptions: Intl.DateTimeFormatOptions = {
     weekday: "long",
     year: "numeric",
     month: "long",
     day: "numeric",
-  });
+  };
+  const timeOptions: Intl.DateTimeFormatOptions = {
+    hour: "2-digit",
+    minute: "2-digit",
+  };
+  try {
+    dateOptions.timeZone = tz;
+    timeOptions.timeZone = tz;
+  } catch {}
 
-  const formattedTime = `${startDate.toLocaleTimeString(dateLocale, {
-    hour: "2-digit",
-    minute: "2-digit",
-  })} – ${endDate.toLocaleTimeString(dateLocale, {
-    hour: "2-digit",
-    minute: "2-digit",
-  })}`;
+  const formattedDate = startDate.toLocaleDateString(dateLocale, dateOptions);
+  const formattedTime = `${startDate.toLocaleTimeString(dateLocale, timeOptions)} – ${endDate.toLocaleTimeString(dateLocale, timeOptions)}`;
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://meet.naiimbsili.com";
   const fullRoomUrl = roomUrl.startsWith("http") ? roomUrl : `${appUrl}${roomUrl}`;
@@ -520,7 +532,7 @@ export async function sendHostBookingNotificationEmail({
       </div>
       <div class="card-row">
         <span class="label">${timeLabel}</span>
-        <span class="value">${formattedTime}</span>
+        <span class="value">${formattedTime} <span style="font-size:11px;color:#71717a;font-weight:normal">(${tz})</span></span>
       </div>
       ${notes ? `
       <div class="card-row">
@@ -543,7 +555,7 @@ export async function sendHostBookingNotificationEmail({
     from,
     to,
     subject,
-    text: `${subtitle.replace(/<[^>]+>/g, "")}\n\n${clientLabel} ${attendeeName} (${attendeeEmail})\n${dateLabel} ${formattedDate}\n${timeLabel} ${formattedTime}\n\n${btnText} : ${fullRoomUrl}\n\nmhaf meet`,
+    text: `${subtitle.replace(/<[^>]+>/g, "")}\n\n${clientLabel} ${attendeeName} (${attendeeEmail})\n${dateLabel} ${formattedDate}\n${timeLabel} ${formattedTime} (${tz})\n\n${btnText} : ${fullRoomUrl}\n\nmhaf meet`,
     html,
     attachments: getEmailBrandAttachments(),
   });
@@ -686,12 +698,14 @@ export async function sendBookingChangeRequestNotification(params: {
   requestedStartTime?: Date | null;
   dashboardUrl: string;
   locale?: "en" | "fr";
+  timezone?: string;
 }) {
   const transporter = getTransporter();
   const from = getMeetingEmailFrom(process.env.EMAIL_FROM, process.env.SMTP_USER);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://meet.naiimbsili.com";
 
   const isFrench = params.locale !== "en";
+  const tz = params.timezone || "Europe/Paris";
   const label = params.type === "CANCEL"
     ? (isFrench ? "Demande d'annulation" : "Cancellation request")
     : (isFrench ? "Demande de report" : "Reschedule request");
@@ -699,8 +713,16 @@ export async function sendBookingChangeRequestNotification(params: {
     ? (isFrench ? "ANNULATION" : "CANCELLATION")
     : (isFrench ? "REPORT" : "RESCHEDULE");
 
+  const formatOptions: Intl.DateTimeFormatOptions = {
+    dateStyle: "medium",
+    timeStyle: "short",
+  };
+  try {
+    formatOptions.timeZone = tz;
+  } catch {}
+
   const requested = params.requestedStartTime
-    ? params.requestedStartTime.toLocaleString(isFrench ? "fr-FR" : "en-US", { dateStyle: "medium", timeStyle: "short" })
+    ? params.requestedStartTime.toLocaleString(isFrench ? "fr-FR" : "en-US", formatOptions) + ` (${tz})`
     : "";
 
   const safeName = escapeEmailHtml(params.attendeeName);
@@ -752,12 +774,14 @@ export async function sendBookingChangeResultEmail(params: {
   startTime: Date;
   roomUrl: string;
   locale?: "en" | "fr";
+  timezone?: string;
 }) {
   const transporter = getTransporter();
   const from = getMeetingEmailFrom(process.env.EMAIL_FROM, process.env.SMTP_USER);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://meet.naiimbsili.com";
 
   const isFrench = params.locale !== "en";
+  const tz = params.timezone || "Europe/Paris";
   const isApproved = params.decision === "APPROVED";
   const badgeText = isApproved
     ? (isFrench ? "DEMANDE VALIDÉE" : "REQUEST APPROVED")
@@ -771,11 +795,19 @@ export async function sendBookingChangeResultEmail(params: {
         ? "Votre demande de modification n'a pas pu être validée. Votre réservation initiale reste active."
         : "Your request was not approved. Your original booking remains unchanged.");
 
+  const formatOptions: Intl.DateTimeFormatOptions = {
+    dateStyle: "full",
+    timeStyle: "short",
+  };
+  try {
+    formatOptions.timeZone = tz;
+  } catch {}
+
   const safeName = escapeEmailHtml(params.attendeeName);
   const safeTitle = escapeEmailHtml(params.meetingTitle);
   const safeMessage = escapeEmailHtml(message);
   const safeRoomUrl = escapeEmailHtml(params.roomUrl);
-  const start = params.startTime.toLocaleString(isFrench ? "fr-FR" : "en-US", { dateStyle: "full", timeStyle: "short" });
+  const start = params.startTime.toLocaleString(isFrench ? "fr-FR" : "en-US", formatOptions) + ` (${tz})`;
 
   const subject = isApproved
     ? (isFrench ? `Demande acceptée : ${params.meetingTitle} — mhaf meet` : `Request approved: ${params.meetingTitle} — mhaf meet`)
@@ -824,22 +856,32 @@ export async function sendBookingReminderEmail(params: {
   minutesBefore: 15 | 5;
   managementUrl?: string;
   locale?: "en" | "fr";
+  timezone?: string;
 }) {
   const transporter = getTransporter();
   const from = getMeetingEmailFrom(process.env.EMAIL_FROM, process.env.SMTP_USER);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://meet.naiimbsili.com";
 
   const isFrench = params.locale !== "en";
+  const tz = params.timezone || "Europe/Paris";
   const badgeText = isFrench ? `DANS ${params.minutesBefore} MINUTES` : `IN ${params.minutesBefore} MINUTES`;
   const subject = isFrench
     ? `Rappel : votre réunion commence dans ${params.minutesBefore} minutes — mhaf meet`
     : `Reminder: your meeting starts in ${params.minutesBefore} minutes — mhaf meet`;
 
+  const formatOptions: Intl.DateTimeFormatOptions = {
+    dateStyle: "full",
+    timeStyle: "short",
+  };
+  try {
+    formatOptions.timeZone = tz;
+  } catch {}
+
   const safeName = escapeEmailHtml(params.attendeeName);
   const safeTitle = escapeEmailHtml(params.meetingTitle);
   const safeRoomUrl = escapeEmailHtml(params.roomUrl);
   const safeManagementUrl = params.managementUrl ? escapeEmailHtml(params.managementUrl) : "";
-  const start = params.startTime.toLocaleString(isFrench ? "fr-FR" : "en-US", { dateStyle: "full", timeStyle: "short" });
+  const start = params.startTime.toLocaleString(isFrench ? "fr-FR" : "en-US", formatOptions) + ` (${tz})`;
   const manageText = params.managementUrl ? `\nManage booking: ${params.managementUrl}` : "";
 
   await transporter.sendMail({

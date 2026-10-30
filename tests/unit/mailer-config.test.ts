@@ -94,3 +94,20 @@ test("email footer renders localized footer text", () => {
   const enFooter = renderEmailFooter("en");
   assert.ok(enFooter.includes("All rights reserved"), "English footer rendered");
 });
+
+test("date and time formatting correctly accounts for timezone offset (13:19 UTC is 14:19 in Europe/Paris)", () => {
+  const utcInstant = new Date("2026-10-30T13:19:00.000Z");
+  const timeFormatted = utcInstant.toLocaleTimeString("fr-FR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Paris",
+  });
+  assert.equal(timeFormatted, "14:19", "must format as 14:19 local time in Europe/Paris");
+
+  const tunisFormatted = utcInstant.toLocaleTimeString("fr-FR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Africa/Tunis",
+  });
+  assert.equal(tunisFormatted, "14:19", "must format as 14:19 local time in Africa/Tunis");
+});

@@ -36,6 +36,7 @@ export async function GET(request: Request) {
         startTime: booking.startTime,
         roomUrl: appUrl + "/rooms/" + booking.uid,
         minutesBefore: item.reminder,
+        timezone: host?.timezone || "Europe/Paris",
       });
       await db.markBookingReminderSent(booking.id, item.reminder);
       sent += 1;
