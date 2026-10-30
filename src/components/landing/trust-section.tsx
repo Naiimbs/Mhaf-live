@@ -1,31 +1,33 @@
 import * as React from "react";
 import { ShieldCheck, Lock, Server, Cpu } from "lucide-react";
+import { useLanguage } from "@/lib/i18n/language-context";
 
 export function TrustSection() {
+  const { isFr } = useLanguage();
   const principles = [
     {
       icon: Lock,
-      title: "Server-Signed Room Access",
+      title: {isFr ? "Accès aux salles signé côté serveur" : "Server-Signed Room Access"},
       description:
-        "LiveKit access tokens are minted on the server. API keys and signing secrets are never sent to the browser.",
+        {isFr ? "Les jetons LiveKit sont créés côté serveur. Les clés API et secrets de signature ne sont jamais envoyés au navigateur." : "LiveKit access tokens are minted on the server. API keys and signing secrets are never sent to the browser."},
     },
     {
       icon: Server,
-      title: "Flexible Media Deployment",
+      title: {isFr ? "Déploiement média flexible" : "Flexible Media Deployment"},
       description:
-        "The media connection is configurable for a managed LiveKit service or a compatible self-hosted LiveKit deployment.",
+        {isFr ? "La connexion média peut être configurée avec LiveKit Cloud ou une installation LiveKit auto-hébergée compatible." : "The media connection is configurable for a managed LiveKit service or a compatible self-hosted LiveKit deployment."},
     },
     {
       icon: ShieldCheck,
-      title: "Privacy-Conscious Room Access",
+      title: {isFr ? "Accès aux salles contrôlé" : "Privacy-Conscious Room Access"},
       description:
-        "Meeting access is controlled through scoped, short-lived tokens rather than exposing media-server credentials to participants.",
+        {isFr ? "L’accès aux réunions repose sur des jetons limités et temporaires, sans exposer les identifiants du serveur média aux participants." : "Meeting access is controlled through scoped, short-lived tokens rather than exposing media-server credentials to participants."},
     },
     {
       icon: Cpu,
-      title: "Meeting Intelligence Roadmap",
+      title: {isFr ? "Fonctionnalités intelligentes à venir" : "Meeting Intelligence Roadmap"},
       description:
-        "Attendance insights, audio archival, transcription, and summaries are planned capabilities. They are not presented as live features until verified end to end.",
+        {isFr ? "Les statistiques de présence, l’archivage audio, la transcription et les résumés sont prévus. Ils ne seront annoncés comme disponibles qu’après validation complète." : "Attendance insights, audio archival, transcription, and summaries are planned capabilities. They are not presented as live features until verified end to end."},
     },
   ];
 
@@ -34,10 +36,10 @@ export function TrustSection() {
       <div className="container max-w-7xl px-4 sm:px-8">
         <div className="text-center max-w-2xl mx-auto">
           <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-            Security & deployment principles
+            {isFr ? "Sécurité et principes de déploiement" : "Security & deployment principles"}
           </p>
           <h2 className="mt-2 text-xl font-bold tracking-tight text-foreground sm:text-2xl">
-            Designed around clear trust boundaries and honest capability status.
+            {isFr ? "Des limites de confiance claires et une présentation honnête des capacités." : "Designed around clear trust boundaries and honest capability status."}
           </h2>
         </div>
 

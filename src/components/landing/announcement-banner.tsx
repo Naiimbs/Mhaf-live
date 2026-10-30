@@ -2,8 +2,10 @@
 
 import * as React from "react";
 import { ArrowRight, Sparkles, X } from "lucide-react";
+import { useLanguage } from "@/lib/i18n/language-context";
 
 export function AnnouncementBanner() {
+  const { isFr } = useLanguage();
   const [dismissed, setDismissed] = React.useState(false);
   const storageKey = "mhaf-announcement-dismissed-v1";
 
@@ -36,13 +38,13 @@ export function AnnouncementBanner() {
           <Sparkles className="h-3 w-3" /> MHAF Live
         </span>
         <span className="hidden sm:inline">
-          Scheduling and video meetings, brought into one workflow.
+          {isFr ? "La planification et les réunions vidéo réunies dans un seul parcours." : "Scheduling and video meetings, brought into one workflow."}
         </span>
         <a
           href="#features"
           className="inline-flex items-center font-medium text-foreground underline-offset-4 hover:underline"
         >
-          See who it’s for <ArrowRight className="ml-1 h-3 w-3" />
+          {isFr ? "À qui s’adresse la plateforme ?" : "See who it’s for"} <ArrowRight className="ml-1 h-3 w-3" />
         </a>
       </div>
       <button

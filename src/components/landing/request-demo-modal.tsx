@@ -10,6 +10,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/lib/i18n/language-context";
 
 interface RequestDemoModalProps {
   open: boolean;
@@ -27,6 +28,7 @@ interface SubmittedData {
 }
 
 export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) {
+  const { isFr } = useLanguage();
   const [fullName, setFullName] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [organization, setOrganization] = React.useState("");
@@ -41,21 +43,21 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
   const validate = () => {
     const errs: Record<string, string> = {};
     if (!fullName.trim()) {
-      errs.fullName = "Full name is required.";
+      errs.fullName = isFr ? "Le nom complet est requis." : "Full name is required.";
     } else if (fullName.trim().length < 2) {
-      errs.fullName = "Full name must be at least 2 characters.";
+      errs.fullName = isFr ? "Le nom doit contenir au moins 2 caractères." : "Full name must be at least 2 characters.";
     }
 
     if (!email.trim()) {
-      errs.email = "Work email is required.";
+      errs.email = isFr ? "L’adresse e-mail professionnelle est requise." : "Work email is required.";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      errs.email = "Please enter a valid work email address.";
+      errs.email = isFr ? "Veuillez saisir une adresse e-mail valide." : "Please enter a valid work email address.";
     }
 
     if (!organization.trim()) {
-      errs.organization = "Organization or company name is required.";
+      errs.organization = isFr ? "Le nom de l’entreprise, du cabinet ou de l’équipe est requis." : "Organization or company name is required.";
     } else if (organization.trim().length < 2) {
-      errs.organization = "Organization name must be at least 2 characters.";
+      errs.organization = isFr ? "Le nom doit contenir au moins 2 caractères." : "Organization name must be at least 2 characters.";
     }
 
     setErrors(errs);
@@ -118,12 +120,12 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold">
-            {submitted ? "Request received" : "Talk to us about MHAF Live"}
+            {submitted ? (isFr ? "Demande reçue" : "Request received") : (isFr ? "Parlons de MHAF Live" : "Talk to us about MHAF Live")}
           </DialogTitle>
           <DialogDescription className="text-sm">
             {submitted
-              ? "Your inquiry has been recorded and assigned a persistent reference ID."
-              : "Tell us how you meet with clients or collaborate with your team. We’ll use this to understand whether MHAF Live is a good fit."}
+              ? (isFr ? "Votre demande a été enregistrée avec une référence." : "Your inquiry has been recorded and assigned a persistent reference ID.")
+              : (isFr ? "Décrivez vos réunions avec vos clients ou votre équipe afin que nous puissions évaluer si MHAF Live correspond à vos besoins." : "Tell us how you meet with clients or collaborate with your team. We’ll use this to understand whether MHAF Live is a good fit.")}
           </DialogDescription>
         </DialogHeader>
 
@@ -142,7 +144,7 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
                 htmlFor="demo-fullname"
                 className="block text-xs font-semibold text-foreground mb-1"
               >
-                Full Name <span className="text-destructive">*</span>
+                {isFr ? "Nom complet" : "Full Name"} <span className="text-destructive">*</span>
               </label>
               <input
                 id="demo-fullname"
@@ -169,7 +171,7 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
                 htmlFor="demo-email"
                 className="block text-xs font-semibold text-foreground mb-1"
               >
-                Work Email <span className="text-destructive">*</span>
+                {isFr ? "E-mail professionnel" : "Work Email"} <span className="text-destructive">*</span>
               </label>
               <input
                 id="demo-email"
@@ -196,7 +198,7 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
                 htmlFor="demo-org"
                 className="block text-xs font-semibold text-foreground mb-1"
               >
-                Business, practice, or team <span className="text-destructive">*</span>
+                {isFr ? "Entreprise, cabinet ou équipe" : "Business, practice, or team"} <span className="text-destructive">*</span>
               </label>
               <input
                 id="demo-org"
@@ -223,7 +225,7 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
                 htmlFor="demo-usecase"
                 className="block text-xs font-semibold text-foreground mb-1"
               >
-                What best describes your use case?
+                {isFr ? "Quel est votre principal besoin ?" : "What best describes your use case?"}
               </label>
               <select
                 id="demo-usecase"
@@ -231,10 +233,10 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
                 onChange={(e) => setUseCase(e.target.value)}
                 className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
               >
-                <option value="Independent professional / client consultations">Independent professional / client consultations</option>
-                <option value="Team meetings / project collaboration">Team meetings / project collaboration</option>
-                <option value="Client booking and scheduling">Client booking and scheduling</option>
-                <option value="Self-hosted / deployment evaluation">Self-hosted / deployment evaluation</option>
+                <option value="Independent professional / client consultations">{isFr ? "Indépendant / consultations clients" : "Independent professional / client consultations"}</option>
+                <option value="Team meetings / project collaboration">{isFr ? "Réunions d’équipe / collaboration projet" : "Team meetings / project collaboration"}</option>
+                <option value="Client booking and scheduling">{isFr ? "Réservation client et planification" : "Client booking and scheduling"}</option>
+                <option value="Self-hosted / deployment evaluation">{isFr ? "Auto-hébergement / évaluation du déploiement" : "Self-hosted / deployment evaluation"}</option>
               </select>
             </div>
 
@@ -244,7 +246,7 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
                 htmlFor="demo-hours"
                 className="block text-xs font-semibold text-foreground mb-1"
               >
-                Approximate monthly meeting volume
+                {isFr ? "Volume mensuel approximatif de réunions" : "Approximate monthly meeting volume"}
               </label>
               <select
                 id="demo-hours"
@@ -252,10 +254,10 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
                 onChange={(e) => setHours(e.target.value)}
                 className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
               >
-                <option value="Under 50 hours">Under 50 hours</option>
-                <option value="50-200 hours">50–200 hours</option>
-                <option value="200-1,000 hours">200–1,000 hours</option>
-                <option value="1,000+ hours (High Concurrency)">1,000+ hours (High Concurrency)</option>
+                <option value="Under 50 hours">{isFr ? "Moins de 50 heures" : "Under 50 hours"}</option>
+                <option value="50-200 hours">{isFr ? "50 à 200 heures" : "50–200 hours"}</option>
+                <option value="200-1,000 hours">{isFr ? "200 à 1 000 heures" : "200–1,000 hours"}</option>
+                <option value="1,000+ hours (High Concurrency)">{isFr ? "Plus de 1 000 heures (forte simultanéité)" : "1,000+ hours (High Concurrency)"}</option>
               </select>
             </div>
 
@@ -267,11 +269,11 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" /> Submitting request...
+                    <Loader2 className="h-4 w-4 animate-spin" /> {isFr ? "Envoi en cours..." : "Submitting request..."}
                   </>
                 ) : (
                   <>
-                    <Send className="h-4 w-4" /> Send request
+                    <Send className="h-4 w-4" /> {isFr ? "Envoyer la demande" : "Send request"}
                   </>
                 )}
               </Button>
@@ -283,7 +285,7 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
               <CheckCircle2 className="h-6 w-6" />
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Thank you, <strong>{fullName}</strong>. Your request for <strong>{organization}</strong> has been recorded. Our team can follow up using the work email you provided.
+              {isFr ? "Merci, " : "Thank you, "}<strong>{fullName}</strong>. {isFr ? "Votre demande pour" : "Your request for"} <strong>{organization}</strong> {isFr ? "a été enregistrée. Nous pourrons vous contacter à l’adresse e-mail fournie." : "has been recorded. Our team can follow up using the work email you provided."}
             </p>
             <div className="rounded-lg border border-border bg-muted/30 p-3 font-mono text-xs text-muted-foreground text-left space-y-1">
               {submittedData?.id && (
@@ -291,12 +293,12 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
                   Ref: {submittedData.id}
                 </div>
               )}
-              <div>Email: {email}</div>
-              <div>Focus: {useCase}</div>
-              <div>Estimated Scale: {hours}</div>
+              <div>{isFr ? "E-mail" : "Email"}: {email}</div>
+              <div>{isFr ? "Besoin" : "Focus"}: {useCase}</div>
+              <div>{isFr ? "Volume estimé" : "Estimated Scale"}: {hours}</div>
             </div>
             <Button onClick={handleReset} className="w-full min-h-[44px]">
-              Close & Return to Page
+              {isFr ? "Fermer et retourner à la page" : "Close & Return to Page"}
             </Button>
           </div>
         )}
