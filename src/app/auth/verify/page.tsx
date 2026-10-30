@@ -6,7 +6,7 @@ import { AlertCircle, CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 
-export default function VerifyMagicLinkPage() {
+function VerifyMagicLinkContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token") || "";
@@ -66,5 +66,22 @@ export default function VerifyMagicLinkPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function VerifyMagicLinkPage() {
+  return (
+    <React.Suspense
+      fallback={
+        <main className="min-h-screen flex items-center justify-center bg-background px-4">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading sign-in link...
+          </div>
+        </main>
+      }
+    >
+      <VerifyMagicLinkContent />
+    </React.Suspense>
   );
 }
