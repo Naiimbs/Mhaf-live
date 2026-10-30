@@ -21,6 +21,10 @@ export function getMeetingEmailFrom(configuredFrom: string | undefined, smtpUser
   return `meet <${address}>`;
 }
 
+function escapeEmailHtml(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;");
+}
+
 function getTransporter() {
   const host = process.env.SMTP_HOST?.trim();
   const user = process.env.SMTP_USER?.trim();
@@ -582,14 +586,23 @@ export async function sendBookingChangeResultEmail(params: { to: string; attende
   const transporter = getTransporter();
   const from = getMeetingEmailFrom(process.env.EMAIL_FROM, process.env.SMTP_USER);
   const message = params.decision === "APPROVED" ? (params.type === "CANCEL" ? "Your cancellation request has been approved. Your booking is cancelled." : "Your reschedule request has been approved. Your meeting time has been updated.") : "Your request was not approved. Your original booking remains unchanged.";
+  const safeName = escapeEmailHtml(params.attendeeName);
+  const safeTitle = escapeEmailHtml(params.meetingTitle);
+  const safeMessage = escapeEmailHtml(message);
+  const safeRoomUrl = escapeEmailHtml(params.roomUrl);
   const start = params.startTime.toLocaleString("fr-FR", { dateStyle: "full", timeStyle: "short" });
-  await transporter.sendMail({ from, to: params.to, subject: "Booking request " + params.decision.toLowerCase() + " — MHAF Live", text: "Hello " + params.attendeeName + ",\n\n" + message + "\n\n" + params.meetingTitle + "\n" + start + "\n" + (params.decision === "APPROVED" && params.type === "RESCHEDULE" ? params.roomUrl : ""), html: "<div style='font-family:Arial,sans-serif;background:#09090b;color:#fafafa;padding:32px'><main style='max-width:540px;margin:auto;background:#121215;border:1px solid #27272a;border-radius:14px;padding:28px'><h1>Booking request " + params.decision.toLowerCase() + "</h1><p>Hello " + params.attendeeName + ",</p><p>" + message + "</p><p><strong>" + params.meetingTitle + "</strong><br/>" + start + "</p>" + (params.decision === "APPROVED" && params.type === "RESCHEDULE" ? "<p><a href='" + params.roomUrl + "'>Join your meeting</a></p>" : "") + "</main></div>" });
+  await transporter.sendMail({ from, to: params.to, subject: "Booking request " + params.decision.toLowerCase() + " — MHAF Live", text: "Hello " + params.attendeeName + ",\n\n" + message + "\n\n" + params.meetingTitle + "\n" + start + "\n" + (params.decision === "APPROVED" && params.type === "RESCHEDULE" ? params.roomUrl : ""), html: "<div style='font-family:Arial,sans-serif;background:#09090b;color:#fafafa;padding:32px'><main style='max-width:540px;margin:auto;background:#121215;border:1px solid #27272a;border-radius:14px;padding:28px'><h1>Booking request " + params.decision.toLowerCase() + "</h1><p>Hello " + safeName + ",</p><p>" + safeMessage + "</p><p><strong>" + safeTitle + "</strong><br/>" + start + "</p>" + (params.decision === "APPROVED" && params.type === "RESCHEDULE" ? "<p><a href='" + safeRoomUrl + "'>Join your meeting</a></p>" : "") + "</main></div>" });
 }
+
 
 export async function sendBookingReminderEmail(params: { to: string; attendeeName: string; meetingTitle: string; startTime: Date; roomUrl: string; minutesBefore: 15 | 5; managementUrl?: string }) {
   const transporter = getTransporter();
   const from = getMeetingEmailFrom(process.env.EMAIL_FROM, process.env.SMTP_USER);
+  const safeName = escapeEmailHtml(params.attendeeName);
+  const safeTitle = escapeEmailHtml(params.meetingTitle);
+  const safeRoomUrl = escapeEmailHtml(params.roomUrl);
+  const safeManagementUrl = params.managementUrl ? escapeEmailHtml(params.managementUrl) : "";
   const start = params.startTime.toLocaleString("fr-FR", { dateStyle: "full", timeStyle: "short" });
   const manageText = params.managementUrl ? "\nManage booking: " + params.managementUrl : "";
-  await transporter.sendMail({ from, to: params.to, subject: "Reminder: your meeting starts in " + params.minutesBefore + " minutes — MHAF Live", text: "Hello " + params.attendeeName + ",\n\nYour meeting " + params.meetingTitle + " starts in " + params.minutesBefore + " minutes.\n" + start + "\nJoin: " + params.roomUrl + manageText, html: "<div style='font-family:Arial,sans-serif;background:#09090b;color:#fafafa;padding:32px'><main style='max-width:540px;margin:auto;background:#121215;border:1px solid #27272a;border-radius:14px;padding:28px'><p style='color:#38bdf8'>MHAF LIVE · MEETING REMINDER</p><h1>Your meeting starts in " + params.minutesBefore + " minutes</h1><p>Hello " + params.attendeeName + ", your meeting <strong>" + params.meetingTitle + "</strong> is coming up.</p><p>" + start + "</p><p><a href='" + params.roomUrl + "' style='display:inline-block;background:#10b981;color:#042f2e;padding:12px 18px;border-radius:8px;text-decoration:none;font-weight:bold'>Join meeting</a></p>" + (params.managementUrl ? "<p><a href='" + params.managementUrl + "'>Manage booking</a></p>" : "") + "</main></div>" });
+  await transporter.sendMail({ from, to: params.to, subject: "Reminder: your meeting starts in " + params.minutesBefore + " minutes — MHAF Live", text: "Hello " + params.attendeeName + ",\n\nYour meeting " + params.meetingTitle + " starts in " + params.minutesBefore + " minutes.\n" + start + "\nJoin: " + params.roomUrl + manageText, html: "<div style='font-family:Arial,sans-serif;background:#09090b;color:#fafafa;padding:32px'><main style='max-width:540px;margin:auto;background:#121215;border:1px solid #27272a;border-radius:14px;padding:28px'><p style='color:#38bdf8'>MHAF LIVE · MEETING REMINDER</p><h1>Your meeting starts in " + params.minutesBefore + " minutes</h1><p>Hello " + safeName + ", your meeting <strong>" + safeTitle + "</strong> is coming up.</p><p>" + start + "</p><p><a href='" + safeRoomUrl + "' style='display:inline-block;background:#10b981;color:#042f2e;padding:12px 18px;border-radius:8px;text-decoration:none;font-weight:bold'>Join meeting</a></p>" + (safeManagementUrl ? "<p><a href='" + safeManagementUrl + "'>Manage booking</a></p>" : "") + "</main></div>" });
 }
