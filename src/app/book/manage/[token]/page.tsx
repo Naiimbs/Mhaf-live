@@ -22,6 +22,11 @@ export default function ManageBookingPage() {
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState(false);
+  const minDateTime = React.useMemo(() => {
+    const date = new Date(Date.now() + 30 * 60_000);
+    date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+    return date.toISOString().slice(0, 16);
+  }, []);
 
   React.useEffect(() => {
     fetch("/api/schedule/manage/" + encodeURIComponent(token))
@@ -75,7 +80,7 @@ export default function ManageBookingPage() {
             </div>
             {success ? <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm"><CheckCircle2 className="inline h-4 w-4 mr-2 text-emerald-500" />Your request was sent to the host. The booking will remain unchanged until the host reviews it.</div> : pendingRequest ? <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm">A {pendingRequest.type.toLowerCase()} request is already waiting for host approval. You will receive an email when it is reviewed.</div> : <form onSubmit={submit} className="space-y-4">
               <label className="block space-y-1.5"><span className="text-sm font-medium">What would you like to do?</span><select value={type} onChange={(e) => setType(e.target.value as "CANCEL" | "RESCHEDULE")} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"><option value="CANCEL">Request cancellation</option><option value="RESCHEDULE">Request a new date and time</option></select></label>
-              {type === "RESCHEDULE" && <label className="block space-y-1.5"><span className="text-sm font-medium">Preferred new date and time</span><input type="datetime-local" required value={requestedStartTime} onChange={(e) => setRequestedStartTime(e.target.value)} min={new Date(Date.now() + 30 * 60000).toISOString().slice(0,16)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" /></label>}
+              {type === "RESCHEDULE" && <label className="block space-y-1.5"><span className="text-sm font-medium">Preferred new date and time (your local timezone)</span><input type="datetime-local" required value={requestedStartTime} onChange={(e) => setRequestedStartTime(e.target.value)} min={minDateTime} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" /></label>}
               <label className="block space-y-1.5"><span className="text-sm font-medium">Reason <span className="text-destructive">*</span></span><textarea required minLength={10} maxLength={1500} rows={4} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Please explain why you need to change or cancel this booking (at least 10 characters)." className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" /><span className="text-xs text-muted-foreground">{reason.trim().length}/1500 characters</span></label>
               {error && <div role="alert" className="flex gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"><AlertCircle className="h-4 w-4 shrink-0" />{error}</div>}
               <Button type="submit" disabled={submitting || reason.trim().length < 10 || (type === "RESCHEDULE" && !requestedStartTime)} className="w-full">{submitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Submitting…</> : "Send request to host"}</Button>
