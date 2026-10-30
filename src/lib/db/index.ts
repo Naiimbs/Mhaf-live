@@ -15,6 +15,7 @@ import {
   BookingChangeRequest,
 } from "./types";
 import { getBookingConflictRange, hasScheduledMeetingConflict } from "../scheduling/conflicts";
+import { getDueBookingReminderOffsets } from "../scheduling/reminders";
 
 interface DatabaseSchema {
   users: User[];
@@ -807,17 +808,14 @@ class DatabaseStore {
   }
 
   async getBookingsDueForReminders(now = new Date()): Promise<Array<{ booking: Booking; reminder: 15 | 5 }>> {
-    const windows: Array<{ reminder: 15 | 5; minutes: number }> = [{ reminder: 15, minutes: 15 }, { reminder: 5, minutes: 5 }];
     const due: Array<{ booking: Booking; reminder: 15 | 5 }> = [];
     for (const booking of this.data.bookings) {
-      if (booking.status !== "CONFIRMED" || booking.startTime.getTime() <= now.getTime()) continue;
-      for (const window of windows) {
-        const sentAt = window.reminder === 15 ? booking.reminder15SentAt : booking.reminder5SentAt;
-        const target = booking.startTime.getTime() - window.minutes * 60_000;
-        if (!sentAt && now.getTime() >= target && now.getTime() < target + 3 * 60_000) {
-          due.push({ booking, reminder: window.reminder });
-        }
-      }
+      if (booking.status !== "CONFIRMED") continue;
+      const reminders = getDueBookingReminderOffsets(booking.startTime, now, {
+        fifteenMinute: Boolean(booking.reminder15SentAt),
+        fiveMinute: Boolean(booking.reminder5SentAt),
+      });
+      for (const reminder of reminders) due.push({ booking, reminder });
     }
     return due;
   }
