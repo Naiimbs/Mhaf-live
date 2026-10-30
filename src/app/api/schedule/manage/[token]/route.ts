@@ -10,7 +10,7 @@ const hashToken = (token: string) => createHash("sha256").update(token).digest("
 export async function GET(_request: Request, context: Context) {
   const { token } = await context.params;
   const booking = await db.getBookingByManagementTokenHash(hashToken(token));
-  if (!booking || booking.status !== "CONFIRMED") {
+  if (!booking || booking.status !== "CONFIRMED" || booking.startTime.getTime() <= Date.now()) {
     return NextResponse.json({ error: "This booking management link is invalid, expired, or inactive." }, { status: 404 });
   }
   const [host, eventType, requests] = await Promise.all([
