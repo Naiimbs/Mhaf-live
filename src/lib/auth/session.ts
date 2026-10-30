@@ -6,16 +6,24 @@ import { db } from "@/lib/db";
 import { User } from "@/lib/db/types";
 
 const COOKIE_NAME = "mhaf_session";
-const configuredJwtSecret = process.env.NEXTAUTH_SECRET?.trim();
-
-if (process.env.NODE_ENV === "production" && (!configuredJwtSecret || configuredJwtSecret.length < 32)) {
-  throw new Error("NEXTAUTH_SECRET must be configured with at least 32 characters in production.");
-}
-
-const JWT_SECRET = new TextEncoder().encode(
-  configuredJwtSecret || "mhaf-live-dev-secret-key-minimum-32-chars-long"
-);
 const SESSION_DURATION_SEC = 7 * 24 * 60 * 60; // 7 days
+
+/**
+ * Resolve the JWT secret only when an auth operation actually needs it.
+ * This keeps Next.js build-time route analysis from requiring runtime secrets,
+ * while still enforcing a strong secret in production at request time.
+ */
+function getJwtSecret(): Uint8Array {
+  const configuredJwtSecret = process.env.NEXTAUTH_SECRET?.trim();
+
+  if (process.env.NODE_ENV === "production" && (!configuredJwtSecret || configuredJwtSecret.length < 32)) {
+    throw new Error("NEXTAUTH_SECRET must be configured with at least 32 characters in production.");
+  }
+
+  return new TextEncoder().encode(
+    configuredJwtSecret || "mhaf-live-dev-secret-key-minimum-32-chars-long"
+  );
+}
 
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 12);
@@ -34,14 +42,16 @@ export async function createSessionToken(user: User): Promise<string> {
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${SESSION_DURATION_SEC}s`)
-    .sign(JWT_SECRET);
+    .sign(getJwtSecret());
 
   return token;
 }
 
 export async function verifySessionToken(token: string): Promise<{ userId: string; email: string } | null> {
+  const secret = getJwtSecret();
+
   try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
+    const { payload } = await jwtVerify(token, secret);
     if (!payload.sub || !payload.email) return null;
     return { userId: payload.sub as string, email: payload.email as string };
   } catch (err) {
