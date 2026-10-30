@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { sendMagicLinkEmail } from "@/lib/email/mailer";
 
+export const runtime = "nodejs";
 const TOKEN_TTL_MS = 15 * 60 * 1000;
 
 export async function POST(request: Request) {
@@ -18,28 +19,24 @@ export async function POST(request: Request) {
       const rawToken = randomBytes(32).toString("hex");
       const tokenHash = createHash("sha256").update(rawToken).digest("hex");
       const expires = new Date(Date.now() + TOKEN_TTL_MS);
-      const storedToken = await db.createMagicLinkToken(user.id, tokenHash, expires);
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
-      if (storedToken && appUrl) {
-        const link = new URL("/api/auth/magic-link/verify", appUrl);
-        link.searchParams.set("token", rawToken);
-        try {
-          await sendMagicLinkEmail(user.email, link.toString());
-        } catch (error) {
-          console.error("[auth] Magic-link email delivery failed:", error instanceof Error ? error.message : "Unknown mail error");
-        }
-      } else if (storedToken) {
-        console.error("[auth] Magic-link email skipped: NEXT_PUBLIC_APP_URL is not configured.");
-      }
+      await db.createMagicLinkToken(user.id, tokenHash, expires);
+
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || new URL(request.url).origin;
+      const link = new URL("/api/auth/magic-link/verify", appUrl);
+      link.searchParams.set("token", rawToken);
+      await sendMagicLinkEmail(user.email, link.toString());
     }
 
-    // Same response for known and unknown addresses to avoid account enumeration.
+    // Keep the response identical for existing and unknown addresses.
     return NextResponse.json({
       success: true,
       message: "If an account exists for that email, a sign-in link will arrive shortly.",
     });
   } catch (error) {
     console.error("[auth] Magic-link request failed:", error instanceof Error ? error.message : "Unknown error");
-    return NextResponse.json({ error: "We could not process your request. Please try again later." }, { status: 500 });
+    return NextResponse.json(
+      { error: "We could not send the sign-in link right now. Please try again later." },
+      { status: 503 }
+    );
   }
 }
