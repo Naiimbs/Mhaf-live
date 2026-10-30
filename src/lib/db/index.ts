@@ -698,6 +698,10 @@ class DatabaseStore {
     });
   }
 
+  async getBookingChangeRequestById(requestId: string, hostId: string): Promise<BookingChangeRequest | null> {
+    return this.data.bookingChangeRequests.find((item) => item.id === requestId && item.hostId === hostId) || null;
+  }
+
   async getBookingChangeRequestsByHostId(hostId: string): Promise<BookingChangeRequest[]> {
     return this.data.bookingChangeRequests
       .filter((item) => item.hostId === hostId)
