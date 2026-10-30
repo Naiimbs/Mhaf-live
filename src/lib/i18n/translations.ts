@@ -428,7 +428,7 @@ export const translations: Record<Locale, TranslationDictionary> = {
       heroTitle1: "De la réservation",
       heroTitle2: "à la conversation.",
       heroSubtitle:
-        "MHAF Live réunit la planification et les réunions vidéo en temps réel dans un parcours clair, pour les indépendants et les équipes. Les invités rejoignent la réunion via un lien partagé."
+        "MHAF Live réunit la planification et les réunions vidéo en temps réel dans un parcours clair, pour les indépendants et les équipes. Les invités rejoignent la réunion via un lien partagé.",
       startInstant: "Démarrer une réunion",
       viewBooking: "Voir la réservation",
       instantTitle: "Salons vidéo instantanés",
