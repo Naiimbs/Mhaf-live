@@ -12,6 +12,7 @@ import {
   Meeting,
   MeetingSource,
   AuditLog,
+  BookingChangeRequest,
 } from "./types";
 import { getBookingConflictRange, hasScheduledMeetingConflict } from "../scheduling/conflicts";
 
@@ -22,6 +23,7 @@ interface DatabaseSchema {
   eventTypes: EventType[];
   availabilities: Availability[];
   bookings: Booking[];
+  bookingChangeRequests: BookingChangeRequest[];
   meetings: Meeting[];
   auditLogs: AuditLog[];
 }
@@ -102,8 +104,19 @@ class DatabaseStore {
             endTime: new Date(b.endTime),
             lastLeftAt: b.lastLeftAt ? new Date(b.lastLeftAt) : null,
             completedAt: b.completedAt ? new Date(b.completedAt) : null,
+            managementTokenExpiresAt: b.managementTokenExpiresAt ? new Date(b.managementTokenExpiresAt) : null,
+            confirmationEmailSentAt: b.confirmationEmailSentAt ? new Date(b.confirmationEmailSentAt) : null,
+            reminder15SentAt: b.reminder15SentAt ? new Date(b.reminder15SentAt) : null,
+            reminder5SentAt: b.reminder5SentAt ? new Date(b.reminder5SentAt) : null,
             createdAt: new Date(b.createdAt),
             updatedAt: new Date(b.updatedAt),
+          })),
+          bookingChangeRequests: (parsed.bookingChangeRequests || []).map((r: any) => ({
+            ...r,
+            requestedStartTime: r.requestedStartTime ? new Date(r.requestedStartTime) : null,
+            createdAt: new Date(r.createdAt),
+            updatedAt: new Date(r.updatedAt),
+            resolvedAt: r.resolvedAt ? new Date(r.resolvedAt) : null,
           })),
           meetings: (parsed.meetings || []).map((m: any) => ({
             ...m,
@@ -131,6 +144,7 @@ class DatabaseStore {
       eventTypes: [],
       availabilities: [],
       bookings: [],
+      bookingChangeRequests: [],
       meetings: [],
       auditLogs: [],
     };
