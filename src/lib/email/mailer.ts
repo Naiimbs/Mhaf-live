@@ -499,3 +499,36 @@ export async function sendHostBookingNotificationEmail({
 
   return info;
 }
+
+
+type E2EGlobal = typeof globalThis & { __mhafE2EMagicLinks?: Map<string, string> };
+
+export function consumeE2EMagicLink(email: string): string | null {
+  if (process.env.NODE_ENV !== "development" || !process.env.MHAF_E2E_AUTH_HARNESS_SECRET) return null;
+  const links = (globalThis as E2EGlobal).__mhafE2EMagicLinks;
+  const key = email.trim().toLowerCase();
+  const link = links?.get(key) ?? null;
+  links?.delete(key);
+  return link;
+}
+
+export async function sendMagicLinkEmail(to: string, magicLink: string): Promise<void> {
+  // Local Playwright sink: disabled in production and requires an explicit dev-only secret.
+  if (process.env.NODE_ENV === "development" && process.env.MHAF_E2E_AUTH_HARNESS_SECRET) {
+    const root = globalThis as E2EGlobal;
+    root.__mhafE2EMagicLinks ??= new Map<string, string>();
+    root.__mhafE2EMagicLinks.set(to.trim().toLowerCase(), magicLink);
+    return;
+  }
+
+  const transporter = getTransporter();
+  const from = getMeetingEmailFrom(process.env.EMAIL_FROM, process.env.SMTP_USER);
+  const safeLink = magicLink.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  await transporter.sendMail({
+    from,
+    to,
+    subject: "Your MHAF Live sign-in link",
+    text: `Use this one-time link to sign in to MHAF Live. It expires in 15 minutes and can only be used once.\n\n${magicLink}\n\nIf you did not request this email, you can ignore it.`,
+    html: `<!doctype html><html lang="en"><body style="margin:0;padding:32px;background:#09090b;color:#fafafa;font-family:Arial,sans-serif"><main style="max-width:520px;margin:auto;padding:32px;background:#121215;border:1px solid #27272a;border-radius:16px"><h1 style="font-size:22px">Sign in to MHAF Live</h1><p style="color:#a1a1aa;line-height:1.6">Click below to securely access your host dashboard.</p><p style="margin:28px 0"><a href="${safeLink}" style="display:inline-block;padding:13px 22px;border-radius:9px;background:#10b981;color:#042f2e;text-decoration:none;font-weight:700">Sign in to MHAF Live</a></p><p style="color:#a1a1aa;font-size:13px;line-height:1.6">This link expires in 15 minutes and can only be used once. If you did not request it, you can ignore this email.</p></main></body></html>`,
+  });
+}

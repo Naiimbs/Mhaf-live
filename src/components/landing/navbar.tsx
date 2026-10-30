@@ -33,7 +33,7 @@ export function Navbar() {
 
         <div className="hidden items-center gap-3 md:flex">
           <ThemeToggle id="desktop-theme-toggle" />
-          <Button variant="ghost" size="sm" asChild><Link href="/login">Sign in</Link></Button>
+          <Button variant="ghost" size="sm" asChild><Link href="/onboarding">Sign in</Link></Button>
           <Button size="sm" asChild className="shadow-sm"><Link href="/register">Create your account</Link></Button>
         </div>
 
@@ -61,7 +61,7 @@ export function Navbar() {
               </a>
             ))}
             <div className="mt-3 grid grid-cols-2 gap-2 border-t border-border pt-4">
-              <Button variant="outline" asChild className="min-h-11"><Link href="/login" onClick={() => setMobileMenuOpen(false)}>Sign in</Link></Button>
+              <Button variant="outline" asChild className="min-h-11"><Link href="/onboarding" onClick={() => setMobileMenuOpen(false)}>Sign in</Link></Button>
               <Button asChild className="min-h-11"><Link href="/register" onClick={() => setMobileMenuOpen(false)}>Create account</Link></Button>
             </div>
           </nav>

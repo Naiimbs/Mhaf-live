@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import {
   User,
   Session,
+  MagicLinkToken,
   EventType,
   Availability,
   Booking,
@@ -17,6 +18,7 @@ import { getBookingConflictRange, hasScheduledMeetingConflict } from "../schedul
 interface DatabaseSchema {
   users: User[];
   sessions: Session[];
+  magicLinkTokens: MagicLinkToken[];
   eventTypes: EventType[];
   availabilities: Availability[];
   bookings: Booking[];
@@ -78,6 +80,12 @@ class DatabaseStore {
             expires: new Date(s.expires),
             createdAt: new Date(s.createdAt),
           })),
+          magicLinkTokens: (parsed.magicLinkTokens || []).map((t: any) => ({
+            ...t,
+            expires: new Date(t.expires),
+            consumedAt: t.consumedAt ? new Date(t.consumedAt) : null,
+            createdAt: new Date(t.createdAt),
+          })),
           eventTypes: (parsed.eventTypes || []).map((e: any) => ({
             ...e,
             createdAt: new Date(e.createdAt),
@@ -119,6 +127,7 @@ class DatabaseStore {
     return {
       users: [],
       sessions: [],
+      magicLinkTokens: [],
       eventTypes: [],
       availabilities: [],
       bookings: [],
@@ -289,6 +298,54 @@ class DatabaseStore {
         });
       }
 
+      this.persist();
+      return user;
+    });
+  }
+
+  // --- One-time email authentication tokens ---
+  async createMagicLinkToken(userId: string, tokenHash: string, expires: Date): Promise<MagicLinkToken | null> {
+    return globalLock.acquire(async () => {
+      const now = new Date();
+      this.data.magicLinkTokens = this.data.magicLinkTokens.filter(
+        (token) => token.expires.getTime() > now.getTime() - 24 * 60 * 60 * 1000
+      );
+      const recentRequests = this.data.magicLinkTokens.filter(
+        (token) => token.userId === userId && token.createdAt.getTime() > now.getTime() - 15 * 60 * 1000
+      );
+      if (recentRequests.length >= 3) return null;
+      const token: MagicLinkToken = {
+        id: `mlt_${randomUUID()}`,
+        tokenHash,
+        userId,
+        expires,
+        consumedAt: null,
+        createdAt: now,
+      };
+      this.data.magicLinkTokens.push(token);
+      this.persist();
+      return token;
+    });
+  }
+
+  async hasRecentMagicLinkToken(userId: string, since: Date): Promise<boolean> {
+    return this.data.magicLinkTokens.some(
+      (token) => token.userId === userId && token.createdAt.getTime() >= since.getTime()
+    );
+  }
+
+  async consumeMagicLinkToken(tokenHash: string): Promise<User | null> {
+    return globalLock.acquire(async () => {
+      const now = new Date();
+      const token = this.data.magicLinkTokens.find(
+        (item) => item.tokenHash === tokenHash && !item.consumedAt && item.expires.getTime() > now.getTime()
+      );
+      if (!token) return null;
+      const user = this.data.users.find((item) => item.id === token.userId);
+      if (!user) return null;
+      token.consumedAt = now;
+      user.emailVerified = user.emailVerified || now;
+      user.updatedAt = now;
       this.persist();
       return user;
     });

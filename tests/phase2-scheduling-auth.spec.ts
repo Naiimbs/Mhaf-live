@@ -2,7 +2,6 @@ import { test, expect } from "@playwright/test";
 
 test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests", () => {
   const seedEmail = process.env.E2E_SEED_EMAIL || "host@mhaf.live";
-  const seedPassword = process.env.E2E_SEED_PASSWORD || "Password123!";
   const seedHostId = "host_default_01";
   const eventSlug = "30min";
 
@@ -10,7 +9,7 @@ test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests",
     // Navigate directly without session
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/login/);
-    await expect(page.locator("h1")).toContainText("Host Portal Authentication");
+    await expect(page.locator("h1")).toContainText("Sign in to MHAF Live");
   });
 
   test("2. Protected API routes return 401 Unauthorized when unauthenticated", async ({ request }) => {
@@ -21,18 +20,21 @@ test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests",
     expect(bookingsRes.status()).toBe(401);
   });
 
-  test("3. Host Login succeeds with valid seed credentials and reaches dashboard", async ({ page }) => {
+  test("3. Login uses email-only magic-link requests and does not expose password sign-in", async ({ page, request }) => {
     await page.goto("/login");
 
-    // Click auto-fill helper or fill directly
-    await page.fill("#login-email", seedEmail);
-    await page.fill("#login-password", seedPassword);
-    await page.click("#submit-login-button");
+    await expect(page.locator("h1")).toContainText("Sign in to MHAF Live");
+    await expect(page.locator("#login-email")).toBeVisible();
+    await expect(page.locator("#login-password")).toHaveCount(0);
 
-    // Should redirect to dashboard
-    await expect(page).toHaveURL(/\/dashboard/);
-    await expect(page.locator("h1")).toContainText("Your meetings, in one week.");
-    await expect(page.getByText(seedEmail)).toBeVisible();
+    // Unknown addresses receive the same generic success response without SMTP delivery.
+    const response = await request.post("/api/auth/magic-link", {
+      data: { email: "unknown-account@e2e.test" },
+    });
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.message).toContain("If an account exists");
   });
 
   test("4. Host Registration creates new host account with custom timezone and default schedule", async ({ page, request }) => {
@@ -48,27 +50,47 @@ test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests",
 
     await expect(page).toHaveURL(/\/dashboard/);
     await expect(page.getByText(uniqueEmail)).toBeVisible();
-  });
 
-  test("5. Availability configuration updates host operating hours and timezone", async ({ page }) => {
-    // Log in
+    // Re-authenticate using the actual one-time magic-link flow, without SMTP.
+    await page.request.post("/api/auth/logout");
     await page.goto("/login");
-    await page.fill("#login-email", seedEmail);
-    await page.fill("#login-password", seedPassword);
-    await page.click("#submit-login-button");
-    await expect(page).toHaveURL(/\/dashboard/);
+    const magicLinkResponse = await request.post("/api/auth/magic-link", {
+      data: { email: uniqueEmail },
+    });
+    expect(magicLinkResponse.status()).toBe(200);
+    expect((await magicLinkResponse.json()).success).toBe(true);
 
-    // Go to availability
+    const capturedLinkResponse = await request.get(
+      `/api/__e2e__/magic-link?email=${encodeURIComponent(uniqueEmail)}`,
+      { headers: { "x-mhaf-e2e-secret": process.env.MHAF_E2E_AUTH_HARNESS_SECRET! } }
+    );
+    expect(capturedLinkResponse.status()).toBe(200);
+    const { url } = await capturedLinkResponse.json();
+    expect(url).toContain("/auth/verify?token=");
+
+    await page.goto(url);
+    await page.getByRole("button", { name: "Continue to dashboard" }).click();
+    await expect(page).toHaveURL(/\/dashboard/);
+    await expect(page.getByText(uniqueEmail)).toBeVisible();
+
+    // Restore the availability regression coverage using the magic-link session.
     await page.goto("/dashboard/availability");
     await expect(page.locator("h1")).toContainText("Weekly Availability Schedule");
-
-    // Change Monday end time to 18:00
     await page.selectOption("#end-time-1", "18:00");
     await page.click("#save-availability-btn");
-
     await expect(page.locator("#availability-feedback-alert")).toContainText(
       "Weekly availability and operating timezone saved successfully."
     );
+  });
+
+  test("5. Legacy password login API is disabled", async ({ request }) => {
+    const response = await request.post("/api/auth/login", {
+      data: { email: seedEmail, password: "not-used-in-magic-link-auth" },
+    });
+
+    expect(response.status()).toBe(410);
+    const body = await response.json();
+    expect(body.error).toContain("Password sign-in is disabled");
   });
 
   test("6. Slot generation calculates timezone-aware slots and excludes past/unavailable times", async ({ request }) => {
