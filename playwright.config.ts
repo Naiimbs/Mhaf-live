@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { defineConfig } from "@playwright/test";
 import { loadEnvConfig } from "@next/env";
 
@@ -10,7 +11,7 @@ const e2eLiveKitEnv = {
   LIVEKIT_API_KEY: "mhaf-e2e-test-key",
   LIVEKIT_API_SECRET: "mhaf-e2e-test-secret",
 };
-const e2eAuthEnv = { MHAF_E2E_AUTH_HARNESS_SECRET: "mhaf-playwright-local-only-secret" };
+const e2eAuthEnv = { MHAF_E2E_AUTH_HARNESS_SECRET: randomBytes(32).toString("hex") };
 Object.assign(process.env, e2eLiveKitEnv, e2eAuthEnv);
 
 export default defineConfig({

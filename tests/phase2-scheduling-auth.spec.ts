@@ -62,7 +62,7 @@ test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests",
 
     const capturedLinkResponse = await request.get(
       `/api/__e2e__/magic-link?email=${encodeURIComponent(uniqueEmail)}`,
-      { headers: { "x-mhaf-e2e-secret": "mhaf-playwright-local-only-secret" } }
+      { headers: { "x-mhaf-e2e-secret": process.env.MHAF_E2E_AUTH_HARNESS_SECRET! } }
     );
     expect(capturedLinkResponse.status()).toBe(200);
     const { url } = await capturedLinkResponse.json();
