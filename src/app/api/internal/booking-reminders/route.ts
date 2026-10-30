@@ -9,8 +9,10 @@ export const dynamic = "force-dynamic";
 function authorized(request: Request): boolean {
   const expected = process.env.BOOKING_REMINDER_CRON_SECRET || "";
   const supplied = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "";
-  if (expected.length < 32 || supplied.length !== expected.length) return false;
-  return timingSafeEqual(Buffer.from(supplied), Buffer.from(expected));
+  const expectedBytes = Buffer.from(expected);
+  const suppliedBytes = Buffer.from(supplied);
+  if (expectedBytes.length < 32 || suppliedBytes.length !== expectedBytes.length) return false;
+  return timingSafeEqual(suppliedBytes, expectedBytes);
 }
 
 export async function GET(request: Request) {
