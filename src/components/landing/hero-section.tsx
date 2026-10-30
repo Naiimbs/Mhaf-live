@@ -30,7 +30,7 @@ export function HeroSection() {
                 <Link href="/register">Create your account <ArrowRight className="h-4 w-4" /></Link>
               </Button>
               <Button size="lg" variant="outline" asChild>
-                <Link href="/login">Sign in</Link>
+                <Link href="/onboarding">Sign in</Link>
               </Button>
             </div>
             <p className="mt-4 text-xs text-muted-foreground">Guests book through your dedicated booking link. Meeting controls stay in your host workspace.</p>
