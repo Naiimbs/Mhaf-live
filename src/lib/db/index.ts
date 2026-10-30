@@ -723,10 +723,13 @@ class DatabaseStore {
       const booking = this.data.bookings.find((item) => item.id === request.bookingId && item.hostId === params.hostId);
       if (!booking || booking.status !== "CONFIRMED") throw new Error("The original booking is no longer active.");
       const now = new Date();
+      const bookingSnapshot = { ...booking };
+      const requestSnapshot = { ...request };
+      const linkedMeeting = this.data.meetings.find((item) => item.bookingId === booking.id);
+      const meetingSnapshot = linkedMeeting ? { ...linkedMeeting } : null;
       if (params.decision === "APPROVE") {
         if (request.type === "CANCEL") {
           booking.status = "CANCELLED";
-          const linkedMeeting = this.data.meetings.find((item) => item.bookingId === booking.id);
           if (linkedMeeting) {
             linkedMeeting.status = "CANCELLED";
             linkedMeeting.updatedAt = now;
@@ -755,7 +758,6 @@ class DatabaseStore {
           if (bookingConflict || meetingConflict) throw new Error("That requested time conflicts with another booking or meeting.");
           booking.startTime = nextStart;
           booking.endTime = nextEnd;
-          const linkedMeeting = this.data.meetings.find((item) => item.bookingId === booking.id);
           if (linkedMeeting) {
             linkedMeeting.startTime = nextStart;
             linkedMeeting.endTime = nextEnd;
@@ -770,7 +772,14 @@ class DatabaseStore {
       request.hostResponse = params.hostResponse?.trim() || null;
       request.updatedAt = now;
       request.resolvedAt = now;
-      try { this.persist(); } catch (error) { throw error; }
+      try {
+        this.persist();
+      } catch (error) {
+        Object.assign(booking, bookingSnapshot);
+        Object.assign(request, requestSnapshot);
+        if (linkedMeeting && meetingSnapshot) Object.assign(linkedMeeting, meetingSnapshot);
+        throw error;
+      }
       return request;
     });
   }
