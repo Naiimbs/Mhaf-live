@@ -32,6 +32,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, booking: cancelled });
     }
 
+    if (action === "REVIEW_REQUEST") {
+      if (typeof body.requestId !== "string" || !["APPROVE", "REJECT"].includes(body.decision)) {
+        return NextResponse.json({ error: "A valid request ID and decision are required." }, { status: 400 });
+      }
+      const changeRequest = await db.resolveBookingChangeRequest({ requestId: body.requestId, hostId: host.id, decision: body.decision, hostResponse: typeof body.hostResponse === "string" ? body.hostResponse : undefined });
+      const booking = await db.findBookingById(changeRequest.bookingId);
+      let attendeeNotified = false;
+      if (booking && booking.attendeeEmail) {
+        const eventType = await db.findEventTypeById(booking.eventTypeId);
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
+        try {
+          await sendBookingChangeResultEmail({ to: booking.attendeeEmail, attendeeName: booking.attendeeName, meetingTitle: eventType?.title || "MHAF Live meeting", decision: changeRequest.status as "APPROVED" | "REJECTED", type: changeRequest.type, startTime: booking.startTime, roomUrl: appUrl + "/rooms/" + booking.uid });
+          attendeeNotified = true;
+        } catch (emailError) {
+          console.error("[Booking Requests] Attendee decision email failed:", emailError instanceof Error ? emailError.message : "Unknown error");
+        }
+      }
+      return NextResponse.json({ success: true, request: changeRequest, attendeeNotified });
+    }
+
     return NextResponse.json({ error: "Invalid action." }, { status: 400 });
   } catch (err: any) {
     return NextResponse.json(
