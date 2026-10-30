@@ -9,6 +9,7 @@ interface SendConfirmationEmailParams {
   endTime: Date | string;
   roomUrl: string;
   bookingUid: string;
+  managementUrl?: string;
   hostName?: string;
 }
 
@@ -63,6 +64,7 @@ export async function sendMeetingConfirmationEmail({
   endTime,
   roomUrl,
   bookingUid,
+  managementUrl,
   hostName = "meet Host",
 }: SendConfirmationEmailParams) {
   const transporter = getTransporter();
@@ -258,6 +260,7 @@ export async function sendMeetingConfirmationEmail({
     <div class="link-fallback">
       Lien direct : ${fullRoomUrl}
     </div>
+    ${managementUrl ? `<p style="margin-top:24px;text-align:center"><a href="${managementUrl}" style="color:#38bdf8;font-size:13px">Gérer votre réservation · demander une annulation ou un changement</a></p>` : ""}
 
     <div class="footer">
       meet — Plateforme de visioconférence WebRTC ultra-rapide et sécurisée.<br>
@@ -272,7 +275,7 @@ export async function sendMeetingConfirmationEmail({
     from,
     to,
     subject: `Confirmation de votre réunion : ${meetingTitle} (meet)`,
-    text: `Bonjour ${attendeeName},\n\nVotre réunion "${meetingTitle}" avec ${hostName} est confirmée.\nDate : ${formattedDate}\nHeure : ${formattedTime}\n\nLien pour rejoindre la réunion : ${fullRoomUrl}\n\nIdentifiant de session : ${bookingUid}\n\nmeet`,
+    text: `Bonjour ${attendeeName},\n\nVotre réunion "${meetingTitle}" avec ${hostName} est confirmée.\nDate : ${formattedDate}\nHeure : ${formattedTime}\n\nLien pour rejoindre la réunion : ${fullRoomUrl}\n\n${managementUrl ? `Gérer votre réservation : ${managementUrl}\n` : ""}Identifiant de session : ${bookingUid}\n\nmeet`,
     html,
     attachments: [
       {
