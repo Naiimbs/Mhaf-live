@@ -4,6 +4,8 @@ import {
   getMeetingEmailFrom,
   sendMeetingConfirmationEmail,
   sendHostBookingNotificationEmail,
+  sendBookingReminderEmail,
+  sendBookingChangeRequestNotification,
 } from "../../src/lib/email/mailer.ts";
 
 const smtpEnv = ["SMTP_HOST", "SMTP_USER", "SMTP_PASS"] as const;
@@ -59,4 +61,10 @@ test("confirmation email forces meet branding while preserving the configured se
   );
   assert.equal(getMeetingEmailFrom(undefined, "smtp@example.com"), "meet <smtp@example.com>");
 });
+test("booking reminder email refuses to send when SMTP credentials are missing", async () => {
+  await assert.rejects(sendBookingReminderEmail({ to: "guest@example.test", attendeeName: "Guest", meetingTitle: "Test meeting", startTime: new Date("2030-01-01T10:00:00Z"), roomUrl: "/rooms/test-room", minutesBefore: 15 }));
+});
 
+test("booking change request notification refuses to send when SMTP credentials are missing", async () => {
+  await assert.rejects(sendBookingChangeRequestNotification({ to: "host@example.test", attendeeName: "Guest", attendeeEmail: "guest@example.test", meetingTitle: "Test meeting", type: "CANCEL", reason: "A sufficiently detailed reason.", dashboardUrl: "/dashboard/bookings" }));
+});
