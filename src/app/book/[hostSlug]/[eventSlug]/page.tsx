@@ -18,6 +18,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { getLocalDateString } from "@/lib/scheduling/timezone";
 import { BrandLogo } from "@/components/brand-logo";
+import { LanguageToggle } from "@/components/language-toggle";
+import { useLanguage } from "@/lib/i18n/language-context";
 
 interface SlotItem {
   slotId: string;
@@ -52,6 +54,7 @@ const COMMON_TIMEZONES = [
 export default function PublicBookingPage() {
   const params = useParams();
   const router = useRouter();
+  const { t, locale, isFr } = useLanguage();
   const hostSlug = params.hostSlug as string;
   const eventSlug = params.eventSlug as string;
 
@@ -150,6 +153,7 @@ export default function PublicBookingPage() {
         attendeeName,
         attendeeEmail,
         attendeeNotes: attendeeNotes || null,
+        locale,
       };
 
       const res = await fetch("/api/schedule/book", {
@@ -189,9 +193,12 @@ export default function PublicBookingPage() {
           <Link href="/" className="flex items-center" aria-label="meet home">
             <BrandLogo size="small" />
           </Link>
-          <span className="text-xs font-mono text-muted-foreground bg-muted px-2.5 py-1 rounded">
-            Autonomous Scheduling
-          </span>
+          <div className="flex items-center gap-3">
+            <LanguageToggle variant="compact" />
+            <span className="text-xs font-mono text-muted-foreground bg-muted px-2.5 py-1 rounded">
+              {isFr ? "Réservation Autonome" : "Autonomous Scheduling"}
+            </span>
+          </div>
         </div>
       </header>
 
@@ -203,31 +210,35 @@ export default function PublicBookingPage() {
             <div className="space-y-4">
               <div className="space-y-1">
                 <span className="text-xs uppercase font-mono tracking-wider text-muted-foreground">
-                  Meeting Host
+                  {isFr ? "Hôte de la réunion" : "Meeting Host"}
                 </span>
                 <h2 className="text-lg font-bold text-foreground">
-                  {hostInfo?.name || "Host Consultation"}
+                  {hostInfo?.name || (isFr ? "Consultation avec l'hôte" : "Host Consultation")}
                 </h2>
               </div>
 
               <div className="space-y-2">
                 <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
-                  {eventType?.title || "Session Consultation"}
+                  {eventType?.title || (isFr ? "Session de consultation" : "Session Consultation")}
                 </h1>
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   {eventType?.description ||
-                    "Select a time slot on the calendar to schedule a high-assurance video consultation."}
+                    (isFr
+                      ? "Sélectionnez un créneau sur le calendrier pour planifier votre visioconférence sécurisée."
+                      : "Select a time slot on the calendar to schedule a high-assurance video consultation.")}
                 </p>
               </div>
 
               <div className="flex flex-col gap-2 pt-2 text-xs text-muted-foreground font-mono">
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-primary" />
-                  <span>{eventType?.durationMinutes || 30} minutes duration</span>
+                  <span>
+                    {eventType?.durationMinutes || 30} {isFr ? "minutes de durée" : "minutes duration"}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Globe className="h-4 w-4 text-primary" />
-                  <span>Host Zone: {hostInfo?.timezone || "UTC"}</span>
+                  <span>{isFr ? "Fuseau hôte : " : "Host Zone: "}{hostInfo?.timezone || "UTC"}</span>
                 </div>
               </div>
             </div>
@@ -239,7 +250,7 @@ export default function PublicBookingPage() {
                 className="text-xs font-semibold text-foreground flex items-center gap-1.5"
               >
                 <Globe className="h-3.5 w-3.5 text-primary" />
-                Your Viewing Timezone
+                {isFr ? "Votre fuseau horaire" : "Your Viewing Timezone"}
               </label>
               <select
                 id="attendee-tz-select"
@@ -291,10 +302,12 @@ export default function PublicBookingPage() {
                 <div>
                   <h3 className="text-base font-bold text-foreground flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-primary" />
-                    Select a Date
+                    {isFr ? "Sélectionnez une date" : "Select a Date"}
                   </h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Choose a date in the host’s timezone; available times are shown in your selected timezone.
+                    {isFr
+                      ? "Choisissez une date selon le calendrier ; les créneaux disponibles s'affichent dans votre fuseau horaire."
+                      : "Choose a date in the host’s timezone; available times are shown in your selected timezone."}
                   </p>
 
                   <div className="mt-3 max-w-xs">
@@ -314,20 +327,24 @@ export default function PublicBookingPage() {
 
                 <div>
                   <h3 className="text-base font-bold text-foreground mb-3 flex items-center justify-between">
-                    <span>Available Time Slots</span>
+                    <span>{isFr ? "Créneaux horaires disponibles" : "Available Time Slots"}</span>
                     <span className="text-xs font-mono font-normal text-muted-foreground">
-                      {slots.filter((slot) => slot.available).length} available
+                      {slots.filter((slot) => slot.available).length} {isFr ? "disponibles" : "available"}
                     </span>
                   </h3>
 
                   {loadingSlots ? (
                     <div className="py-12 text-center text-xs text-muted-foreground animate-pulse font-mono">
-                      Computing authoritative slot availability...
+                      {isFr ? "Recherche des disponibilités en cours..." : "Computing authoritative slot availability..."}
                     </div>
                   ) : slots.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-border p-8 text-center text-muted-foreground text-xs space-y-1">
-                      <p className="font-semibold text-foreground">No available slots on this date.</p>
-                      <p>Please select another day from the calendar above.</p>
+                      <p className="font-semibold text-foreground">
+                        {isFr ? "Aucun créneau disponible pour cette date." : "No available slots on this date."}
+                      </p>
+                      <p>
+                        {isFr ? "Veuillez sélectionner un autre jour dans le sélecteur ci-dessus." : "Please select another day from the calendar above."}
+                      </p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-72 overflow-y-auto pr-1">
@@ -341,7 +358,7 @@ export default function PublicBookingPage() {
                           }}
                           disabled={!slot.available}
                           aria-disabled={!slot.available}
-                          title={slot.available ? "Available" : "This time is unavailable"}
+                          title={slot.available ? (isFr ? "Disponible" : "Available") : (isFr ? "Indisponible" : "This time is unavailable")}
                           className={slot.available
                             ? "px-4 py-2.5 rounded-xl border border-border bg-card hover:border-primary hover:bg-primary/5 text-sm font-semibold text-foreground transition-all flex items-center justify-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-ring"
                             : "px-4 py-2.5 rounded-xl border border-border/60 bg-muted/60 text-sm font-medium text-muted-foreground/60 cursor-not-allowed opacity-60 flex items-center justify-center gap-1.5"}
@@ -360,14 +377,15 @@ export default function PublicBookingPage() {
                 <div className="flex items-center justify-between border-b border-border pb-4">
                   <div>
                     <span className="text-xs uppercase font-mono text-muted-foreground">
-                      Selected Time
+                      {isFr ? "Horaire sélectionné" : "Selected Time"}
                     </span>
                     <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
                       <Clock className="h-4 w-4 text-primary" />
                       {selectedSlot.displayTime} ({attendeeTimezone})
                     </h3>
                     <p className="text-xs text-muted-foreground">
-                      Date: {new Intl.DateTimeFormat("en-US", { dateStyle: "full", timeZone: attendeeTimezone }).format(new Date(selectedSlot.startTimeUtc))}
+                      {isFr ? "Date : " : "Date: "}
+                      {new Intl.DateTimeFormat(isFr ? "fr-FR" : "en-US", { dateStyle: "full", timeZone: attendeeTimezone }).format(new Date(selectedSlot.startTimeUtc))}
                     </p>
                   </div>
 
@@ -377,7 +395,8 @@ export default function PublicBookingPage() {
                     onClick={() => setSelectedSlot(null)}
                     className="text-xs gap-1"
                   >
-                    <ChevronLeft className="h-3.5 w-3.5" /> Change Time
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                    {isFr ? "Changer d'horaire" : "Change Time"}
                   </Button>
                 </div>
 
@@ -387,7 +406,7 @@ export default function PublicBookingPage() {
                       htmlFor="attendee-name-input"
                       className="text-xs font-semibold text-foreground uppercase tracking-wider"
                     >
-                      Your Full Name *
+                      {isFr ? "Votre nom et prénom *" : "Your Full Name *"}
                     </label>
                     <div className="relative">
                       <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -408,7 +427,7 @@ export default function PublicBookingPage() {
                       htmlFor="attendee-email-input"
                       className="text-xs font-semibold text-foreground uppercase tracking-wider"
                     >
-                      Email Address *
+                      {isFr ? "Adresse e-mail *" : "Email Address *"}
                     </label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -429,7 +448,7 @@ export default function PublicBookingPage() {
                       htmlFor="attendee-notes-input"
                       className="text-xs font-semibold text-foreground uppercase tracking-wider"
                     >
-                      Meeting Notes or Agenda (Optional)
+                      {isFr ? "Notes ou ordre du jour (facultatif)" : "Meeting Notes or Agenda (Optional)"}
                     </label>
                     <div className="relative">
                       <FileText className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -438,7 +457,7 @@ export default function PublicBookingPage() {
                         rows={3}
                         value={attendeeNotes}
                         onChange={(e) => setAttendeeNotes(e.target.value)}
-                        placeholder="Please share what you would like to discuss..."
+                        placeholder={isFr ? "Partagez les sujets que vous souhaitez aborder..." : "Please share what you would like to discuss..."}
                         className="w-full rounded-lg border border-input bg-background pl-9 pr-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-ring"
                       />
                     </div>
@@ -450,7 +469,9 @@ export default function PublicBookingPage() {
                     className="w-full gap-2 mt-4"
                     id="confirm-booking-btn"
                   >
-                    {submitting ? "Securing Reservation..." : "Confirm & Schedule Meeting"}
+                    {submitting
+                      ? (isFr ? "Confirmation en cours..." : "Securing Reservation...")
+                      : (isFr ? "Confirmer et planifier la réunion" : "Confirm & Schedule Meeting")}
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </form>

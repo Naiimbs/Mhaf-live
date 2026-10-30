@@ -1,40 +1,59 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowRight, CalendarCheck2, Link2, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-const meetingTypes = [
-  {
-    number: "01",
-    icon: CalendarCheck2,
-    title: "Let guests book a slot",
-    description: "Set your availability and share a booking page. A confirmed appointment appears on your calendar with its own meeting room.",
-    tag: "Booking + meeting",
-  },
-  {
-    number: "02",
-    icon: Link2,
-    title: "Schedule directly",
-    description: "Choose a time in your host workspace and create a meeting link without asking anyone to book through a public schedule.",
-    tag: "Meeting, no booking",
-  },
-  {
-    number: "03",
-    icon: Video,
-    title: "Start an instant call",
-    description: "Create a room when you are ready to meet. Share the room link with the people you want to invite.",
-    tag: "Instant meeting",
-  },
-];
+import { useLanguage } from "@/lib/i18n/language-context";
 
 export function ProductSections() {
+  const { isFr } = useLanguage();
+
+  const meetingTypes = [
+    {
+      number: "01",
+      icon: CalendarCheck2,
+      title: isFr ? "Laissez vos invités réserver" : "Let guests book a slot",
+      description: isFr
+        ? "Définissez vos disponibilités et partagez votre page de réservation. Chaque confirmation s'affiche sur votre calendrier avec son salon dédié."
+        : "Set your availability and share a booking page. A confirmed appointment appears on your calendar with its own meeting room.",
+      tag: isFr ? "Réservation + réunion" : "Booking + meeting",
+    },
+    {
+      number: "02",
+      icon: Link2,
+      title: isFr ? "Planifiez directement" : "Schedule directly",
+      description: isFr
+        ? "Choisissez un créneau dans votre espace hôte et générez un lien de réunion sans imposer un passage par une grille publique."
+        : "Choose a time in your host workspace and create a meeting link without asking anyone to book through a public schedule.",
+      tag: isFr ? "Réunion directe" : "Meeting, no booking",
+    },
+    {
+      number: "03",
+      icon: Video,
+      title: isFr ? "Lancez un appel instantané" : "Start an instant call",
+      description: isFr
+        ? "Créez une salle dès que vous êtes prêt. Partagez le lien avec vos interlocuteurs en un clic."
+        : "Create a room when you are ready to meet. Share the room link with the people you want to invite.",
+      tag: isFr ? "Réunion instantanée" : "Instant meeting",
+    },
+  ];
+
   return (
     <>
       <section id="workflow" className="border-y border-border bg-muted/20 py-20 sm:py-24">
         <div className="container max-w-7xl px-4 sm:px-8">
           <div className="mx-auto max-w-2xl text-center">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">A simpler meeting workflow</p>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">Bookings and meetings, together.</h2>
-            <p className="mt-4 text-sm leading-6 text-muted-foreground sm:text-base">Choose the path that fits the conversation. Each event lives in the host workspace; guests only need the link you share with them.</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+              {isFr ? "Un flux de réunion simplifié" : "A simpler meeting workflow"}
+            </p>
+            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+              {isFr ? "Réservations et réunions, réunies." : "Bookings and meetings, together."}
+            </h2>
+            <p className="mt-4 text-sm leading-6 text-muted-foreground sm:text-base">
+              {isFr
+                ? "Choisissez la méthode adaptée à chaque échange. Tout réside dans l'espace hôte ; vos invités n'ont besoin que du lien partagé."
+                : "Choose the path that fits the conversation. Each event lives in the host workspace; guests only need the link you share with them."}
+            </p>
           </div>
           <div id="meeting-types" className="mt-12 grid gap-4 md:grid-cols-3">
             {meetingTypes.map(({ number, icon: Icon, title, description, tag }) => (
@@ -56,12 +75,22 @@ export function ProductSections() {
         <div className="container max-w-7xl px-4 sm:px-8">
           <div className="grid items-center gap-10 rounded-3xl border border-border bg-card p-7 shadow-sm sm:p-10 lg:grid-cols-[1fr_auto] lg:p-12">
             <div className="max-w-2xl">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Built around your calendar</p>
-              <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">One clear place to plan the next conversation.</h2>
-              <p className="mt-4 text-sm leading-6 text-muted-foreground sm:text-base">See confirmed bookings and host-created meetings together, keep your availability in view, and open a room from the event when it is time to meet.</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+                {isFr ? "Centré sur votre calendrier" : "Built around your calendar"}
+              </p>
+              <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+                {isFr ? "Un espace unique pour planifier vos échanges." : "One clear place to plan the next conversation."}
+              </h2>
+              <p className="mt-4 text-sm leading-6 text-muted-foreground sm:text-base">
+                {isFr
+                  ? "Consultez vos réservations confirmées et réunions créées, gardez la maîtrise de vos créneaux et rejoignez la salle directement."
+                  : "See confirmed bookings and host-created meetings together, keep your availability in view, and open a room from the event when it is time to meet."}
+              </p>
             </div>
             <Button size="lg" asChild className="gap-2">
-              <Link href="/register">Get started <ArrowRight className="h-4 w-4" /></Link>
+              <Link href="/register">
+                {isFr ? "Commencer" : "Get started"} <ArrowRight className="h-4 w-4" />
+              </Link>
             </Button>
           </div>
         </div>

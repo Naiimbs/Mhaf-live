@@ -10,6 +10,7 @@ interface SendConfirmationEmailParams {
   roomUrl: string;
   bookingUid: string;
   hostName?: string;
+  locale?: "en" | "fr";
 }
 
 export function getMeetingEmailFrom(configuredFrom: string | undefined, smtpUser: string | undefined): string {
@@ -64,6 +65,7 @@ export async function sendMeetingConfirmationEmail({
   roomUrl,
   bookingUid,
   hostName = "meet Host",
+  locale = "fr",
 }: SendConfirmationEmailParams) {
   const transporter = getTransporter();
   const from = getMeetingEmailFrom(process.env.EMAIL_FROM, process.env.SMTP_USER);
@@ -71,17 +73,20 @@ export async function sendMeetingConfirmationEmail({
   const startDate = new Date(startTime);
   const endDate = new Date(endTime);
 
-  const formattedDate = startDate.toLocaleDateString("fr-FR", {
+  const isFrench = locale === "fr";
+  const dateLocale = isFrench ? "fr-FR" : "en-US";
+
+  const formattedDate = startDate.toLocaleDateString(dateLocale, {
     weekday: "long",
     year: "numeric",
     month: "long",
     day: "numeric",
   });
 
-  const formattedTime = `${startDate.toLocaleTimeString("fr-FR", {
+  const formattedTime = `${startDate.toLocaleTimeString(dateLocale, {
     hour: "2-digit",
     minute: "2-digit",
-  })} – ${endDate.toLocaleTimeString("fr-FR", {
+  })} – ${endDate.toLocaleTimeString(dateLocale, {
     hour: "2-digit",
     minute: "2-digit",
   })}`;
@@ -89,12 +94,33 @@ export async function sendMeetingConfirmationEmail({
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://meet.naiimbsili.com";
   const fullRoomUrl = roomUrl.startsWith("http") ? roomUrl : `${appUrl}${roomUrl}`;
 
+  const subject = isFrench
+    ? `Confirmation de votre réunion : ${meetingTitle} (mhaf meet)`
+    : `Meeting confirmation: ${meetingTitle} (mhaf meet)`;
+  const badgeText = isFrench ? "RÉUNION CONFIRMÉE" : "MEETING CONFIRMED";
+  const greeting = isFrench ? `Bonjour ${attendeeName},` : `Hello ${attendeeName},`;
+  const intro = isFrench
+    ? `Votre réunion vidéo a bien été confirmée avec <strong>${hostName}</strong>. Voici les détails de votre session :`
+    : `Your video meeting has been confirmed with <strong>${hostName}</strong>. Here are your session details:`;
+  const topicLabel = isFrench ? "Objet de la réunion :" : "Meeting topic:";
+  const dateLabel = isFrench ? "Date :" : "Date:";
+  const timeLabel = isFrench ? "Horaire :" : "Time:";
+  const uidLabel = isFrench ? "Identifiant (UID) :" : "Session ID (UID):";
+  const btnText = isFrench ? "Rejoindre la réunion" : "Join Meeting";
+  const subtext = isFrench
+    ? "Aucun téléchargement ni compte requis. Cliquez simplement sur le bouton à l'heure du rendez-vous pour entrer directement."
+    : "No downloads or account required. Simply click the button at the scheduled time to enter directly.";
+  const fallbackLabel = isFrench ? "Lien direct :" : "Direct link:";
+  const footerText = isFrench
+    ? `mhaf meet — Plateforme de visioconférence WebRTC ultra-rapide et sécurisée.<br>© ${new Date().getFullYear()} mhaf meet. Tous droits réservés.`
+    : `mhaf meet — Ultra-fast, secure WebRTC meeting platform.<br>© ${new Date().getFullYear()} mhaf meet. All rights reserved.`;
+
   const html = `
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="${isFrench ? "fr" : "en"}">
 <head>
   <meta charset="utf-8">
-  <title>Confirmation de votre réunion — meet</title>
+  <title>${subject}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
@@ -135,13 +161,15 @@ export async function sendMeetingConfirmationEmail({
     }
     .badge {
       display: inline-block;
-      background: rgba(16, 185, 129, 0.15);
-      color: #34d399;
+      background: rgba(37, 99, 235, 0.15);
+      color: #60a5fa;
       font-size: 11px;
       font-weight: 600;
       padding: 4px 10px;
       border-radius: 9999px;
-      border: 1px solid rgba(16, 185, 129, 0.3);
+      border: 1px solid rgba(37, 99, 235, 0.3);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
     h1 {
       font-size: 22px;
@@ -187,15 +215,15 @@ export async function sendMeetingConfirmationEmail({
     }
     .btn {
       display: inline-block;
-      background-color: #10b981;
-      color: #042f2e !important;
+      background-color: #2563EB;
+      color: #ffffff !important;
       text-decoration: none;
       font-weight: 700;
       font-size: 15px;
       padding: 14px 28px;
       border-radius: 10px;
       letter-spacing: -0.01em;
-      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
     }
     .link-fallback {
       background: #09090b;
@@ -204,7 +232,7 @@ export async function sendMeetingConfirmationEmail({
       border: 1px dashed #27272a;
       font-family: monospace;
       font-size: 12px;
-      color: #10b981;
+      color: #60a5fa;
       word-break: break-all;
       margin-top: 10px;
     }
@@ -215,53 +243,53 @@ export async function sendMeetingConfirmationEmail({
       font-size: 12px;
       color: #52525b;
       text-align: center;
+      line-height: 1.5;
     }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <div class="logo"><img src="cid:meet-logo" alt="meet" width="120"></div>
-      <div class="badge">RÉUNION CONFIRMÉE</div>
+      <div class="logo"><img src="cid:meet-logo" alt="mhaf meet" width="120"></div>
+      <div class="badge">${badgeText}</div>
     </div>
 
-    <h1>Bonjour ${attendeeName},</h1>
-    <p>Votre réunion vidéo a bien été confirmée avec <strong>${hostName}</strong>. Voici les détails de votre session :</p>
+    <h1>${greeting}</h1>
+    <p>${intro}</p>
 
     <div class="card">
       <div class="card-row">
-        <span class="label">Objet de la réunion :</span>
+        <span class="label">${topicLabel}</span>
         <span class="value">${meetingTitle}</span>
       </div>
       <div class="card-row">
-        <span class="label">Date :</span>
+        <span class="label">${dateLabel}</span>
         <span class="value">${formattedDate}</span>
       </div>
       <div class="card-row">
-        <span class="label">Horaire :</span>
+        <span class="label">${timeLabel}</span>
         <span class="value">${formattedTime}</span>
       </div>
       <div class="card-row">
-        <span class="label">Identifiant (UID) :</span>
+        <span class="label">${uidLabel}</span>
         <span class="value font-mono">${bookingUid}</span>
       </div>
     </div>
 
     <div class="btn-container">
-      <a href="${fullRoomUrl}" class="btn" target="_blank">Rejoindre la réunion</a>
+      <a href="${fullRoomUrl}" class="btn" target="_blank">${btnText}</a>
     </div>
 
     <p style="font-size: 13px; color: #71717a; text-align: center;">
-      Aucun téléchargement ni compte requis. Cliquez simplement sur le bouton à l'heure du rendez-vous pour entrer directement.
+      ${subtext}
     </p>
 
     <div class="link-fallback">
-      Lien direct : ${fullRoomUrl}
+      ${fallbackLabel} ${fullRoomUrl}
     </div>
 
     <div class="footer">
-      meet — Plateforme de visioconférence WebRTC ultra-rapide et sécurisée.<br>
-      © ${new Date().getFullYear()} meet. Tous droits réservés.
+      ${footerText}
     </div>
   </div>
 </body>
@@ -271,8 +299,8 @@ export async function sendMeetingConfirmationEmail({
   const info = await transporter.sendMail({
     from,
     to,
-    subject: `Confirmation de votre réunion : ${meetingTitle} (meet)`,
-    text: `Bonjour ${attendeeName},\n\nVotre réunion "${meetingTitle}" avec ${hostName} est confirmée.\nDate : ${formattedDate}\nHeure : ${formattedTime}\n\nLien pour rejoindre la réunion : ${fullRoomUrl}\n\nIdentifiant de session : ${bookingUid}\n\nmeet`,
+    subject,
+    text: `${greeting}\n\n${intro.replace(/<[^>]+>/g, "")}\n${topicLabel} ${meetingTitle}\n${dateLabel} ${formattedDate}\n${timeLabel} ${formattedTime}\n\n${fallbackLabel} ${fullRoomUrl}\n\n${uidLabel} ${bookingUid}\n\nmhaf meet`,
     html,
     attachments: [
       {
@@ -297,6 +325,7 @@ export interface SendHostBookingNotificationParams {
   roomUrl: string;
   bookingUid: string;
   notes?: string;
+  locale?: "en" | "fr";
 }
 
 export async function sendHostBookingNotificationEmail({
@@ -310,6 +339,7 @@ export async function sendHostBookingNotificationEmail({
   roomUrl,
   bookingUid,
   notes,
+  locale = "fr",
 }: SendHostBookingNotificationParams) {
   const transporter = getTransporter();
   const from = getMeetingEmailFrom(process.env.EMAIL_FROM, process.env.SMTP_USER);
@@ -317,17 +347,20 @@ export async function sendHostBookingNotificationEmail({
   const startDate = new Date(startTime);
   const endDate = new Date(endTime);
 
-  const formattedDate = startDate.toLocaleDateString("fr-FR", {
+  const isFrench = locale === "fr";
+  const dateLocale = isFrench ? "fr-FR" : "en-US";
+
+  const formattedDate = startDate.toLocaleDateString(dateLocale, {
     weekday: "long",
     year: "numeric",
     month: "long",
     day: "numeric",
   });
 
-  const formattedTime = `${startDate.toLocaleTimeString("fr-FR", {
+  const formattedTime = `${startDate.toLocaleTimeString(dateLocale, {
     hour: "2-digit",
     minute: "2-digit",
-  })} – ${endDate.toLocaleTimeString("fr-FR", {
+  })} – ${endDate.toLocaleTimeString(dateLocale, {
     hour: "2-digit",
     minute: "2-digit",
   })}`;
@@ -335,12 +368,30 @@ export async function sendHostBookingNotificationEmail({
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://meet.naiimbsili.com";
   const fullRoomUrl = roomUrl.startsWith("http") ? roomUrl : `${appUrl}${roomUrl}`;
 
+  const subject = isFrench
+    ? `Nouvelle réservation : ${attendeeName} pour ${meetingTitle} (mhaf meet)`
+    : `New booking: ${attendeeName} for ${meetingTitle} (mhaf meet)`;
+  const badgeText = isFrench ? "Nouveau Client Réservé" : "New Client Booking";
+  const title = isFrench ? "Nouvelle réservation reçue" : "New Booking Received";
+  const subtitle = isFrench
+    ? `Bonjour ${hostName}, un client vient de réserver un créneau avec vous pour <strong>${meetingTitle}</strong>.`
+    : `Hello ${hostName}, a client has booked a meeting with you for <strong>${meetingTitle}</strong>.`;
+  const clientLabel = isFrench ? "Client :" : "Client:";
+  const emailLabel = isFrench ? "Email client :" : "Client Email:";
+  const dateLabel = isFrench ? "Date :" : "Date:";
+  const timeLabel = isFrench ? "Horaire :" : "Time:";
+  const notesLabel = isFrench ? "Message :" : "Notes:";
+  const btnText = isFrench ? "Accéder à la salle de réunion" : "Access Meeting Room";
+  const footerText = isFrench
+    ? `mhaf meet — Réservation client synchronisée en temps réel avec votre Dashboard.<br>© ${new Date().getFullYear()} mhaf meet. Tous droits réservés.`
+    : `mhaf meet — Client booking synchronized in real-time with your Dashboard.<br>© ${new Date().getFullYear()} mhaf meet. All rights reserved.`;
+
   const html = `
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="${isFrench ? "fr" : "en"}">
 <head>
   <meta charset="utf-8">
-  <title>Nouvelle réservation — meet</title>
+  <title>${subject}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
@@ -369,13 +420,13 @@ export async function sendHostBookingNotificationEmail({
     }
     .badge {
       display: inline-block;
-      background: rgba(14, 165, 233, 0.15);
-      color: #38bdf8;
+      background: rgba(37, 99, 235, 0.15);
+      color: #60a5fa;
       font-size: 11px;
       font-weight: 600;
       padding: 4px 10px;
       border-radius: 9999px;
-      border: 1px solid rgba(14, 165, 233, 0.3);
+      border: 1px solid rgba(37, 99, 235, 0.3);
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
@@ -425,13 +476,14 @@ export async function sendHostBookingNotificationEmail({
     }
     .btn {
       display: inline-block;
-      background: #0284c7;
+      background: #2563EB;
       color: #ffffff !important;
       text-decoration: none;
       font-weight: 600;
       font-size: 14px;
       padding: 12px 28px;
       border-radius: 8px;
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
     }
     .footer {
       border-top: 1px solid #27272a;
@@ -446,43 +498,42 @@ export async function sendHostBookingNotificationEmail({
 <body>
   <div class="container">
     <div class="header">
-      <span class="badge">Nouveau Client Réservé</span>
+      <span class="badge">${badgeText}</span>
     </div>
 
-    <h1 class="title">Nouvelle réservation reçue</h1>
-    <p class="subtitle">Bonjour ${hostName}, un client vient de réserver un créneau avec vous pour <strong>${meetingTitle}</strong>.</p>
+    <h1 class="title">${title}</h1>
+    <p class="subtitle">${subtitle}</p>
 
     <div class="card">
       <div class="card-row">
-        <span class="label">Client :</span>
+        <span class="label">${clientLabel}</span>
         <span class="value">${attendeeName}</span>
       </div>
       <div class="card-row">
-        <span class="label">Email client :</span>
+        <span class="label">${emailLabel}</span>
         <span class="value">${attendeeEmail}</span>
       </div>
       <div class="card-row">
-        <span class="label">Date :</span>
+        <span class="label">${dateLabel}</span>
         <span class="value">${formattedDate}</span>
       </div>
       <div class="card-row">
-        <span class="label">Horaire :</span>
+        <span class="label">${timeLabel}</span>
         <span class="value">${formattedTime}</span>
       </div>
       ${notes ? `
       <div class="card-row">
-        <span class="label">Message :</span>
+        <span class="label">${notesLabel}</span>
         <span class="value">${notes}</span>
       </div>` : ''}
     </div>
 
     <div class="btn-container">
-      <a href="${fullRoomUrl}" class="btn" target="_blank">Accéder à la salle de réunion</a>
+      <a href="${fullRoomUrl}" class="btn" target="_blank">${btnText}</a>
     </div>
 
     <div class="footer">
-      meet — Réservation client synchronisée en temps réel avec votre Dashboard.<br>
-      © ${new Date().getFullYear()} meet. Tous droits réservés.
+      ${footerText}
     </div>
   </div>
 </body>
@@ -492,8 +543,8 @@ export async function sendHostBookingNotificationEmail({
   const info = await transporter.sendMail({
     from,
     to,
-    subject: `Nouvelle réservation : ${attendeeName} pour ${meetingTitle} (meet)`,
-    text: `Bonjour ${hostName},\n\nUn client vient de réserver :\nClient : ${attendeeName} (${attendeeEmail})\nRéunion : ${meetingTitle}\nDate : ${formattedDate}\nHeure : ${formattedTime}\n\nLien direct de la réunion : ${fullRoomUrl}\n\nmeet`,
+    subject,
+    text: `${subtitle.replace(/<[^>]+>/g, "")}\n\n${clientLabel} ${attendeeName} (${attendeeEmail})\n${dateLabel} ${formattedDate}\n${timeLabel} ${formattedTime}\n\n${btnText} : ${fullRoomUrl}\n\nmhaf meet`,
     html,
   });
 
@@ -512,7 +563,7 @@ export function consumeE2EMagicLink(email: string): string | null {
   return link;
 }
 
-export async function sendMagicLinkEmail(to: string, magicLink: string): Promise<void> {
+export async function sendMagicLinkEmail(to: string, magicLink: string, locale: "en" | "fr" = "en"): Promise<void> {
   // Local Playwright sink: disabled in production and requires an explicit dev-only secret.
   if (process.env.NODE_ENV === "development" && process.env.MHAF_E2E_AUTH_HARNESS_SECRET) {
     const root = globalThis as E2EGlobal;
@@ -524,11 +575,23 @@ export async function sendMagicLinkEmail(to: string, magicLink: string): Promise
   const transporter = getTransporter();
   const from = getMeetingEmailFrom(process.env.EMAIL_FROM, process.env.SMTP_USER);
   const safeLink = magicLink.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  const isFrench = locale === "fr";
+  const subject = isFrench ? "Votre lien de connexion mhaf meet" : "Your mhaf meet sign-in link";
+  const title = isFrench ? "Connexion à mhaf meet" : "Sign in to mhaf meet";
+  const intro = isFrench
+    ? "Cliquez ci-dessous pour accéder en toute sécurité à votre tableau de bord d'hôte."
+    : "Click below to securely access your host dashboard.";
+  const btnText = isFrench ? "Se connecter à mhaf meet" : "Sign in to mhaf meet";
+  const notice = isFrench
+    ? "Ce lien expire dans 15 minutes et ne peut être utilisé qu'une seule fois. Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet email."
+    : "This link expires in 15 minutes and can only be used once. If you did not request it, you can ignore this email.";
+
   await transporter.sendMail({
     from,
     to,
-    subject: "Your MHAF Live sign-in link",
-    text: `Use this one-time link to sign in to MHAF Live. It expires in 15 minutes and can only be used once.\n\n${magicLink}\n\nIf you did not request this email, you can ignore it.`,
-    html: `<!doctype html><html lang="en"><body style="margin:0;padding:32px;background:#09090b;color:#fafafa;font-family:Arial,sans-serif"><main style="max-width:520px;margin:auto;padding:32px;background:#121215;border:1px solid #27272a;border-radius:16px"><h1 style="font-size:22px">Sign in to MHAF Live</h1><p style="color:#a1a1aa;line-height:1.6">Click below to securely access your host dashboard.</p><p style="margin:28px 0"><a href="${safeLink}" style="display:inline-block;padding:13px 22px;border-radius:9px;background:#10b981;color:#042f2e;text-decoration:none;font-weight:700">Sign in to MHAF Live</a></p><p style="color:#a1a1aa;font-size:13px;line-height:1.6">This link expires in 15 minutes and can only be used once. If you did not request it, you can ignore this email.</p></main></body></html>`,
+    subject,
+    text: `${title}\n\n${intro}\n\n${magicLink}\n\n${notice}\n\nmhaf meet`,
+    html: `<!doctype html><html lang="${isFrench ? "fr" : "en"}"><body style="margin:0;padding:32px;background:#09090b;color:#fafafa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"><main style="max-width:520px;margin:auto;padding:32px;background:#121215;border:1px solid #27272a;border-radius:16px"><h1 style="font-size:22px;color:#ffffff;margin-top:0">${title}</h1><p style="color:#a1a1aa;line-height:1.6">${intro}</p><p style="margin:28px 0"><a href="${safeLink}" style="display:inline-block;padding:13px 24px;border-radius:9px;background:#2563EB;color:#ffffff;text-decoration:none;font-weight:700;box-shadow:0 4px 14px rgba(37,99,235,0.35)">${btnText}</a></p><p style="color:#71717a;font-size:13px;line-height:1.6">${notice}</p></main></body></html>`,
   });
 }

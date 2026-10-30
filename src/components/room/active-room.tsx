@@ -31,6 +31,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand-logo";
+import { LanguageToggle } from "@/components/language-toggle";
+import { useLanguage } from "@/lib/i18n/language-context";
 import { MeetingRecorder, type RecorderState } from "@/lib/recording/meeting-recorder";
 import {
   playUserJoinSound,
@@ -582,6 +584,7 @@ export function ActiveRoom({
   onLeaveRoom,
   onRetryRoom,
 }: ActiveRoomProps) {
+  const { t, isFr } = useLanguage();
   const [connectionState, setConnectionState] = React.useState<string>("connecting");
   const [connectionError, setConnectionError] = React.useState<string | null>(null);
   const [inviteLinkStatus, setInviteLinkStatus] = React.useState("");
@@ -1120,13 +1123,16 @@ export function ActiveRoom({
               </span>
             </div>
             <span className="text-[10px] text-zinc-400">
-              Role: <strong className={isHost ? "text-primary" : "text-zinc-300"}>{isHost ? "Host (Admin)" : "Guest"}</strong>
+              {isFr ? "Rôle : " : "Role: "}
+              <strong className={isHost ? "text-primary" : "text-zinc-300"}>
+                {isHost ? (isFr ? "Hôte (Admin)" : "Host (Admin)") : (isFr ? "Invité" : "Guest")}
+              </strong>
             </span>
           </div>
         </div>
 
         {/* Live Status Pill & Header Actions */}
-        <div className="flex items-center gap-3 text-xs">
+        <div className="flex items-center gap-2 sm:gap-3 text-xs">
           <Button
             type="button"
             variant="outline"
@@ -1137,8 +1143,8 @@ export function ActiveRoom({
               setSoundEffectsEnabled(next);
             }}
             className="h-8 w-8 p-0 border-zinc-700 text-zinc-300 hover:text-zinc-100"
-            title={soundEffectsOn ? "Mute sound effects" : "Enable sound effects"}
-            aria-label={soundEffectsOn ? "Mute sound effects" : "Enable sound effects"}
+            title={soundEffectsOn ? (isFr ? "Désactiver les effets sonores" : "Mute sound effects") : (isFr ? "Activer les effets sonores" : "Enable sound effects")}
+            aria-label={soundEffectsOn ? (isFr ? "Désactiver les effets sonores" : "Mute sound effects") : (isFr ? "Activer les effets sonores" : "Enable sound effects")}
           >
             {soundEffectsOn ? <Volume2 className="h-3.5 w-3.5 text-emerald-400" /> : <VolumeX className="h-3.5 w-3.5 text-zinc-500" />}
           </Button>
@@ -1149,12 +1155,19 @@ export function ActiveRoom({
             size="sm"
             onClick={copyInviteLink}
             className="h-8 gap-1.5 border-zinc-700 px-2.5 text-zinc-300"
-            aria-label="Copy meeting invite link"
+            aria-label={isFr ? "Copier le lien d'invitation" : "Copy meeting invite link"}
           >
             {inviteLinkStatus === "Invite link copied" ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-            <span className="hidden sm:inline">{inviteLinkStatus || "Copy invite link"}</span>
+            <span className="hidden sm:inline">
+              {inviteLinkStatus === "Invite link copied"
+                ? (isFr ? "Lien copié !" : "Invite link copied")
+                : (isFr ? "Inviter" : "Copy invite link")}
+            </span>
           </Button>
           <span className="sr-only" role="status" aria-live="polite">{inviteLinkStatus}</span>
+
+          <LanguageToggle variant="compact" />
+
           {/* In-Browser Recording Indicator */}
           {recorderState.isRecording && (
             <div
@@ -1181,9 +1194,9 @@ export function ActiveRoom({
             <Radio className={`h-3 w-3 ${connectionState === "connected" ? "animate-pulse" : ""}`} />
             <span>
               {connectionState === "connected"
-                ? "SESSION LIVE"
+                ? (isFr ? "SESSION EN DIRECT" : "SESSION LIVE")
                 : connectionState === "error"
-                  ? "CONNECTION FAILED"
+                  ? (isFr ? "ÉCHEC DE CONNEXION" : "CONNECTION FAILED")
                   : connectionState.toUpperCase()}
             </span>
           </div>
@@ -1507,10 +1520,18 @@ export function ActiveRoom({
                   </div>
                   <div className="max-w-md space-y-1.5">
                     <p className="text-sm font-semibold text-zinc-200">
-                      {expectedInviteeName ? `Waiting for ${expectedInviteeName} to join` : "Waiting for other participants"}
+                      {expectedInviteeName
+                        ? isFr
+                          ? `En attente de ${expectedInviteeName}...`
+                          : `Waiting for ${expectedInviteeName} to join`
+                        : isFr
+                          ? "En attente d'autres participants..."
+                          : "Waiting for other participants"}
                     </p>
                     <p className="text-xs text-zinc-400 leading-relaxed">
-                      Share the invite link using the button above. Connected participants will appear in Microsoft Teams-style Gallery view.
+                      {isFr
+                        ? "Partagez le lien d'invitation avec le bouton ci-dessus. Les participants connectés s'afficheront en galerie style Teams."
+                        : "Share the invite link using the button above. Connected participants will appear in Microsoft Teams-style Gallery view."}
                     </p>
                   </div>
                 </div>
@@ -1629,7 +1650,7 @@ export function ActiveRoom({
                 type="text"
                 value={messageInput}
                 onChange={(e) => setMessageInput(e.target.value)}
-                placeholder="Type a message..."
+                placeholder={isFr ? "Écrivez un message..." : "Type a message..."}
                 className="flex-1 rounded-md border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-primary"
               />
               <Button type="submit" size="sm" className="h-8 px-2.5">
@@ -1654,7 +1675,7 @@ export function ActiveRoom({
               }`}
             >
               <Lock className="h-3.5 w-3.5" />
-              <span>{isLocked ? "Room Locked" : "Lock Room"}</span>
+              <span>{isLocked ? (isFr ? "Salle verrouillée" : "Room Locked") : (isFr ? "Verrouiller" : "Lock Room")}</span>
             </Button>
           )}
         </div>
@@ -1671,7 +1692,7 @@ export function ActiveRoom({
                 ? "bg-zinc-800 text-zinc-100 hover:bg-zinc-700"
                 : "bg-destructive text-destructive-foreground hover:bg-destructive/90"
             }`}
-            aria-label={audioEnabled ? "Mute microphone" : "Unmute microphone"}
+            aria-label={audioEnabled ? (isFr ? "Couper le micro" : "Mute microphone") : (isFr ? "Activer le micro" : "Unmute microphone")}
           >
             {audioEnabled ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
           </button>
@@ -1686,7 +1707,7 @@ export function ActiveRoom({
                 ? "bg-zinc-800 text-zinc-100 hover:bg-zinc-700"
                 : "bg-destructive text-destructive-foreground hover:bg-destructive/90"
             }`}
-            aria-label={videoEnabled ? "Turn off camera" : "Turn on camera"}
+            aria-label={videoEnabled ? (isFr ? "Couper la caméra" : "Turn off camera") : (isFr ? "Activer la caméra" : "Turn on camera")}
           >
             {videoEnabled ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
           </button>
@@ -1701,7 +1722,7 @@ export function ActiveRoom({
                 ? "bg-primary text-primary-foreground"
                 : "bg-zinc-800 text-zinc-100 hover:bg-zinc-700"
             }`}
-            aria-label={screenSharing ? "Stop sharing screen" : "Share screen"}
+            aria-label={screenSharing ? (isFr ? "Arrêter le partage" : "Stop sharing screen") : (isFr ? "Partager l'écran" : "Share screen")}
           >
             <ScreenShare className="h-5 w-5" />
           </button>
@@ -1716,11 +1737,11 @@ export function ActiveRoom({
                 ? "bg-red-600 text-white shadow-[0_0_15px_rgba(239,68,68,0.5)] animate-pulse"
                 : "bg-zinc-800 text-zinc-200 hover:bg-zinc-700 hover:text-white"
             }`}
-            aria-label={recorderState.isRecording ? "Arrêter l'enregistrement" : "Enregistrer la réunion"}
+            aria-label={recorderState.isRecording ? (isFr ? "Arrêter l'enregistrement" : "Stop recording") : (isFr ? "Enregistrer" : "Record")}
             title={
               recorderState.isRecording
-                ? "Arrêter l'enregistrement (téléchargement direct)"
-                : "Enregistrer la réunion (Option 1: direct navigateur, 0 serveur)"
+                ? (isFr ? "Arrêter l'enregistrement (téléchargement direct WebM)" : "Stop recording (direct browser download)")
+                : (isFr ? "Enregistrer la réunion (direct navigateur)" : "Record meeting (in-browser direct capture)")
             }
           >
             <CircleDot className={`h-4 w-4 ${recorderState.isRecording ? "text-white" : "text-red-500"}`} />
@@ -1735,7 +1756,7 @@ export function ActiveRoom({
             className="flex h-11 px-4 items-center gap-2 justify-center rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90 font-semibold text-xs transition-colors"
           >
             <PhoneOff className="h-4 w-4" />
-            <span>Leave Call</span>
+            <span>{isFr ? "Quitter" : "Leave Call"}</span>
           </button>
         </div>
 
@@ -1748,7 +1769,7 @@ export function ActiveRoom({
             className="h-9 text-xs gap-1.5 border-zinc-700 text-zinc-300"
           >
             <MessageSquare className="h-3.5 w-3.5" />
-            <span>Chat</span>
+            <span>{isFr ? "Messagerie" : "Chat"}</span>
           </Button>
         </div>
       </footer>

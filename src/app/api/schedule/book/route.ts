@@ -27,16 +27,24 @@ export async function POST(request: Request) {
       const appUrl = hostHeader ? `${proto}://${hostHeader}` : (process.env.NEXT_PUBLIC_APP_URL || "https://meet.naiimbsili.com");
       const roomUrl = `${appUrl}/rooms/${result.booking.uid}`;
 
+      const cookieHeader = request.headers.get("cookie") || "";
+      const cookieLocale = cookieHeader.includes("NEXT_LOCALE=fr") ? "fr" : cookieHeader.includes("NEXT_LOCALE=en") ? "en" : null;
+      const locale: "en" | "fr" =
+        body.locale === "fr" || body.locale === "en"
+          ? body.locale
+          : cookieLocale || (request.headers.get("accept-language")?.includes("fr") ? "fr" : "en");
+
       const emailPromises: Promise<any>[] = [
         sendMeetingConfirmationEmail({
           to: result.booking.attendeeEmail,
           attendeeName: result.booking.attendeeName,
-          meetingTitle: eventType?.title || "MHAF Live meeting",
+          meetingTitle: eventType?.title || (locale === "fr" ? "Réunion vidéo mhaf meet" : "mhaf meet video meeting"),
           startTime: result.booking.startTime,
           endTime: result.booking.endTime,
           roomUrl,
           bookingUid: result.booking.uid,
-          hostName: host?.name || "MHAF Live Host",
+          hostName: host?.name || (locale === "fr" ? "Hôte mhaf meet" : "mhaf meet Host"),
+          locale,
         }),
       ];
 
@@ -44,15 +52,16 @@ export async function POST(request: Request) {
         emailPromises.push(
           sendHostBookingNotificationEmail({
             to: host.email,
-            hostName: host.name || "MHAF Live Host",
+            hostName: host.name || (locale === "fr" ? "Hôte mhaf meet" : "mhaf meet Host"),
             attendeeName: result.booking.attendeeName,
             attendeeEmail: result.booking.attendeeEmail,
-            meetingTitle: eventType?.title || "MHAF Live meeting",
+            meetingTitle: eventType?.title || (locale === "fr" ? "Réunion vidéo mhaf meet" : "mhaf meet video meeting"),
             startTime: result.booking.startTime,
             endTime: result.booking.endTime,
             roomUrl,
             bookingUid: result.booking.uid,
             notes: (result.booking as any).notes || undefined,
+            locale,
           })
         );
       }

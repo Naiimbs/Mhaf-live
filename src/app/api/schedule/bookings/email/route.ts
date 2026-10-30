@@ -35,6 +35,14 @@ export async function POST(request: Request) {
       );
     }
 
+    const cookieHeader = request.headers.get("cookie") || "";
+    const locale: "en" | "fr" =
+      body.locale === "en" || body.locale === "fr"
+        ? body.locale
+        : cookieHeader.includes("NEXT_LOCALE=fr")
+        ? "fr"
+        : "en";
+
     await sendMeetingConfirmationEmail({
       to: booking.attendeeEmail,
       attendeeName: booking.attendeeName,
@@ -44,11 +52,15 @@ export async function POST(request: Request) {
       roomUrl,
       bookingUid: booking.uid,
       hostName,
+      locale,
     });
 
     return NextResponse.json({
       success: true,
-      message: `Email de confirmation envoyé avec succès à ${booking.attendeeEmail}.`,
+      message:
+        locale === "fr"
+          ? `Email de confirmation envoyé avec succès à ${booking.attendeeEmail}.`
+          : `Confirmation email successfully sent to ${booking.attendeeEmail}.`,
     });
   } catch (err: any) {
     console.error("[Email Route] Failed to send email:", err);

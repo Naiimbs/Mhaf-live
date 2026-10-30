@@ -1,14 +1,34 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowRight, CalendarDays, Clock3, Globe2, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-const previewEvents = [
-  { time: "09:30", title: "Product consultation", person: "Maya Laurent", tone: "bg-sky-500/10 border-sky-500/30 text-sky-700 dark:text-sky-300" },
-  { time: "11:00", title: "Project check-in", person: "Team planning", tone: "bg-violet-500/10 border-violet-500/30 text-violet-700 dark:text-violet-300" },
-  { time: "14:00", title: "Quick sync", person: "Instant meeting", tone: "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300" },
-];
+import { useLanguage } from "@/lib/i18n/language-context";
 
 export function HeroSection() {
+  const { t, isFr } = useLanguage();
+
+  const previewEvents = [
+    {
+      time: "09:30",
+      title: isFr ? "Consultation produit" : "Product consultation",
+      person: "Maya Laurent",
+      tone: "bg-sky-500/10 border-sky-500/30 text-sky-700 dark:text-sky-300",
+    },
+    {
+      time: "11:00",
+      title: isFr ? "Point d'équipe" : "Project check-in",
+      person: isFr ? "Planification équipe" : "Team planning",
+      tone: "bg-violet-500/10 border-violet-500/30 text-violet-700 dark:text-violet-300",
+    },
+    {
+      time: "14:00",
+      title: isFr ? "Sync express" : "Quick sync",
+      person: isFr ? "Réunion instantanée" : "Instant meeting",
+      tone: "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300",
+    },
+  ];
+
   return (
     <section className="relative overflow-hidden pb-20 pt-16 md:pb-28 md:pt-24">
       <div aria-hidden="true" className="pointer-events-none absolute -top-48 left-1/2 -z-10 h-[32rem] w-[55rem] -translate-x-1/2 rounded-full bg-primary/5 blur-3xl" />
@@ -17,35 +37,43 @@ export function HeroSection() {
           <div className="max-w-xl">
             <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-sm">
               <CalendarDays className="h-3.5 w-3.5 text-primary" />
-              One calendar for bookings and meetings
+              {t("landing.heroBadge")}
             </div>
             <h1 className="mt-6 text-4xl font-extrabold leading-[1.08] tracking-tight text-foreground sm:text-5xl md:text-6xl">
-              Plan the time.<br /><span className="text-primary">Meet when it matters.</span>
+              {t("landing.heroTitle1")}<br /><span className="text-primary">{t("landing.heroTitle2")}</span>
             </h1>
             <p className="mt-6 max-w-lg text-base leading-7 text-muted-foreground sm:text-lg">
-              MHAF Live brings your appointment calendar and video meetings into one simple workspace. Share booking availability, schedule a meeting directly, or start an instant call from inside your account.
+              {t("landing.heroDesc")}
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button size="lg" asChild className="gap-2 shadow-sm">
-                <Link href="/register">Create your account <ArrowRight className="h-4 w-4" /></Link>
+                <Link href="/register">{t("landing.ctaStart")} <ArrowRight className="h-4 w-4" /></Link>
               </Button>
               <Button size="lg" variant="outline" asChild>
-                <Link href="/onboarding">Sign in</Link>
+                <Link href="/login">{t("landing.ctaSignIn")}</Link>
               </Button>
             </div>
-            <p className="mt-4 text-xs text-muted-foreground">Guests book through your dedicated booking link. Meeting controls stay in your host workspace.</p>
+            <p className="mt-4 text-xs text-muted-foreground">
+              {isFr
+                ? "Vos invités réservent via votre lien dédié. Les commandes de réunion restent dans votre espace hôte."
+                : "Guests book through your dedicated booking link. Meeting controls stay in your host workspace."}
+            </p>
           </div>
 
           <div id="calendar" className="relative rounded-2xl border border-border bg-card p-4 shadow-xl shadow-black/5 sm:p-6">
             <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Host workspace</p>
-                <h2 className="mt-1 text-xl font-bold tracking-tight">Your week, at a glance</h2>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  {isFr ? "Espace hôte" : "Host workspace"}
+                </p>
+                <h2 className="mt-1 text-xl font-bold tracking-tight">
+                  {isFr ? "Votre semaine en un coup d'œil" : "Your week, at a glance"}
+                </h2>
               </div>
               <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/60 px-2.5 py-1 text-[11px] font-medium text-muted-foreground"><Globe2 className="h-3 w-3" /> Africa/Tunis</span>
             </div>
             <div className="mt-5 grid grid-cols-7 gap-1 text-center text-[10px] text-muted-foreground sm:gap-2 sm:text-xs">
-              {["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"].map((day, index) => (
+              {(isFr ? ["LUN", "MAR", "MER", "JEU", "VEN", "SAM", "DIM"] : ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]).map((day, index) => (
                 <div key={day} className={`rounded-lg py-2 ${index === 1 ? "bg-primary text-primary-foreground" : "bg-muted/40"}`}>
                   <span className="block font-semibold">{day}</span><span className="mt-1 block opacity-80">{20 + index}</span>
                 </div>
@@ -68,10 +96,10 @@ export function HeroSection() {
               </div>
             </div>
             <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-border pt-4 text-[11px] text-muted-foreground">
-              <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-sky-500" />Bookings</span>
-              <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-violet-500" />Scheduled meetings</span>
-              <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-amber-500" />Instant meetings</span>
-              <span className="ml-auto inline-flex items-center gap-1.5"><Video className="h-3.5 w-3.5" />Static preview</span>
+              <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-sky-500" />{isFr ? "Réservations" : "Bookings"}</span>
+              <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-violet-500" />{isFr ? "Réunions planifiées" : "Scheduled meetings"}</span>
+              <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-amber-500" />{isFr ? "Réunions instantanées" : "Instant meetings"}</span>
+              <span className="ml-auto inline-flex items-center gap-1.5"><Video className="h-3.5 w-3.5" />{isFr ? "Aperçu interactif" : "Static preview"}</span>
             </div>
           </div>
         </div>

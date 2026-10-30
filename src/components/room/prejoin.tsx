@@ -17,6 +17,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/lib/i18n/language-context";
 
 interface DeviceOption {
   deviceId: string;
@@ -54,8 +55,9 @@ export function PreJoin({
   joining,
   error,
 }: PreJoinProps) {
+  const { isFr } = useLanguage();
   const [displayName, setDisplayName] = React.useState(
-    isHostUser ? hostName : attendeeName || "Attendee"
+    isHostUser ? hostName : attendeeName || (isFr ? "Participant" : "Attendee")
   );
   const [videoEnabled, setVideoEnabled] = React.useState(true);
   const [audioEnabled, setAudioEnabled] = React.useState(true);
@@ -268,13 +270,15 @@ export function PreJoin({
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <span className="text-xs font-mono uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full font-semibold">
-              LiveKit Room Staging
+              {isFr ? "Salle d'attente LiveKit" : "LiveKit Room Staging"}
             </span>
             <span className="text-xs font-mono text-muted-foreground">UID: {roomUid}</span>
           </div>
           <h1 className="text-xl font-bold tracking-tight text-foreground">{eventName}</h1>
           <p className="text-xs text-muted-foreground">
-            Host: <strong className="text-foreground">{hostName}</strong> &bull; Attendee:{" "}
+            {isFr ? "Hôte : " : "Host: "}
+            <strong className="text-foreground">{hostName}</strong> &bull;{" "}
+            {isFr ? "Participant : " : "Attendee: "}
             <strong className="text-foreground">{attendeeName}</strong>
           </p>
         </div>
@@ -282,7 +286,9 @@ export function PreJoin({
         <div className="text-xs text-muted-foreground font-mono bg-muted/40 border border-border rounded-xl p-3 flex items-center gap-3">
           <Clock className="h-4 w-4 text-primary shrink-0" />
           <div>
-            <div className="font-semibold text-foreground">{startObj.toDateString()}</div>
+            <div className="font-semibold text-foreground">
+              {startObj.toLocaleDateString(isFr ? "fr-FR" : "en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
+            </div>
             <div>
               {startObj.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} –{" "}
               {endObj.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -314,9 +320,13 @@ export function PreJoin({
                   <VideoOff className="h-7 w-7" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-zinc-200">Camera is turned off</p>
+                  <p className="text-sm font-semibold text-zinc-200">
+                    {isFr ? "La caméra est désactivée" : "Camera is turned off"}
+                  </p>
                   <p className="text-xs text-zinc-400 mt-1 max-w-xs">
-                    You can toggle your video on anytime before or during the call.
+                    {isFr
+                      ? "Vous pouvez activer votre caméra à tout moment avant ou pendant l'appel."
+                      : "You can toggle your video on anytime before or during the call."}
                   </p>
                 </div>
               </div>
@@ -404,9 +414,13 @@ export function PreJoin({
         {/* Right Column: PreJoin Settings Form (5 cols) */}
         <div className="lg:col-span-5 rounded-2xl border border-border bg-card p-6 shadow-sm space-y-5">
           <div className="space-y-1">
-            <h2 className="text-base font-bold text-foreground">Ready to join?</h2>
+            <h2 className="text-base font-bold text-foreground">
+              {isFr ? "Prêt à rejoindre ?" : "Ready to join?"}
+            </h2>
             <p className="text-xs text-muted-foreground">
-              Confirm your display name and check your device settings before entering.
+              {isFr
+                ? "Confirmez votre nom d'affichage et vérifiez vos réglages audio et vidéo avant d'entrer."
+                : "Confirm your display name and check your device settings before entering."}
             </p>
           </div>
 
@@ -417,7 +431,7 @@ export function PreJoin({
                 htmlFor="prejoin-display-name"
                 className="text-xs font-semibold text-foreground uppercase tracking-wider"
               >
-                Display Name
+                {isFr ? "Nom d'affichage" : "Display Name"}
               </label>
               <div className="relative">
                 <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -427,7 +441,7 @@ export function PreJoin({
                   required
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Your full name"
+                  placeholder={isFr ? "Votre nom complet" : "Your full name"}
                   className="w-full rounded-lg border border-input bg-background pl-9 pr-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
@@ -439,7 +453,7 @@ export function PreJoin({
                 htmlFor="prejoin-camera-select"
                 className="text-xs font-semibold text-foreground uppercase tracking-wider"
               >
-                Camera Source
+                {isFr ? "Caméra" : "Camera Source"}
               </label>
               <select
                 id="prejoin-camera-select"
@@ -448,7 +462,7 @@ export function PreJoin({
                 disabled={videoDevices.length === 0}
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
               >
-                {videoDevices.length === 0 && <option value="">No Camera Detected</option>}
+                {videoDevices.length === 0 && <option value="">{isFr ? "Aucune caméra détectée" : "No Camera Detected"}</option>}
                 {videoDevices.map((dev) => (
                   <option key={dev.deviceId} value={dev.deviceId}>
                     {dev.label}
@@ -463,7 +477,7 @@ export function PreJoin({
                 htmlFor="prejoin-mic-select"
                 className="text-xs font-semibold text-foreground uppercase tracking-wider"
               >
-                Microphone Source
+                {isFr ? "Microphone" : "Microphone Source"}
               </label>
               <select
                 id="prejoin-mic-select"
@@ -472,7 +486,7 @@ export function PreJoin({
                 disabled={audioDevices.length === 0}
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
               >
-                {audioDevices.length === 0 && <option value="">No Microphone Detected</option>}
+                {audioDevices.length === 0 && <option value="">{isFr ? "Aucun microphone détecté" : "No Microphone Detected"}</option>}
                 {audioDevices.map((dev) => (
                   <option key={dev.deviceId} value={dev.deviceId}>
                     {dev.label}
@@ -485,7 +499,9 @@ export function PreJoin({
             <div className="rounded-xl bg-muted/40 border border-border p-3 text-xs text-muted-foreground flex items-start gap-2">
               <ShieldCheck className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
               <span>
-                Tokens are minted server-side with strict role boundaries ({isHostUser ? "Host Privileges" : "Standard Attendee"}). Secrets are never exposed.
+                {isFr
+                  ? `Jetons sécurisés générés côté serveur (${isHostUser ? "Privilèges d'hôte" : "Participant invité"}). Les secrets ne sont jamais exposés.`
+                  : `Tokens are minted server-side with strict role boundaries (${isHostUser ? "Host Privileges" : "Standard Attendee"}). Secrets are never exposed.`}
               </span>
             </div>
 
@@ -496,7 +512,9 @@ export function PreJoin({
               disabled={joining || !displayName.trim()}
               className="w-full gap-2 py-5 font-bold shadow-sm"
             >
-              {joining ? "Connecting to LiveKit Room..." : "Join Room Now"}
+              {joining
+                ? (isFr ? "Connexion au salon LiveKit..." : "Connecting to LiveKit Room...")
+                : (isFr ? "Entrer dans la réunion" : "Join Room Now")}
               <ArrowRight className="h-4 w-4" />
             </Button>
           </form>
