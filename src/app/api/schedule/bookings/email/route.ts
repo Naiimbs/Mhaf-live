@@ -40,6 +40,14 @@ export async function POST(request: Request) {
       );
     }
 
+    const cookieHeader = request.headers.get("cookie") || "";
+    const locale: "en" | "fr" =
+      body.locale === "en" || body.locale === "fr"
+        ? body.locale
+        : cookieHeader.includes("NEXT_LOCALE=fr")
+        ? "fr"
+        : "en";
+
     try {
     await sendMeetingConfirmationEmail({
       to: booking.attendeeEmail,
@@ -51,6 +59,7 @@ export async function POST(request: Request) {
       bookingUid: booking.uid,
       managementUrl: `${appUrl}/book/manage/${managementToken}`,
       hostName,
+      locale,
     });
     await db.updateBookingManagementToken(booking.id, managementTokenHash, new Date(Date.now() + 180 * 24 * 60 * 60_000));
     await db.updateBookingConfirmationEmail(booking.id, true, null);
@@ -61,7 +70,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: `Email de confirmation envoyé avec succès à ${booking.attendeeEmail}.`,
+      message:
+        locale === "fr"
+          ? `Email de confirmation envoyé avec succès à ${booking.attendeeEmail}.`
+          : `Confirmation email successfully sent to ${booking.attendeeEmail}.`,
     });
   } catch (err: any) {
     console.error("[Email Route] Failed to send email:", err);

@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { Lock, Mail, User, Globe, ArrowRight, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand-logo";
+import { LanguageToggle } from "@/components/language-toggle";
+import { useLanguage } from "@/lib/i18n/language-context";
 
 const COMMON_TIMEZONES = [
   "UTC",
@@ -24,6 +26,7 @@ const COMMON_TIMEZONES = [
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { isFr } = useLanguage();
   const [name, setName] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -48,7 +51,7 @@ export default function RegisterPage() {
     setLoading(true);
 
     if (password.length < 8) {
-      setError("Password must be at least 8 characters long.");
+      setError(isFr ? "Le mot de passe doit comporter au moins 8 caractères." : "Password must be at least 8 characters long.");
       setLoading(false);
       return;
     }
@@ -62,20 +65,24 @@ export default function RegisterPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "Registration failed.");
+        throw new Error(data.error || (isFr ? "Échec de l'inscription." : "Registration failed."));
       }
 
       router.push("/dashboard");
       router.refresh();
     } catch (err: any) {
-      setError(err.message || "An unexpected error occurred.");
+      setError(err.message || (isFr ? "Une erreur inattendue est survenue." : "An unexpected error occurred."));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center bg-background px-4 py-12">
+    <div className="min-h-screen flex flex-col justify-center items-center bg-background px-4 py-12 relative">
+      <div className="absolute top-4 right-4">
+        <LanguageToggle variant="compact" />
+      </div>
+
       <div className="w-full max-w-md space-y-6">
         {/* Header */}
         <div className="text-center space-y-2">
@@ -83,10 +90,12 @@ export default function RegisterPage() {
             <BrandLogo size="large" priority />
           </Link>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Create Host Account
+            {isFr ? "Créer un compte hôte" : "Create Host Account"}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Establish your booking calendar, custom event types, and scheduling engine.
+            {isFr
+              ? "Configurez votre calendrier, vos types d'événements et votre moteur de réservation."
+              : "Establish your booking calendar, custom event types, and scheduling engine."}
           </p>
         </div>
 
@@ -102,7 +111,7 @@ export default function RegisterPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-foreground uppercase tracking-wider" htmlFor="register-name">
-                Full Name
+                {isFr ? "Nom et prénom" : "Full Name"}
               </label>
               <div className="relative">
                 <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -120,7 +129,7 @@ export default function RegisterPage() {
 
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-foreground uppercase tracking-wider" htmlFor="register-email">
-                Host Email Address
+                {isFr ? "Adresse e-mail de l'hôte" : "Host Email Address"}
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -138,7 +147,7 @@ export default function RegisterPage() {
 
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-foreground uppercase tracking-wider" htmlFor="register-password">
-                Password (min. 8 characters)
+                {isFr ? "Mot de passe (min. 8 caractères)" : "Password (min. 8 characters)"}
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -157,7 +166,7 @@ export default function RegisterPage() {
 
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-foreground uppercase tracking-wider" htmlFor="register-tz">
-                Operating Timezone (IANA)
+                {isFr ? "Fuseau horaire (IANA)" : "Operating Timezone (IANA)"}
               </label>
               <div className="relative">
                 <Globe className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -185,7 +194,9 @@ export default function RegisterPage() {
               className="w-full gap-2 mt-2"
               id="submit-register-button"
             >
-              {loading ? "Creating Host Account..." : "Create Account & Go to Dashboard"}
+              {loading
+                ? (isFr ? "Création du compte en cours..." : "Creating Host Account...")
+                : (isFr ? "Créer mon compte & accéder au tableau de bord" : "Create Account & Go to Dashboard")}
               <ArrowRight className="h-4 w-4" />
             </Button>
           </form>
@@ -194,14 +205,14 @@ export default function RegisterPage() {
         {/* Footer links */}
         <div className="text-center text-xs text-muted-foreground space-y-1">
           <p>
-            Already have an account?{" "}
+            {isFr ? "Vous avez déjà un compte ?" : "Already have an account?"}{" "}
             <Link href="/login" className="font-semibold text-primary hover:underline">
-              Sign in to your dashboard
+              {isFr ? "Se connecter à votre espace" : "Sign in to your dashboard"}
             </Link>
           </p>
           <p>
             <Link href="/" className="hover:underline">
-              ← Back to Home
+              {isFr ? "← Retour à l'accueil" : "← Back to Home"}
             </Link>
           </p>
         </div>

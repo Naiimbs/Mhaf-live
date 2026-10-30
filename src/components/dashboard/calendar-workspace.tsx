@@ -36,6 +36,7 @@ import {
   getZonedDateParts,
 } from "@/lib/scheduling/timezone";
 import { MeetingIllustration } from "./meeting-illustration";
+import { useLanguage } from "@/lib/i18n/language-context";
 
 interface CalendarEvent {
   id: string;
@@ -106,6 +107,7 @@ function roomPath(url: string): string {
 }
 
 export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: CalendarWorkspaceProps) {
+  const { t, isFr } = useLanguage();
   const [weekStart, setWeekStart] = React.useState(() => mondayOf(getLocalDateString(new Date(), hostTimeZone)));
   const [events, setEvents] = React.useState<CalendarEvent[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -226,7 +228,7 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
   }, [days, hostTimeZone]);
 
   const formatRange = () => {
-    const formatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+    const formatter = new Intl.DateTimeFormat(isFr ? "fr-FR" : "en-US", { month: "short", day: "numeric", timeZone: "UTC" });
     const first = formatter.format(dateAtUtcNoon(weekStart));
     const last = formatter.format(dateAtUtcNoon(weekEnd));
     const year = dateAtUtcNoon(weekEnd).getUTCFullYear();
@@ -329,10 +331,10 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              Your meetings, in one week.
+              {t("dashboard.meetingsInOneWeek")}
             </h1>
             <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
-              Bookings and meetings shown in your host time zone.
+              {t("dashboard.meetingsSubtitle")}
             </p>
           </div>
         </div>
@@ -347,7 +349,7 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
             className="gap-1.5 rounded-xl border-slate-300 dark:border-slate-700 font-medium text-xs sm:text-sm shadow-xs"
           >
             <Plus className="h-4 w-4" />
-            New booking link
+            {t("dashboard.newBookingLink")}
           </Button>
           <Button
             variant="outline"
@@ -355,7 +357,7 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
             className="gap-1.5 rounded-xl border-slate-300 dark:border-slate-700 font-medium text-xs sm:text-sm shadow-xs"
           >
             <CalendarPlus className="h-4 w-4" />
-            Schedule meeting
+            {t("dashboard.scheduleMeeting")}
           </Button>
           <Button
             onClick={startInstantMeeting}
@@ -363,7 +365,7 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
             className="gap-1.5 rounded-xl bg-[#01377A] hover:bg-[#09264D] text-white shadow-md shadow-blue-900/20 font-semibold text-xs sm:text-sm transition-all"
           >
             {startingInstant ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
-            Start instant
+            {t("dashboard.instantMeeting")}
           </Button>
         </div>
       </section>
@@ -428,7 +430,7 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
                 title="Weekly Grid View"
               >
                 <LayoutGrid className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Calendar</span>
+                <span className="hidden sm:inline">{t("dashboard.calendar")}</span>
               </button>
               <button
                 type="button"
@@ -441,7 +443,7 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
                 title="Timeline / Agenda View"
               >
                 <ListFilter className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Timeline</span>
+                <span className="hidden sm:inline">{t("dashboard.timeline")}</span>
               </button>
             </div>
 
@@ -451,14 +453,14 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
               className="h-8 rounded-lg text-xs font-medium"
               onClick={() => setWeekStart(mondayOf(getLocalDateString(new Date(), hostTimeZone)))}
             >
-              Today
+              {t("dashboard.today")}
             </Button>
             <div className="flex items-center gap-1">
               <Button
                 size="icon"
                 variant="outline"
                 className="h-8 w-8 rounded-lg"
-                aria-label="Previous week"
+                aria-label={t("dashboard.previousWeek")}
                 onClick={() => setWeekStart((current) => addDays(current, -7))}
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -467,7 +469,7 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
                 size="icon"
                 variant="outline"
                 className="h-8 w-8 rounded-lg"
-                aria-label="Next week"
+                aria-label={t("dashboard.nextWeek")}
                 onClick={() => setWeekStart((current) => addDays(current, 7))}
               >
                 <ChevronRight className="h-4 w-4" />
@@ -477,13 +479,13 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
         </div>
 
         {loading ? (
-          <div className="flex h-72 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Loading calendar…</div>
+          <div className="flex h-72 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />{t("common.loading")}</div>
         ) : viewMode === "timeline" ? (
           <div className="divide-y divide-border p-4 sm:p-6 space-y-6">
             {timelineDays.map((day) => {
               const date = dateAtUtcNoon(day);
-              const weekday = new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "UTC" }).format(date);
-              const formattedDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(date);
+              const weekday = new Intl.DateTimeFormat(isFr ? "fr-FR" : "en-US", { weekday: "long", timeZone: "UTC" }).format(date);
+              const formattedDate = new Intl.DateTimeFormat(isFr ? "fr-FR" : "en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(date);
               const isToday = day === getLocalDateString(new Date(), hostTimeZone);
               const dayEvents = (eventsForDay.get(day) || []).slice().sort(
                 (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
@@ -498,18 +500,18 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
                       </h3>
                       {isToday && (
                         <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                          Today
+                          {t("common.today")}
                         </span>
                       )}
                     </div>
                     <span className="text-xs text-muted-foreground font-mono">
-                      {dayEvents.length} meeting{dayEvents.length === 1 ? "" : "s"}
+                      {dayEvents.length} {isFr ? `réunion${dayEvents.length === 1 ? "" : "s"}` : `meeting${dayEvents.length === 1 ? "" : "s"}`}
                     </span>
                   </div>
 
                   {dayEvents.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-border/80 bg-muted/10 p-4 text-center">
-                      <p className="text-xs text-muted-foreground">No meetings scheduled for this day.</p>
+                      <p className="text-xs text-muted-foreground">{t("dashboard.noMeetingsForDay")}</p>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -520,7 +522,7 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
                         }}
                         className="mt-1 h-7 text-xs text-primary hover:text-primary"
                       >
-                        <CalendarPlus className="mr-1 h-3 w-3" /> Schedule meeting
+                        <CalendarPlus className="mr-1 h-3 w-3" /> {t("dashboard.scheduleMeeting")}
                       </Button>
                     </div>
                   ) : (
@@ -590,13 +592,13 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
                                   title="Copy meeting room link"
                                 >
                                   <Copy className="h-3 w-3" />
-                                  Copy link
+                                  {t("dashboard.copyLink")}
                                 </Button>
                                 {!cancelled && (
                                   <Button size="sm" asChild className="h-7 text-xs gap-1 px-2.5">
                                     <Link href={`/rooms/${event.uid}`}>
                                       <Video className="h-3 w-3" />
-                                      Enter room
+                                      {t("dashboard.enterRoom")}
                                     </Link>
                                   </Button>
                                 )}
@@ -609,7 +611,7 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
                                   disabled={cancellingId === event.id}
                                   className="text-[11px] text-destructive hover:underline disabled:opacity-50"
                                 >
-                                  Cancel
+                                  {t("dashboard.cancelMeeting")}
                                 </button>
                               )}
                             </div>

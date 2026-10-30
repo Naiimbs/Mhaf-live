@@ -6,6 +6,8 @@ import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PreJoin } from "@/components/room/prejoin";
 import { ActiveRoom } from "@/components/room/active-room";
+import { LanguageToggle } from "@/components/language-toggle";
+import { useLanguage } from "@/lib/i18n/language-context";
 
 interface RoomContainerProps {
   roomUid: string;
@@ -36,6 +38,7 @@ export function RoomContainer({
   isHostUser,
   hasBooking,
 }: RoomContainerProps) {
+  const { isFr } = useLanguage();
   const [stage, setStage] = React.useState<"prejoin" | "active" | "left">("prejoin");
   const [joining, setJoining] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -109,10 +112,12 @@ export function RoomContainer({
           </div>
           <div className="space-y-2">
             <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              You Have Left the Meeting
+              {isFr ? "Vous avez quitté la réunion" : "You Have Left the Meeting"}
             </h1>
             <p className="text-xs text-muted-foreground">
-              Thank you for participating in <strong>{eventName}</strong>. Your media tracks have been completely stopped and disconnected.
+              {isFr
+                ? `Merci de votre participation à ${eventName}. Vos flux audio et vidéo ont été complètement coupés.`
+                : `Thank you for participating in ${eventName}. Your media tracks have been completely stopped and disconnected.`}
             </p>
           </div>
 
@@ -123,10 +128,10 @@ export function RoomContainer({
               onClick={() => setStage("prejoin")}
               className="w-full sm:w-auto text-xs"
             >
-              Re-enter PreJoin Staging
+              {isFr ? "Rejoindre à nouveau" : "Re-enter PreJoin Staging"}
             </Button>
             <Button asChild size="sm" className="w-full sm:w-auto text-xs">
-              <Link href="/">Back to Homepage</Link>
+              <Link href="/">{isFr ? "Retour à l'accueil" : "Back to Homepage"}</Link>
             </Button>
           </div>
         </div>
@@ -160,8 +165,22 @@ export function RoomContainer({
           className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors font-medium"
         >
           <ArrowLeft className="h-4 w-4" />
-          <span>{hasBooking ? "Back to Reservation Details" : isHostUser ? "Back to Calendar" : "Back to Homepage"}</span>
+          <span>
+            {hasBooking
+              ? isFr
+                ? "Détails de la réservation"
+                : "Back to Reservation Details"
+              : isHostUser
+                ? isFr
+                  ? "Retour au calendrier"
+                  : "Back to Calendar"
+                : isFr
+                  ? "Retour à l'accueil"
+                  : "Back to Homepage"}
+          </span>
         </Link>
+
+        <LanguageToggle variant="compact" />
       </div>
 
       <PreJoin

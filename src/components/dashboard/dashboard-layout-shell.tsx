@@ -20,7 +20,9 @@ import {
 } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LanguageToggle } from "@/components/language-toggle";
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/lib/i18n/language-context";
 
 interface DashboardLayoutShellProps {
   host: {
@@ -33,33 +35,6 @@ interface DashboardLayoutShellProps {
   children: React.ReactNode;
 }
 
-const navItems = [
-  {
-    label: "Calendar",
-    href: "/dashboard",
-    icon: CalendarDays,
-    matchExact: true,
-  },
-  {
-    label: "Bookings",
-    href: "/dashboard/bookings",
-    icon: CalendarCheck,
-    matchExact: false,
-  },
-  {
-    label: "Availability",
-    href: "/dashboard/availability",
-    icon: Clock,
-    matchExact: false,
-  },
-  {
-    label: "Settings",
-    href: "/dashboard/settings",
-    icon: Settings,
-    matchExact: false,
-  },
-];
-
 export function DashboardLayoutShell({
   host,
   logoutAction,
@@ -68,6 +43,34 @@ export function DashboardLayoutShell({
   const pathname = usePathname();
   const [collapsed, setCollapsed] = React.useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const { t, isFr } = useLanguage();
+
+  const navItems = [
+    {
+      label: t("nav.calendar"),
+      href: "/dashboard",
+      icon: CalendarDays,
+      matchExact: true,
+    },
+    {
+      label: t("nav.bookings"),
+      href: "/dashboard/bookings",
+      icon: CalendarCheck,
+      matchExact: false,
+    },
+    {
+      label: t("nav.availability"),
+      href: "/dashboard/availability",
+      icon: Clock,
+      matchExact: false,
+    },
+    {
+      label: t("nav.settings"),
+      href: "/dashboard/settings",
+      icon: Settings,
+      matchExact: false,
+    },
+  ];
 
   // Restore sidebar state preference from localStorage
   React.useEffect(() => {
@@ -244,7 +247,7 @@ export function DashboardLayoutShell({
                 }`}
               >
                 <CalendarDays className="h-3.5 w-3.5" />
-                Calendar
+                {t("nav.calendar")}
               </Link>
               <Link
                 href="/dashboard/availability"
@@ -255,7 +258,7 @@ export function DashboardLayoutShell({
                 }`}
               >
                 <Clock className="h-3.5 w-3.5" />
-                Availability
+                {t("nav.availability")}
               </Link>
               <Link
                 href="/dashboard/bookings"
@@ -266,15 +269,17 @@ export function DashboardLayoutShell({
                 }`}
               >
                 <CalendarCheck className="h-3.5 w-3.5" />
-                Bookings
+                {t("nav.bookings")}
               </Link>
             </div>
           </div>
 
           {/* Right Header Controls */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <LanguageToggle />
+
             {/* User pill */}
-            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/60 px-3 py-1.5 rounded-full border border-border font-medium">
+            <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground bg-muted/60 px-3 py-1.5 rounded-full border border-border font-medium">
               <User className="h-3.5 w-3.5 text-primary" />
               <span className="truncate max-w-[140px] sm:max-w-[200px]">
                 {host.email}
@@ -294,7 +299,7 @@ export function DashboardLayoutShell({
                 className="gap-1.5 text-xs rounded-lg"
               >
                 <LogOut className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Sign Out</span>
+                <span className="hidden sm:inline">{t("nav.signOut")}</span>
               </Button>
             </form>
           </div>

@@ -31,6 +31,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
     }
 
+    const requestedLocale: "en" | "fr" =
+      body.locale === "fr" || request.cookies.get("NEXT_LOCALE")?.value === "fr" ? "fr" : "en";
+
     const user = await db.findUserByEmail(email);
     if (user && !(await db.hasRecentMagicLinkToken(user.id, new Date(Date.now() - 60 * 1000)))) {
       const rawToken = randomBytes(32).toString("hex");
@@ -44,14 +47,17 @@ export async function POST(request: NextRequest) {
         const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || new URL(request.url).origin;
         const link = new URL("/auth/verify", appUrl);
         link.searchParams.set("token", rawToken);
-        await sendMagicLinkEmail(user.email, link.toString());
+        await sendMagicLinkEmail(user.email, link.toString(), requestedLocale);
       }
     }
 
     // Keep the response identical for existing and unknown addresses.
     return NextResponse.json({
       success: true,
-      message: "If an account exists for that email, a sign-in link will arrive shortly.",
+      message:
+        requestedLocale === "fr"
+          ? "Si un compte existe pour cet email, un lien de connexion vous parviendra d'ici quelques instants."
+          : "If an account exists for that email, a sign-in link will arrive shortly.",
     });
   } catch (error) {
     console.error("[auth] Magic-link request failed:", error instanceof Error ? error.message : "Unknown error");
