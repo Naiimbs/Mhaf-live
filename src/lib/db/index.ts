@@ -328,6 +328,12 @@ class DatabaseStore {
     });
   }
 
+  async hasRecentMagicLinkToken(userId: string, since: Date): Promise<boolean> {
+    return this.data.magicLinkTokens.some(
+      (token) => token.userId === userId && token.createdAt.getTime() >= since.getTime()
+    );
+  }
+
   async consumeMagicLinkToken(tokenHash: string): Promise<User | null> {
     return globalLock.acquire(async () => {
       const now = new Date();
