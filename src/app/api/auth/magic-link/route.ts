@@ -19,12 +19,16 @@ export async function POST(request: Request) {
       const rawToken = randomBytes(32).toString("hex");
       const tokenHash = createHash("sha256").update(rawToken).digest("hex");
       const expires = new Date(Date.now() + TOKEN_TTL_MS);
-      await db.createMagicLinkToken(user.id, tokenHash, expires);
+      const storedToken = await db.createMagicLinkToken(user.id, tokenHash, expires);
 
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || new URL(request.url).origin;
-      const link = new URL("/auth/verify", appUrl);
-      link.searchParams.set("token", rawToken);
-      await sendMagicLinkEmail(user.email, link.toString());
+      // Never email a token unless its hash was successfully persisted.
+      // A null result means the per-account request limit has been reached.
+      if (storedToken) {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || new URL(request.url).origin;
+        const link = new URL("/auth/verify", appUrl);
+        link.searchParams.set("token", rawToken);
+        await sendMagicLinkEmail(user.email, link.toString());
+      }
     }
 
     // Keep the response identical for existing and unknown addresses.
