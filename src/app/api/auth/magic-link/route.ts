@@ -18,20 +18,18 @@ export async function POST(request: Request) {
       const rawToken = randomBytes(32).toString("hex");
       const tokenHash = createHash("sha256").update(rawToken).digest("hex");
       const expires = new Date(Date.now() + TOKEN_TTL_MS);
-      await db.createMagicLinkToken(user.id, tokenHash, expires);
-
+      const storedToken = await db.createMagicLinkToken(user.id, tokenHash, expires);
       const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
-      if (!appUrl) {
+      if (storedToken && appUrl) {
+        const link = new URL("/api/auth/magic-link/verify", appUrl);
+        link.searchParams.set("token", rawToken);
+        try {
+          await sendMagicLinkEmail(user.email, link.toString());
+        } catch (error) {
+          console.error("[auth] Magic-link email delivery failed:", error instanceof Error ? error.message : "Unknown mail error");
+        }
+      } else if (storedToken) {
         console.error("[auth] Magic-link email skipped: NEXT_PUBLIC_APP_URL is not configured.");
-        return NextResponse.json({ error: "We could not send your sign-in link. Please try again later." }, { status: 503 });
-      }
-      const link = new URL("/api/auth/magic-link/verify", appUrl);
-      link.searchParams.set("token", rawToken);
-      try {
-        await sendMagicLinkEmail(user.email, link.toString());
-      } catch (error) {
-        console.error("[auth] Magic-link email delivery failed:", error instanceof Error ? error.message : "Unknown mail error");
-        return NextResponse.json({ error: "We could not send your sign-in link. Please try again later." }, { status: 503 });
       }
     }
 
