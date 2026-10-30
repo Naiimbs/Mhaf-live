@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import path from "node:path";
+import fs from "node:fs";
 
 interface SendConfirmationEmailParams {
   to: string;
@@ -22,8 +23,89 @@ export function getMeetingEmailFrom(configuredFrom: string | undefined, smtpUser
   return `meet <${address}>`;
 }
 
-function escapeEmailHtml(value: string): string {
+export function escapeEmailHtml(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;");
+}
+
+export function getEmailBrandAttachments(): Array<{ filename: string; path: string; cid: string }> {
+  const iconPath = path.join(process.cwd(), "public", "icon.png");
+  const logoPath = path.join(process.cwd(), "public", "meet-logo-white.png");
+  const attachments: Array<{ filename: string; path: string; cid: string }> = [];
+
+  try {
+    if (fs.existsSync(iconPath)) {
+      attachments.push({
+        filename: "icon.png",
+        path: iconPath,
+        cid: "meet-icon",
+      });
+    }
+  } catch {
+    attachments.push({
+      filename: "icon.png",
+      path: iconPath,
+      cid: "meet-icon",
+    });
+  }
+
+  try {
+    if (fs.existsSync(logoPath)) {
+      attachments.push({
+        filename: "meet-logo.png",
+        path: logoPath,
+        cid: "meet-logo",
+      });
+    }
+  } catch {
+    attachments.push({
+      filename: "meet-logo.png",
+      path: logoPath,
+      cid: "meet-logo",
+    });
+  }
+
+  return attachments;
+}
+
+export function renderEmailHeader(badgeText?: string, appUrl = "https://meet.naiimbsili.com"): string {
+  const badgeHtml = badgeText
+    ? `<span style="display:inline-block;background:rgba(37,99,235,0.15);color:#60a5fa;font-size:11px;font-weight:700;padding:5px 12px;border-radius:9999px;border:1px solid rgba(37,99,235,0.3);text-transform:uppercase;letter-spacing:0.06em;">${badgeText}</span>`
+    : "";
+
+  return `
+    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #27272a;">
+      <tr>
+        <td style="vertical-align:middle;">
+          <a href="${appUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-block;">
+            <table border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+              <tr>
+                <td style="vertical-align:middle;padding-right:12px;">
+                  <img src="cid:meet-icon" alt="mhaf icon" width="36" height="36" style="display:block;width:36px;height:36px;border-radius:10px;border:0;outline:none;" />
+                </td>
+                <td style="vertical-align:middle;">
+                  <img src="cid:meet-logo" alt="mhaf meet" width="120" height="auto" style="display:block;width:120px;height:auto;border:0;outline:none;" />
+                </td>
+              </tr>
+            </table>
+          </a>
+        </td>
+        ${badgeText ? `<td style="vertical-align:middle;text-align:right;">${badgeHtml}</td>` : ""}
+      </tr>
+    </table>
+  `;
+}
+
+export function renderEmailFooter(locale: "en" | "fr" = "fr"): string {
+  const isFrench = locale === "fr";
+  const text = isFrench
+    ? `mhaf meet — Plateforme de visioconférence WebRTC ultra-rapide et sécurisée.<br>© ${new Date().getFullYear()} mhaf meet. Tous droits réservés.`
+    : `mhaf meet — Ultra-fast, secure WebRTC meeting platform.<br>© ${new Date().getFullYear()} mhaf meet. All rights reserved.`;
+
+  return `
+    <div style="border-top:1px solid #27272a;padding-top:20px;margin-top:32px;font-size:12px;color:#71717a;text-align:center;line-height:1.5;">
+      ${text}
+    </div>
+  `;
 }
 
 function getTransporter() {
@@ -53,7 +135,7 @@ function getTransporter() {
   return nodemailer.createTransport({
     host,
     port,
-    secure, // true for 465, false for other ports
+    secure,
     auth: {
       user,
       pass,
@@ -117,9 +199,6 @@ export async function sendMeetingConfirmationEmail({
     ? "Aucun téléchargement ni compte requis. Cliquez simplement sur le bouton à l'heure du rendez-vous pour entrer directement."
     : "No downloads or account required. Simply click the button at the scheduled time to enter directly.";
   const fallbackLabel = isFrench ? "Lien direct :" : "Direct link:";
-  const footerText = isFrench
-    ? `mhaf meet — Plateforme de visioconférence WebRTC ultra-rapide et sécurisée.<br>© ${new Date().getFullYear()} mhaf meet. Tous droits réservés.`
-    : `mhaf meet — Ultra-fast, secure WebRTC meeting platform.<br>© ${new Date().getFullYear()} mhaf meet. All rights reserved.`;
 
   const html = `
 <!DOCTYPE html>
@@ -144,38 +223,6 @@ export async function sendMeetingConfirmationEmail({
       border-radius: 16px;
       padding: 32px;
       box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-    }
-    .header {
-      border-bottom: 1px solid #27272a;
-      padding-bottom: 20px;
-      margin-bottom: 24px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .logo {
-      display: flex;
-      align-items: center;
-    }
-    .logo img {
-      display: block;
-      width: 120px;
-      height: auto;
-      padding: 4px;
-      border-radius: 6px;
-      background: #ffffff;
-    }
-    .badge {
-      display: inline-block;
-      background: rgba(37, 99, 235, 0.15);
-      color: #60a5fa;
-      font-size: 11px;
-      font-weight: 600;
-      padding: 4px 10px;
-      border-radius: 9999px;
-      border: 1px solid rgba(37, 99, 235, 0.3);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
     }
     h1 {
       font-size: 22px;
@@ -242,23 +289,11 @@ export async function sendMeetingConfirmationEmail({
       word-break: break-all;
       margin-top: 10px;
     }
-    .footer {
-      border-top: 1px solid #27272a;
-      padding-top: 20px;
-      margin-top: 32px;
-      font-size: 12px;
-      color: #52525b;
-      text-align: center;
-      line-height: 1.5;
-    }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="header">
-      <div class="logo"><img src="cid:meet-logo" alt="mhaf meet" width="120"></div>
-      <div class="badge">${badgeText}</div>
-    </div>
+    ${renderEmailHeader(badgeText, appUrl)}
 
     <h1>${greeting}</h1>
     <p>${intro}</p>
@@ -266,7 +301,7 @@ export async function sendMeetingConfirmationEmail({
     <div class="card">
       <div class="card-row">
         <span class="label">${topicLabel}</span>
-        <span class="value">${meetingTitle}</span>
+        <span class="value">${escapeEmailHtml(meetingTitle)}</span>
       </div>
       <div class="card-row">
         <span class="label">${dateLabel}</span>
@@ -278,12 +313,12 @@ export async function sendMeetingConfirmationEmail({
       </div>
       <div class="card-row">
         <span class="label">${uidLabel}</span>
-        <span class="value font-mono">${bookingUid}</span>
+        <span class="value font-mono">${escapeEmailHtml(bookingUid)}</span>
       </div>
     </div>
 
     <div class="btn-container">
-      <a href="${fullRoomUrl}" class="btn" target="_blank">${btnText}</a>
+      <a href="${fullRoomUrl}" class="btn" target="_blank" rel="noopener noreferrer">${btnText}</a>
     </div>
 
     <p style="font-size: 13px; color: #71717a; text-align: center;">
@@ -295,9 +330,7 @@ export async function sendMeetingConfirmationEmail({
     </div>
     ${managementUrl ? `<p style="margin-top:24px;text-align:center"><a href="${managementUrl}" style="color:#38bdf8;font-size:13px">${isFrench ? "Gérer votre réservation · demander une annulation ou un changement" : "Manage your reservation · request cancellation or rescheduling"}</a></p>` : ""}
 
-    <div class="footer">
-      ${footerText}
-    </div>
+    ${renderEmailFooter(locale)}
   </div>
 </body>
 </html>
@@ -309,13 +342,7 @@ export async function sendMeetingConfirmationEmail({
     subject,
     text: `${greeting}\n\n${intro.replace(/<[^>]+>/g, "")}\n${topicLabel} ${meetingTitle}\n${dateLabel} ${formattedDate}\n${timeLabel} ${formattedTime}\n\n${fallbackLabel} ${fullRoomUrl}\n\n${managementUrl ? `${isFrench ? "Gérer votre réservation" : "Manage your reservation"}: ${managementUrl}\n\n` : ""}${uidLabel} ${bookingUid}\n\nmeet`,
     html,
-    attachments: [
-      {
-        filename: "meet-logo.png",
-        path: path.join(process.cwd(), "public", "meet-logo.png"),
-        cid: "meet-logo",
-      },
-    ],
+    attachments: getEmailBrandAttachments(),
   });
 
   return info;
@@ -378,20 +405,17 @@ export async function sendHostBookingNotificationEmail({
   const subject = isFrench
     ? `Nouvelle réservation : ${attendeeName} pour ${meetingTitle} (mhaf meet)`
     : `New booking: ${attendeeName} for ${meetingTitle} (mhaf meet)`;
-  const badgeText = isFrench ? "Nouveau Client Réservé" : "New Client Booking";
+  const badgeText = isFrench ? "NOUVEAU CLIENT" : "NEW CLIENT";
   const title = isFrench ? "Nouvelle réservation reçue" : "New Booking Received";
   const subtitle = isFrench
-    ? `Bonjour ${hostName}, un client vient de réserver un créneau avec vous pour <strong>${meetingTitle}</strong>.`
-    : `Hello ${hostName}, a client has booked a meeting with you for <strong>${meetingTitle}</strong>.`;
+    ? `Bonjour ${hostName}, un client vient de réserver un créneau avec vous pour <strong>${escapeEmailHtml(meetingTitle)}</strong>.`
+    : `Hello ${hostName}, a client has booked a meeting with you for <strong>${escapeEmailHtml(meetingTitle)}</strong>.`;
   const clientLabel = isFrench ? "Client :" : "Client:";
   const emailLabel = isFrench ? "Email client :" : "Client Email:";
   const dateLabel = isFrench ? "Date :" : "Date:";
   const timeLabel = isFrench ? "Horaire :" : "Time:";
   const notesLabel = isFrench ? "Message :" : "Notes:";
   const btnText = isFrench ? "Accéder à la salle de réunion" : "Access Meeting Room";
-  const footerText = isFrench
-    ? `mhaf meet — Réservation client synchronisée en temps réel avec votre Dashboard.<br>© ${new Date().getFullYear()} mhaf meet. Tous droits réservés.`
-    : `mhaf meet — Client booking synchronized in real-time with your Dashboard.<br>© ${new Date().getFullYear()} mhaf meet. All rights reserved.`;
 
   const html = `
 <!DOCTYPE html>
@@ -416,26 +440,6 @@ export async function sendHostBookingNotificationEmail({
       border-radius: 16px;
       padding: 32px;
       box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-    }
-    .header {
-      border-bottom: 1px solid #27272a;
-      padding-bottom: 20px;
-      margin-bottom: 24px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .badge {
-      display: inline-block;
-      background: rgba(37, 99, 235, 0.15);
-      color: #60a5fa;
-      font-size: 11px;
-      font-weight: 600;
-      padding: 4px 10px;
-      border-radius: 9999px;
-      border: 1px solid rgba(37, 99, 235, 0.3);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
     }
     .title {
       font-size: 20px;
@@ -492,21 +496,11 @@ export async function sendHostBookingNotificationEmail({
       border-radius: 8px;
       box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
     }
-    .footer {
-      border-top: 1px solid #27272a;
-      padding-top: 20px;
-      font-size: 12px;
-      color: #52525b;
-      text-align: center;
-      line-height: 1.5;
-    }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="header">
-      <span class="badge">${badgeText}</span>
-    </div>
+    ${renderEmailHeader(badgeText, appUrl)}
 
     <h1 class="title">${title}</h1>
     <p class="subtitle">${subtitle}</p>
@@ -514,11 +508,11 @@ export async function sendHostBookingNotificationEmail({
     <div class="card">
       <div class="card-row">
         <span class="label">${clientLabel}</span>
-        <span class="value">${attendeeName}</span>
+        <span class="value">${escapeEmailHtml(attendeeName)}</span>
       </div>
       <div class="card-row">
         <span class="label">${emailLabel}</span>
-        <span class="value">${attendeeEmail}</span>
+        <span class="value">${escapeEmailHtml(attendeeEmail)}</span>
       </div>
       <div class="card-row">
         <span class="label">${dateLabel}</span>
@@ -531,17 +525,15 @@ export async function sendHostBookingNotificationEmail({
       ${notes ? `
       <div class="card-row">
         <span class="label">${notesLabel}</span>
-        <span class="value">${notes}</span>
+        <span class="value">${escapeEmailHtml(notes)}</span>
       </div>` : ''}
     </div>
 
     <div class="btn-container">
-      <a href="${fullRoomUrl}" class="btn" target="_blank">${btnText}</a>
+      <a href="${fullRoomUrl}" class="btn" target="_blank" rel="noopener noreferrer">${btnText}</a>
     </div>
 
-    <div class="footer">
-      ${footerText}
-    </div>
+    ${renderEmailFooter(locale)}
   </div>
 </body>
 </html>
@@ -553,11 +545,11 @@ export async function sendHostBookingNotificationEmail({
     subject,
     text: `${subtitle.replace(/<[^>]+>/g, "")}\n\n${clientLabel} ${attendeeName} (${attendeeEmail})\n${dateLabel} ${formattedDate}\n${timeLabel} ${formattedTime}\n\n${btnText} : ${fullRoomUrl}\n\nmhaf meet`,
     html,
+    attachments: getEmailBrandAttachments(),
   });
 
   return info;
 }
-
 
 type E2EGlobal = typeof globalThis & { __mhafE2EMagicLinks?: Map<string, string> };
 
@@ -571,7 +563,6 @@ export function consumeE2EMagicLink(email: string): string | null {
 }
 
 export async function sendMagicLinkEmail(to: string, magicLink: string, locale: "en" | "fr" = "en"): Promise<void> {
-  // Local Playwright sink: disabled in production and requires an explicit dev-only secret.
   if (process.env.NODE_ENV === "development" && process.env.MHAF_E2E_AUTH_HARNESS_SECRET) {
     const root = globalThis as E2EGlobal;
     root.__mhafE2EMagicLinks ??= new Map<string, string>();
@@ -582,9 +573,11 @@ export async function sendMagicLinkEmail(to: string, magicLink: string, locale: 
   const transporter = getTransporter();
   const from = getMeetingEmailFrom(process.env.EMAIL_FROM, process.env.SMTP_USER);
   const safeLink = magicLink.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://meet.naiimbsili.com";
 
   const isFrench = locale === "fr";
   const subject = isFrench ? "Votre lien de connexion mhaf meet" : "Your mhaf meet sign-in link";
+  const badgeText = isFrench ? "CONNEXION SÉCURISÉE" : "SECURE SIGN-IN";
   const title = isFrench ? "Connexion à mhaf meet" : "Sign in to mhaf meet";
   const intro = isFrench
     ? "Cliquez ci-dessous pour accéder en toute sécurité à votre tableau de bord d'hôte."
@@ -599,7 +592,27 @@ export async function sendMagicLinkEmail(to: string, magicLink: string, locale: 
     to,
     subject,
     text: `${title}\n\n${intro}\n\n${magicLink}\n\n${notice}\n\nmhaf meet`,
-    html: `<!doctype html><html lang="${isFrench ? "fr" : "en"}"><body style="margin:0;padding:32px;background:#09090b;color:#fafafa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"><main style="max-width:520px;margin:auto;padding:32px;background:#121215;border:1px solid #27272a;border-radius:16px"><h1 style="font-size:22px;color:#ffffff;margin-top:0">${title}</h1><p style="color:#a1a1aa;line-height:1.6">${intro}</p><p style="margin:28px 0"><a href="${safeLink}" style="display:inline-block;padding:13px 24px;border-radius:9px;background:#2563EB;color:#ffffff;text-decoration:none;font-weight:700;box-shadow:0 4px 14px rgba(37,99,235,0.35)">${btnText}</a></p><p style="color:#71717a;font-size:13px;line-height:1.6">${notice}</p></main></body></html>`,
+    html: `<!doctype html>
+<html lang="${isFrench ? "fr" : "en"}">
+<head>
+  <meta charset="utf-8">
+  <title>${subject}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:24px;background:#09090b;color:#fafafa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+  <main style="max-width:540px;margin:auto;padding:32px;background:#121215;border:1px solid #27272a;border-radius:16px;box-shadow:0 10px 25px rgba(0,0,0,0.5)">
+    ${renderEmailHeader(badgeText, appUrl)}
+    <h1 style="font-size:22px;color:#ffffff;margin-top:0">${title}</h1>
+    <p style="color:#a1a1aa;line-height:1.6">${intro}</p>
+    <p style="margin:28px 0;text-align:center">
+      <a href="${safeLink}" style="display:inline-block;padding:14px 28px;border-radius:10px;background:#2563EB;color:#ffffff;text-decoration:none;font-weight:700;box-shadow:0 4px 14px rgba(37,99,235,0.35)">${btnText}</a>
+    </p>
+    <p style="color:#71717a;font-size:13px;line-height:1.6">${notice}</p>
+    ${renderEmailFooter(locale)}
+  </main>
+</body>
+</html>`,
+    attachments: getEmailBrandAttachments(),
   });
 }
 
@@ -609,63 +622,255 @@ export async function sendBookingLinkEmail(params: {
   title: string;
   durationMinutes: number;
   bookingUrl: string;
+  locale?: "en" | "fr";
 }) {
   const transporter = getTransporter();
   const from = getMeetingEmailFrom(process.env.EMAIL_FROM, process.env.SMTP_USER);
-  const escapeHtml = (value: string) =>
-    value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-  const title = escapeHtml(params.title);
-  const hostName = escapeHtml(params.hostName);
-  const url = escapeHtml(params.bookingUrl);
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://meet.naiimbsili.com";
+
+  const isFrench = params.locale === "fr";
+  const title = escapeEmailHtml(params.title);
+  const hostName = escapeEmailHtml(params.hostName);
+  const url = escapeEmailHtml(params.bookingUrl);
+
+  const subject = isFrench
+    ? `Choisissez un horaire pour ${params.title} — mhaf meet`
+    : `Choose a time for ${params.title} — mhaf meet`;
+  const badgeText = isFrench ? "INVITATION RÉSERVATION" : "BOOKING INVITATION";
+  const heading = isFrench ? "Vous êtes invité à réserver une réunion" : "You're invited to book a meeting";
+  const desc = isFrench
+    ? `${hostName} vous invite à planifier <strong style="color:#fafafa">${title}</strong> (${params.durationMinutes} minutes).`
+    : `${hostName} invited you to schedule <strong style="color:#fafafa">${title}</strong> (${params.durationMinutes} minutes).`;
+  const btnText = isFrench ? "Choisir un créneau" : "Choose a time";
+  const note = isFrench
+    ? "Vous pourrez choisir parmi les créneaux disponibles de votre hôte. Votre réunion sera confirmée dès la validation."
+    : "You'll be able to choose from the host's available time slots. Your meeting will be confirmed after you complete the booking.";
 
   return transporter.sendMail({
     from,
     to: params.to,
-    subject: `Choose a time for ${params.title} — MHAF Live`,
-    text: `Hello,\n\n${params.hostName} invited you to book a ${params.durationMinutes}-minute meeting: ${params.title}.\n\nChoose an available time here: ${params.bookingUrl}\n\nMHAF Live`,
-    html: `<!doctype html><html lang="en"><body style="margin:0;padding:32px;background:#09090b;color:#fafafa;font-family:Arial,sans-serif"><main style="max-width:540px;margin:auto;padding:32px;background:#121215;border:1px solid #27272a;border-radius:16px"><p style="color:#38bdf8;font-size:12px;font-weight:700;letter-spacing:.08em">MHAF LIVE · BOOKING INVITATION</p><h1 style="font-size:24px">You're invited to book a meeting</h1><p style="color:#a1a1aa;line-height:1.6">${hostName} invited you to schedule <strong style="color:#fafafa">${title}</strong> (${params.durationMinutes} minutes).</p><p style="margin:28px 0"><a href="${url}" style="display:inline-block;padding:13px 22px;border-radius:9px;background:#10b981;color:#042f2e;text-decoration:none;font-weight:700">Choose a time</a></p><p style="color:#a1a1aa;font-size:13px;line-height:1.6">You'll be able to choose from the host's available time slots. Your meeting will be confirmed after you complete the booking.</p><p style="color:#71717a;font-size:12px;word-break:break-all">If the button doesn't work, open: ${url}</p></main></body></html>`,
-  });
-}
-export async function sendBookingChangeRequestNotification(params: { to: string; attendeeName: string; attendeeEmail: string; meetingTitle: string; type: "CANCEL" | "RESCHEDULE"; reason: string; requestedStartTime?: Date | null; dashboardUrl: string }) {
-  const transporter = getTransporter();
-  const from = getMeetingEmailFrom(process.env.EMAIL_FROM, process.env.SMTP_USER);
-  const label = params.type === "CANCEL" ? "Cancellation request" : "Reschedule request";
-  const requested = params.requestedStartTime ? params.requestedStartTime.toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" }) : "";
-  const escapeHtml = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;");
-  const safeName = escapeHtml(params.attendeeName);
-  const safeEmail = escapeHtml(params.attendeeEmail);
-  const safeTitle = escapeHtml(params.meetingTitle);
-  const safeReason = escapeHtml(params.reason);
-  const safeDashboardUrl = escapeHtml(params.dashboardUrl);
-  const safeRequested = escapeHtml(requested);
-  await transporter.sendMail({
-    from, to: params.to, subject: label + ": " + params.meetingTitle + " — MHAF Live",
-    text: "Hello,\n\n" + params.attendeeName + " (" + params.attendeeEmail + ") requested " + label.toLowerCase() + " for " + params.meetingTitle + ".\nReason: " + params.reason + (requested ? "\nPreferred time: " + requested : "") + "\n\nReview in your dashboard: " + params.dashboardUrl,
-    html: "<div style='font-family:Arial,sans-serif;background:#09090b;color:#fafafa;padding:32px'><main style='max-width:560px;margin:auto;background:#121215;border:1px solid #27272a;border-radius:14px;padding:28px'><p style='color:#38bdf8'>MHAF LIVE · BOOKING REQUEST</p><h1>" + label + "</h1><p>" + safeName + " (" + safeEmail + ") requested a change to <strong>" + safeTitle + "</strong>.</p><p><strong>Reason</strong></p><p style='white-space:pre-wrap;color:#d4d4d8'>" + safeReason + "</p>" + (safeRequested ? "<p>Preferred time: " + safeRequested + "</p>" : "") + "<p><a href='" + safeDashboardUrl + "' style='background:#10b981;color:#042f2e;padding:12px 18px;border-radius:8px;text-decoration:none;font-weight:bold'>Review request</a></p></main></div>",
+    subject,
+    text: `Hello,\n\n${params.hostName} invited you to book a ${params.durationMinutes}-minute meeting: ${params.title}.\n\nChoose an available time here: ${params.bookingUrl}\n\nmhaf meet`,
+    html: `<!doctype html>
+<html lang="${isFrench ? "fr" : "en"}">
+<head>
+  <meta charset="utf-8">
+  <title>${subject}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:24px;background:#09090b;color:#fafafa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+  <main style="max-width:540px;margin:auto;padding:32px;background:#121215;border:1px solid #27272a;border-radius:16px;box-shadow:0 10px 25px rgba(0,0,0,0.5)">
+    ${renderEmailHeader(badgeText, appUrl)}
+    <h1 style="font-size:22px;color:#ffffff;margin-top:0">${heading}</h1>
+    <p style="color:#a1a1aa;line-height:1.6">${desc}</p>
+    <p style="margin:28px 0;text-align:center">
+      <a href="${url}" style="display:inline-block;padding:14px 28px;border-radius:10px;background:#2563EB;color:#ffffff;text-decoration:none;font-weight:700;box-shadow:0 4px 14px rgba(37,99,235,0.35)">${btnText}</a>
+    </p>
+    <p style="color:#71717a;font-size:13px;line-height:1.6">${note}</p>
+    <p style="color:#52525b;font-size:12px;word-break:break-all">Lien : ${url}</p>
+    ${renderEmailFooter(params.locale || "fr")}
+  </main>
+</body>
+</html>`,
+    attachments: getEmailBrandAttachments(),
   });
 }
 
-export async function sendBookingChangeResultEmail(params: { to: string; attendeeName: string; meetingTitle: string; decision: "APPROVED" | "REJECTED"; type: "CANCEL" | "RESCHEDULE"; startTime: Date; roomUrl: string }) {
+export async function sendBookingChangeRequestNotification(params: {
+  to: string;
+  attendeeName: string;
+  attendeeEmail: string;
+  meetingTitle: string;
+  type: "CANCEL" | "RESCHEDULE";
+  reason: string;
+  requestedStartTime?: Date | null;
+  dashboardUrl: string;
+  locale?: "en" | "fr";
+}) {
   const transporter = getTransporter();
   const from = getMeetingEmailFrom(process.env.EMAIL_FROM, process.env.SMTP_USER);
-  const message = params.decision === "APPROVED" ? (params.type === "CANCEL" ? "Your cancellation request has been approved. Your booking is cancelled." : "Your reschedule request has been approved. Your meeting time has been updated.") : "Your request was not approved. Your original booking remains unchanged.";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://meet.naiimbsili.com";
+
+  const isFrench = params.locale !== "en";
+  const label = params.type === "CANCEL"
+    ? (isFrench ? "Demande d'annulation" : "Cancellation request")
+    : (isFrench ? "Demande de report" : "Reschedule request");
+  const badgeText = params.type === "CANCEL"
+    ? (isFrench ? "ANNULATION" : "CANCELLATION")
+    : (isFrench ? "REPORT" : "RESCHEDULE");
+
+  const requested = params.requestedStartTime
+    ? params.requestedStartTime.toLocaleString(isFrench ? "fr-FR" : "en-US", { dateStyle: "medium", timeStyle: "short" })
+    : "";
+
+  const safeName = escapeEmailHtml(params.attendeeName);
+  const safeEmail = escapeEmailHtml(params.attendeeEmail);
+  const safeTitle = escapeEmailHtml(params.meetingTitle);
+  const safeReason = escapeEmailHtml(params.reason);
+  const safeDashboardUrl = escapeEmailHtml(params.dashboardUrl);
+  const safeRequested = escapeEmailHtml(requested);
+
+  await transporter.sendMail({
+    from,
+    to: params.to,
+    subject: `${label} : ${params.meetingTitle} — mhaf meet`,
+    text: `Hello,\n\n${params.attendeeName} (${params.attendeeEmail}) requested ${label.toLowerCase()} for ${params.meetingTitle}.\nReason: ${params.reason}${requested ? `\nPreferred time: ${requested}` : ""}\n\nReview in your dashboard: ${params.dashboardUrl}`,
+    html: `<!doctype html>
+<html lang="${isFrench ? "fr" : "en"}">
+<head>
+  <meta charset="utf-8">
+  <title>${label}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:24px;background:#09090b;color:#fafafa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+  <main style="max-width:560px;margin:auto;background:#121215;border:1px solid #27272a;border-radius:16px;padding:32px;box-shadow:0 10px 25px rgba(0,0,0,0.5)">
+    ${renderEmailHeader(badgeText, appUrl)}
+    <h1 style="font-size:22px;color:#ffffff;margin-top:0">${label}</h1>
+    <p style="color:#a1a1aa;line-height:1.6">${safeName} (${safeEmail}) ${isFrench ? "a soumis une demande concernant" : "requested a change for"} <strong style="color:#ffffff">${safeTitle}</strong>.</p>
+    <div style="background:#18181b;border:1px solid #27272a;border-radius:12px;padding:16px;margin:20px 0;">
+      <p style="margin:0 0 6px 0;color:#71717a;font-size:12px;text-transform:uppercase;font-weight:700;">${isFrench ? "Motif" : "Reason"}</p>
+      <p style="white-space:pre-wrap;color:#d4d4d8;margin:0;font-size:14px;line-height:1.5;">${safeReason}</p>
+      ${safeRequested ? `<p style="margin:12px 0 0 0;color:#60a5fa;font-size:13px;"><strong>${isFrench ? "Nouvel horaire souhaité :" : "Preferred time:"}</strong> ${safeRequested}</p>` : ""}
+    </div>
+    <p style="text-align:center;margin:28px 0;">
+      <a href="${safeDashboardUrl}" style="background:#2563EB;color:#ffffff;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:bold;display:inline-block;box-shadow:0 4px 14px rgba(37,99,235,0.35)">${isFrench ? "Examiner la demande" : "Review request"}</a>
+    </p>
+    ${renderEmailFooter(isFrench ? "fr" : "en")}
+  </main>
+</body>
+</html>`,
+    attachments: getEmailBrandAttachments(),
+  });
+}
+
+export async function sendBookingChangeResultEmail(params: {
+  to: string;
+  attendeeName: string;
+  meetingTitle: string;
+  decision: "APPROVED" | "REJECTED";
+  type: "CANCEL" | "RESCHEDULE";
+  startTime: Date;
+  roomUrl: string;
+  locale?: "en" | "fr";
+}) {
+  const transporter = getTransporter();
+  const from = getMeetingEmailFrom(process.env.EMAIL_FROM, process.env.SMTP_USER);
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://meet.naiimbsili.com";
+
+  const isFrench = params.locale !== "en";
+  const isApproved = params.decision === "APPROVED";
+  const badgeText = isApproved
+    ? (isFrench ? "DEMANDE VALIDÉE" : "REQUEST APPROVED")
+    : (isFrench ? "DEMANDE DÉCLINÉE" : "REQUEST DECLINED");
+
+  const message = isApproved
+    ? (params.type === "CANCEL"
+        ? (isFrench ? "Votre demande d'annulation a été acceptée. Votre réservation est désormais annulée." : "Your cancellation request has been approved. Your booking is cancelled.")
+        : (isFrench ? "Votre demande de report a été acceptée. L'horaire de votre réunion a bien été mis à jour." : "Your reschedule request has been approved. Your meeting time has been updated."))
+    : (isFrench
+        ? "Votre demande de modification n'a pas pu être validée. Votre réservation initiale reste active."
+        : "Your request was not approved. Your original booking remains unchanged.");
+
   const safeName = escapeEmailHtml(params.attendeeName);
   const safeTitle = escapeEmailHtml(params.meetingTitle);
   const safeMessage = escapeEmailHtml(message);
   const safeRoomUrl = escapeEmailHtml(params.roomUrl);
-  const start = params.startTime.toLocaleString("fr-FR", { dateStyle: "full", timeStyle: "short" });
-  await transporter.sendMail({ from, to: params.to, subject: "Booking request " + params.decision.toLowerCase() + " — MHAF Live", text: "Hello " + params.attendeeName + ",\n\n" + message + "\n\n" + params.meetingTitle + "\n" + start + "\n" + (params.decision === "APPROVED" && params.type === "RESCHEDULE" ? params.roomUrl : ""), html: "<div style='font-family:Arial,sans-serif;background:#09090b;color:#fafafa;padding:32px'><main style='max-width:540px;margin:auto;background:#121215;border:1px solid #27272a;border-radius:14px;padding:28px'><h1>Booking request " + params.decision.toLowerCase() + "</h1><p>Hello " + safeName + ",</p><p>" + safeMessage + "</p><p><strong>" + safeTitle + "</strong><br/>" + start + "</p>" + (params.decision === "APPROVED" && params.type === "RESCHEDULE" ? "<p><a href='" + safeRoomUrl + "'>Join your meeting</a></p>" : "") + "</main></div>" });
+  const start = params.startTime.toLocaleString(isFrench ? "fr-FR" : "en-US", { dateStyle: "full", timeStyle: "short" });
+
+  const subject = isApproved
+    ? (isFrench ? `Demande acceptée : ${params.meetingTitle} — mhaf meet` : `Request approved: ${params.meetingTitle} — mhaf meet`)
+    : (isFrench ? `Mise à jour réservation : ${params.meetingTitle} — mhaf meet` : `Booking update: ${params.meetingTitle} — mhaf meet`);
+
+  await transporter.sendMail({
+    from,
+    to: params.to,
+    subject,
+    text: `Hello ${params.attendeeName},\n\n${message}\n\n${params.meetingTitle}\n${start}\n${isApproved && params.type === "RESCHEDULE" ? params.roomUrl : ""}\n\nmhaf meet`,
+    html: `<!doctype html>
+<html lang="${isFrench ? "fr" : "en"}">
+<head>
+  <meta charset="utf-8">
+  <title>${subject}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:24px;background:#09090b;color:#fafafa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+  <main style="max-width:540px;margin:auto;background:#121215;border:1px solid #27272a;border-radius:16px;padding:32px;box-shadow:0 10px 25px rgba(0,0,0,0.5)">
+    ${renderEmailHeader(badgeText, appUrl)}
+    <h1 style="font-size:22px;color:#ffffff;margin-top:0">${isApproved ? (isFrench ? "Demande acceptée" : "Request Approved") : (isFrench ? "Mise à jour de votre demande" : "Request Update")}</h1>
+    <p style="color:#fafafa;font-size:15px;">${isFrench ? "Bonjour" : "Hello"} ${safeName},</p>
+    <p style="color:#a1a1aa;line-height:1.6">${safeMessage}</p>
+    <div style="background:#18181b;border:1px solid #27272a;border-radius:12px;padding:16px;margin:20px 0;">
+      <strong style="color:#ffffff;font-size:15px;">${safeTitle}</strong>
+      <p style="color:#60a5fa;margin:8px 0 0 0;font-size:13px;">${start}</p>
+    </div>
+    ${isApproved && params.type === "RESCHEDULE" ? `
+    <p style="text-align:center;margin:28px 0;">
+      <a href="${safeRoomUrl}" style="background:#2563EB;color:#ffffff;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:bold;display:inline-block;box-shadow:0 4px 14px rgba(37,99,235,0.35)">${isFrench ? "Rejoindre la réunion" : "Join your meeting"}</a>
+    </p>` : ""}
+    ${renderEmailFooter(isFrench ? "fr" : "en")}
+  </main>
+</body>
+</html>`,
+    attachments: getEmailBrandAttachments(),
+  });
 }
 
-
-export async function sendBookingReminderEmail(params: { to: string; attendeeName: string; meetingTitle: string; startTime: Date; roomUrl: string; minutesBefore: 15 | 5; managementUrl?: string }) {
+export async function sendBookingReminderEmail(params: {
+  to: string;
+  attendeeName: string;
+  meetingTitle: string;
+  startTime: Date;
+  roomUrl: string;
+  minutesBefore: 15 | 5;
+  managementUrl?: string;
+  locale?: "en" | "fr";
+}) {
   const transporter = getTransporter();
   const from = getMeetingEmailFrom(process.env.EMAIL_FROM, process.env.SMTP_USER);
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://meet.naiimbsili.com";
+
+  const isFrench = params.locale !== "en";
+  const badgeText = isFrench ? `DANS ${params.minutesBefore} MINUTES` : `IN ${params.minutesBefore} MINUTES`;
+  const subject = isFrench
+    ? `Rappel : votre réunion commence dans ${params.minutesBefore} minutes — mhaf meet`
+    : `Reminder: your meeting starts in ${params.minutesBefore} minutes — mhaf meet`;
+
   const safeName = escapeEmailHtml(params.attendeeName);
   const safeTitle = escapeEmailHtml(params.meetingTitle);
   const safeRoomUrl = escapeEmailHtml(params.roomUrl);
   const safeManagementUrl = params.managementUrl ? escapeEmailHtml(params.managementUrl) : "";
-  const start = params.startTime.toLocaleString("fr-FR", { dateStyle: "full", timeStyle: "short" });
-  const manageText = params.managementUrl ? "\nManage booking: " + params.managementUrl : "";
-  await transporter.sendMail({ from, to: params.to, subject: "Reminder: your meeting starts in " + params.minutesBefore + " minutes — MHAF Live", text: "Hello " + params.attendeeName + ",\n\nYour meeting " + params.meetingTitle + " starts in " + params.minutesBefore + " minutes.\n" + start + "\nJoin: " + params.roomUrl + manageText, html: "<div style='font-family:Arial,sans-serif;background:#09090b;color:#fafafa;padding:32px'><main style='max-width:540px;margin:auto;background:#121215;border:1px solid #27272a;border-radius:14px;padding:28px'><p style='color:#38bdf8'>MHAF LIVE · MEETING REMINDER</p><h1>Your meeting starts in " + params.minutesBefore + " minutes</h1><p>Hello " + safeName + ", your meeting <strong>" + safeTitle + "</strong> is coming up.</p><p>" + start + "</p><p><a href='" + safeRoomUrl + "' style='display:inline-block;background:#10b981;color:#042f2e;padding:12px 18px;border-radius:8px;text-decoration:none;font-weight:bold'>Join meeting</a></p>" + (safeManagementUrl ? "<p><a href='" + safeManagementUrl + "'>Manage booking</a></p>" : "") + "</main></div>" });
+  const start = params.startTime.toLocaleString(isFrench ? "fr-FR" : "en-US", { dateStyle: "full", timeStyle: "short" });
+  const manageText = params.managementUrl ? `\nManage booking: ${params.managementUrl}` : "";
+
+  await transporter.sendMail({
+    from,
+    to: params.to,
+    subject,
+    text: `Hello ${params.attendeeName},\n\nYour meeting ${params.meetingTitle} starts in ${params.minutesBefore} minutes.\n${start}\nJoin: ${params.roomUrl}${manageText}\n\nmhaf meet`,
+    html: `<!doctype html>
+<html lang="${isFrench ? "fr" : "en"}">
+<head>
+  <meta charset="utf-8">
+  <title>${subject}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:24px;background:#09090b;color:#fafafa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+  <main style="max-width:540px;margin:auto;background:#121215;border:1px solid #27272a;border-radius:16px;padding:32px;box-shadow:0 10px 25px rgba(0,0,0,0.5)">
+    ${renderEmailHeader(badgeText, appUrl)}
+    <h1 style="font-size:22px;color:#ffffff;margin-top:0">${isFrench ? `Votre réunion commence dans ${params.minutesBefore} minutes` : `Your meeting starts in ${params.minutesBefore} minutes`}</h1>
+    <p style="color:#a1a1aa;line-height:1.6">${isFrench ? "Bonjour" : "Hello"} ${safeName}, ${isFrench ? "votre session vidéo approche à grands pas." : "your video meeting is coming up shortly."}</p>
+    <div style="background:#18181b;border:1px solid #27272a;border-radius:12px;padding:16px;margin:20px 0;">
+      <strong style="color:#ffffff;font-size:15px;">${safeTitle}</strong>
+      <p style="color:#60a5fa;margin:8px 0 0 0;font-size:13px;">${start}</p>
+    </div>
+    <p style="text-align:center;margin:28px 0;">
+      <a href="${safeRoomUrl}" style="display:inline-block;background:#2563EB;color:#ffffff;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:bold;box-shadow:0 4px 14px rgba(37,99,235,0.35)">${isFrench ? "Rejoindre la réunion" : "Join meeting"}</a>
+    </p>
+    ${safeManagementUrl ? `<p style="text-align:center;margin-top:16px;"><a href="${safeManagementUrl}" style="color:#38bdf8;font-size:13px;">${isFrench ? "Gérer votre réservation" : "Manage booking"}</a></p>` : ""}
+    ${renderEmailFooter(isFrench ? "fr" : "en")}
+  </main>
+</body>
+</html>`,
+    attachments: getEmailBrandAttachments(),
+  });
 }

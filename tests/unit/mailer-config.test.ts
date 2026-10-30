@@ -7,6 +7,9 @@ import {
   sendBookingReminderEmail,
   sendBookingChangeRequestNotification,
   sendBookingChangeResultEmail,
+  renderEmailHeader,
+  renderEmailFooter,
+  getEmailBrandAttachments,
 } from "../../src/lib/email/mailer.ts";
 
 const smtpEnv = ["SMTP_HOST", "SMTP_USER", "SMTP_PASS"] as const;
@@ -67,4 +70,27 @@ test("booking change result notification refuses to send when SMTP credentials a
     decision: "APPROVED", type: "CANCEL", startTime: new Date("2030-01-01T10:00:00Z"),
     roomUrl: "https://example.test/rooms/test-room",
   }), missingSmtp);
+});
+
+test("email header renders brand icon and logo without outer border", () => {
+  const header = renderEmailHeader("TEST BADGE");
+  assert.ok(header.includes('src="cid:meet-icon"'), "must include cid:meet-icon");
+  assert.ok(header.includes('src="cid:meet-logo"'), "must include cid:meet-logo");
+  assert.ok(header.includes("TEST BADGE"), "must render badge text");
+  assert.ok(!header.includes("background: #ffffff"), "must not add white background box around logo");
+});
+
+test("email brand attachments provide both icon and white logo", () => {
+  const attachments = getEmailBrandAttachments();
+  assert.ok(attachments && attachments.length >= 2, "must provide at least 2 brand attachments");
+  const cids = attachments.map((a: any) => a.cid);
+  assert.ok(cids.includes("meet-icon"), "must include meet-icon attachment");
+  assert.ok(cids.includes("meet-logo"), "must include meet-logo attachment");
+});
+
+test("email footer renders localized footer text", () => {
+  const frFooter = renderEmailFooter("fr");
+  assert.ok(frFooter.includes("Tous droits réservés"), "French footer rendered");
+  const enFooter = renderEmailFooter("en");
+  assert.ok(enFooter.includes("All rights reserved"), "English footer rendered");
 });
