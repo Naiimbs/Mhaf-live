@@ -316,7 +316,7 @@ export default function PublicBookingPage() {
                   <h3 className="text-base font-bold text-foreground mb-3 flex items-center justify-between">
                     <span>Available Time Slots</span>
                     <span className="text-xs font-mono font-normal text-muted-foreground">
-                      {slots.length} available
+                      {slots.filter((slot) => slot.available).length} available
                     </span>
                   </h3>
 
@@ -336,10 +336,17 @@ export default function PublicBookingPage() {
                           key={slot.slotId}
                           type="button"
                           id={`slot-btn-${slot.slotId}`}
-                          onClick={() => setSelectedSlot(slot)}
-                          className="px-4 py-2.5 rounded-xl border border-border bg-card hover:border-primary hover:bg-primary/5 text-sm font-semibold text-foreground transition-all flex items-center justify-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-ring"
+                          onClick={() => {
+                            if (slot.available) setSelectedSlot(slot);
+                          }}
+                          disabled={!slot.available}
+                          aria-disabled={!slot.available}
+                          title={slot.available ? "Available" : "This time is unavailable"}
+                          className={slot.available
+                            ? "px-4 py-2.5 rounded-xl border border-border bg-card hover:border-primary hover:bg-primary/5 text-sm font-semibold text-foreground transition-all flex items-center justify-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-ring"
+                            : "px-4 py-2.5 rounded-xl border border-border/60 bg-muted/60 text-sm font-medium text-muted-foreground/60 cursor-not-allowed opacity-60 flex items-center justify-center gap-1.5"}
                         >
-                          <Clock className="h-3.5 w-3.5 text-primary" />
+                          <Clock className={`h-3.5 w-3.5 ${slot.available ? "text-primary" : "text-muted-foreground/50"}`} />
                           <span>{slot.displayTime}</span>
                         </button>
                       ))}
