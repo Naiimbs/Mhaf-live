@@ -33,16 +33,16 @@ export function AnnouncementBanner() {
     >
       <div className="mx-auto flex items-center gap-2 text-center text-muted-foreground">
         <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-semibold text-primary">
-          <Sparkles className="h-3 w-3" /> Architecture Blueprint
+          <Sparkles className="h-3 w-3" /> MHAF Live
         </span>
         <span className="hidden sm:inline">
-          Secure meetings, scheduling, and a clearer way to collaborate.
+          Scheduling and video meetings, brought into one workflow.
         </span>
         <a
           href="#features"
           className="inline-flex items-center font-medium text-foreground underline-offset-4 hover:underline"
         >
-          Explore the platform <ArrowRight className="ml-1 h-3 w-3" />
+          See who it’s for <ArrowRight className="ml-1 h-3 w-3" />
         </a>
       </div>
       <button

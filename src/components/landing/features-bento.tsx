@@ -12,7 +12,7 @@ export function FeaturesBento() {
             Platform Capabilities
           </Badge>
           <h2 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-            Everything needed for modern video collaboration.
+            The essentials for a more connected meeting workflow.
           </h2>
           <p className="mt-4 text-base text-muted-foreground">
             A connected workflow for real-time meetings and scheduling, with attendance and intelligence capabilities being developed in measured stages.
@@ -33,7 +33,7 @@ export function FeaturesBento() {
                 </Badge>
               </div>
               <CardTitle className="text-xl sm:text-2xl mt-4">
-                High-Assurance Video Conferencing
+                Live video meetings
               </CardTitle>
               <CardDescription className="text-base mt-2">
                 Built on LiveKit's Selective Forwarding Unit (SFU) architecture.

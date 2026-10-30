@@ -40,11 +40,10 @@ export function InteractivePreview() {
             Interactive Prototype Preview
           </Badge>
           <h2 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-            Test the MHAF Live experience right here.
+            Explore an interactive product preview.
           </h2>
           <p className="mt-3 text-base text-muted-foreground">
-            Experience how the autonomous scheduling engine and PreJoin room staging
-            operate before initiating a live call.
+            Explore a sample booking journey and the room pre-join interface. This prototype is not connected to a live calendar or meeting room.
           </p>
         </div>
 
@@ -57,7 +56,7 @@ export function InteractivePreview() {
                   <Calendar className="h-4 w-4" /> 1. Scheduling Flow
                 </TabsTrigger>
                 <TabsTrigger value="room-staging" className="flex items-center gap-2">
-                  <Video className="h-4 w-4" /> 2. PreJoin Room Staging
+                  <Video className="h-4 w-4" /> 2. Room setup preview
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -70,17 +69,17 @@ export function InteractivePreview() {
                     <div>
                       <div className="flex items-center gap-2">
                         <Badge variant="secondary" className="font-mono text-xs">
-                          Cal.diy Algorithm Demo
+                          Booking concept preview
                         </Badge>
                         <span className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Globe className="h-3 w-3" /> Auto-detected: UTC+1
+                          <Globe className="h-3 w-3" /> Example timezone: Africa/Tunis
                         </span>
                       </div>
                       <CardTitle className="text-xl sm:text-2xl mt-2">
-                        Executive Consultation & Review
+                        Client consultation
                       </CardTitle>
                       <CardDescription className="text-sm mt-1">
-                        Select a duration and choose an open slot to preview the instant booking flow.
+                        Choose a sample duration and time to see how a booking confirmation could look.
                       </CardDescription>
                     </div>
 
@@ -111,7 +110,7 @@ export function InteractivePreview() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
                       <div>
                         <span className="text-sm font-semibold text-foreground flex items-center gap-1.5 mb-3">
-                          <Clock className="h-4 w-4 text-primary" /> Available Time Windows
+                          <Clock className="h-4 w-4 text-primary" /> Sample time options
                         </span>
                         <p className="text-xs text-muted-foreground mb-4">
                           Sample slots for this interactive preview. They are not fetched from a live host calendar.
@@ -135,7 +134,7 @@ export function InteractivePreview() {
 
                       <div className="rounded-xl border border-border bg-muted/40 p-5 space-y-4">
                         <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-                          Booking Confirmation Summary
+                          Illustrative booking summary
                         </span>
                         <div className="space-y-1.5 text-sm">
                           <div className="flex justify-between">
@@ -198,13 +197,13 @@ export function InteractivePreview() {
                   <div className="flex items-center justify-between">
                     <div>
                       <Badge variant="secondary" className="font-mono text-xs mb-1">
-                        LiveKit PreJoin Pattern
+                        Room setup interface preview
                       </Badge>
                       <CardTitle className="text-xl sm:text-2xl mt-1">
-                        Hardware Staging & Device Check
+                        Camera and microphone controls
                       </CardTitle>
                       <CardDescription className="text-sm mt-1">
-                        Simulate camera framing, microphone level detection, and audio meter test before joining the room.
+                        Preview the camera and microphone controls you would see before joining a meeting.
                       </CardDescription>
                     </div>
                   </div>
@@ -287,9 +286,9 @@ export function InteractivePreview() {
 
                       <div className="rounded-lg border border-border bg-card p-3 text-[11px] text-muted-foreground space-y-1">
                         <span className="font-semibold text-foreground block">
-                          Verified Integration Note:
+                          Prototype note:
                         </span>
-                        Standard WebRTC PreJoin executes in browser sandbox via `navigator.mediaDevices.getUserMedia` before triggering token minting at `/api/connection-details`.
+                        This is a visual simulation only. It does not access your camera or microphone or request a meeting token.
                       </div>
                     </div>
                   </div>

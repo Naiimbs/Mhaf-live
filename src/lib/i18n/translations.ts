@@ -232,11 +232,11 @@ export const translations: Record<Locale, TranslationDictionary> = {
       home: "Home",
     },
     landing: {
-      heroBadge: "Autonomous WebRTC Meeting Infrastructure",
-      heroTitle1: "Better meetings.",
-      heroTitle2: "Smarter decisions.",
+      heroBadge: "Scheduling + video meetings for professionals",
+      heroTitle1: "From booking",
+      heroTitle2: "to conversation.",
       heroSubtitle:
-        "Secure video calls, autonomous scheduling, and real-time collaboration. No mandatory account required for your clients.",
+        "MHAF Live brings scheduling and real-time video meetings into one clear workflow for independent professionals and teams. Guests can join through a shared link.",
       startInstant: "Start Instant Meeting",
       viewBooking: "View Booking Flow",
       instantTitle: "Instant Video Rooms",
@@ -424,11 +424,11 @@ export const translations: Record<Locale, TranslationDictionary> = {
       home: "Accueil",
     },
     landing: {
-      heroBadge: "Infrastructure de visioconférence WebRTC autonome",
-      heroTitle1: "Meilleures réunions.",
-      heroTitle2: "Meilleures décisions.",
+      heroBadge: "Planification et visioconférence pour les professionnels",
+      heroTitle1: "De la réservation",
+      heroTitle2: "à la conversation.",
       heroSubtitle:
-        "Appels vidéo sécurisés, planification autonome et collaboration en temps réel. Aucun compte obligatoire pour vos clients.",
+        "MHAF Live réunit la planification et les réunions vidéo en temps réel dans un parcours clair, pour les indépendants et les équipes. Les invités rejoignent la réunion via un lien partagé."
       startInstant: "Démarrer une réunion",
       viewBooking: "Voir la réservation",
       instantTitle: "Salons vidéo instantanés",

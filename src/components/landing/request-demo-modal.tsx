@@ -30,7 +30,7 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
   const [fullName, setFullName] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [organization, setOrganization] = React.useState("");
-  const [useCase, setUseCase] = React.useState("Enterprise Video Meetings");
+  const [useCase, setUseCase] = React.useState("Independent professional / client consultations");
   const [hours, setHours] = React.useState("50-200 hours");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [submitted, setSubmitted] = React.useState(false);
@@ -104,7 +104,7 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
     setFullName("");
     setEmail("");
     setOrganization("");
-    setUseCase("Enterprise Video Meetings");
+    setUseCase("Independent professional / client consultations");
     setHours("50-200 hours");
     setErrors({});
     setServerError(null);
@@ -118,12 +118,12 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold">
-            {submitted ? "Demo Request Received" : "Request Enterprise Demo"}
+            {submitted ? "Request received" : "Talk to us about MHAF Live"}
           </DialogTitle>
           <DialogDescription className="text-sm">
             {submitted
               ? "Your inquiry has been recorded and assigned a persistent reference ID."
-              : "Connect with our architecture team to evaluate MHAF Live deployment models."}
+              : "Tell us how you meet with clients or collaborate with your team. We’ll use this to understand whether MHAF Live is a good fit."}
           </DialogDescription>
         </DialogHeader>
 
@@ -149,7 +149,7 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
                 type="text"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder="Sarah Connor"
+                placeholder="Your full name"
                 className={`w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 ${
                   errors.fullName
                     ? "border-destructive focus:ring-destructive"
@@ -176,7 +176,7 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="sarah@organization.com"
+                placeholder="you@company.com"
                 className={`w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 ${
                   errors.email
                     ? "border-destructive focus:ring-destructive"
@@ -196,14 +196,14 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
                 htmlFor="demo-org"
                 className="block text-xs font-semibold text-foreground mb-1"
               >
-                Organization / Company <span className="text-destructive">*</span>
+                Business, practice, or team <span className="text-destructive">*</span>
               </label>
               <input
                 id="demo-org"
                 type="text"
                 value={organization}
                 onChange={(e) => setOrganization(e.target.value)}
-                placeholder="Acme Health or Tech Corp"
+                placeholder="Your business or team name (or Independent)"
                 className={`w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 ${
                   errors.organization
                     ? "border-destructive focus:ring-destructive"
@@ -223,7 +223,7 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
                 htmlFor="demo-usecase"
                 className="block text-xs font-semibold text-foreground mb-1"
               >
-                Primary Architectural Focus
+                What best describes your use case?
               </label>
               <select
                 id="demo-usecase"
@@ -231,10 +231,10 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
                 onChange={(e) => setUseCase(e.target.value)}
                 className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
               >
-                <option value="Enterprise Video Meetings">Enterprise Video Meetings</option>
-                <option value="Confidential Telehealth / Medical">Confidential Telehealth / Medical</option>
-                <option value="Legal & Executive Consultations">Legal & Executive Consultations</option>
-                <option value="Self-Hosted LiveKit SFU Architecture">Self-Hosted LiveKit SFU Architecture</option>
+                <option value="Independent professional / client consultations">Independent professional / client consultations</option>
+                <option value="Team meetings / project collaboration">Team meetings / project collaboration</option>
+                <option value="Client booking and scheduling">Client booking and scheduling</option>
+                <option value="Self-hosted / deployment evaluation">Self-hosted / deployment evaluation</option>
               </select>
             </div>
 
@@ -244,7 +244,7 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
                 htmlFor="demo-hours"
                 className="block text-xs font-semibold text-foreground mb-1"
               >
-                Estimated Monthly Meeting Hours
+                Approximate monthly meeting volume
               </label>
               <select
                 id="demo-hours"
@@ -267,11 +267,11 @@ export function RequestDemoModal({ open, onOpenChange }: RequestDemoModalProps) 
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" /> Recording Demo Request...
+                    <Loader2 className="h-4 w-4 animate-spin" /> Submitting request...
                   </>
                 ) : (
                   <>
-                    <Send className="h-4 w-4" /> Submit Demo Request
+                    <Send className="h-4 w-4" /> Send request
                   </>
                 )}
               </Button>

@@ -14,8 +14,8 @@ export function ProductSections() {
       icon: CalendarCheck2,
       title: isFr ? "Laissez vos invités réserver" : "Let guests book a slot",
       description: isFr
-        ? "Définissez vos disponibilités et partagez votre page de réservation. Chaque confirmation s'affiche sur votre calendrier avec son salon dédié."
-        : "Set your availability and share a booking page. A confirmed appointment appears on your calendar with its own meeting room.",
+        ? "Définissez vos disponibilités et partagez une page de réservation. Le parcours de réservation est en cours de finalisation avant son ouverture en production."
+        : "Set your availability and share a booking page. The booking workflow is being finalized and hardened before production use.",
       tag: isFr ? "Réservation + réunion" : "Booking + meeting",
     },
     {
@@ -23,8 +23,8 @@ export function ProductSections() {
       icon: Link2,
       title: isFr ? "Planifiez directement" : "Schedule directly",
       description: isFr
-        ? "Choisissez un créneau dans votre espace hôte et générez un lien de réunion sans imposer un passage par une grille publique."
-        : "Choose a time in your host workspace and create a meeting link without asking anyone to book through a public schedule.",
+        ? "Choisissez un créneau dans votre espace hôte et préparez un lien de réunion sans passer par une page de réservation publique."
+        : "Choose a time in your host workspace and prepare a meeting link without requiring a public booking page.",
       tag: isFr ? "Réunion directe" : "Meeting, no booking",
     },
     {

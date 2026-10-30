@@ -28,7 +28,7 @@ export function HeroSection({ onRequestDemo }: HeroSectionProps) {
             <h1 className="mt-6 text-4xl font-extrabold leading-[1.08] tracking-tight text-foreground sm:text-5xl md:text-6xl">
               {t("landing.heroTitle1")}<br /><span className="text-primary">{t("landing.heroTitle2")}</span>
             </h1>
-            <p className="mt-6 max-w-lg text-base leading-7 text-muted-foreground sm:text-lg">{t("landing.heroDesc")}</p>
+            <p className="mt-6 max-w-lg text-base leading-7 text-muted-foreground sm:text-lg">{t("landing.heroSubtitle")}</p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button size="lg" asChild className="gap-2 shadow-sm">
                 <Link href="/register">{t("landing.ctaStart")} <ArrowRight className="h-4 w-4" /></Link>
@@ -39,8 +39,8 @@ export function HeroSection({ onRequestDemo }: HeroSectionProps) {
             </div>
             <p className="mt-4 text-xs text-muted-foreground">
               {isFr
-                ? "Vos invités réservent via votre lien dédié. Les commandes de réunion restent dans votre espace hôte."
-                : "Guests book through your dedicated booking link. Meeting controls stay in your host workspace."}
+                ? "Vos invités rejoignent la réunion via le lien que vous partagez. Vous gardez la gestion de l’espace hôte."
+                : "Guests join through the link you share. Hosts manage the meeting from their workspace."}
             </p>
           </div>
           <div id="calendar" className="relative rounded-2xl border border-border bg-card p-4 shadow-xl shadow-black/5 sm:p-6">

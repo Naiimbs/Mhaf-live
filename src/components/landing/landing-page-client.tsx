@@ -15,9 +15,11 @@ import { FaqSection } from "@/components/landing/faq-section";
 import { Footer } from "@/components/landing/footer";
 import { RequestDemoModal } from "@/components/landing/request-demo-modal";
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/lib/i18n/language-context";
 
 export function LandingPageClient() {
   const [demoOpen, setDemoOpen] = React.useState(false);
+  const { isFr } = useLanguage();
   const openDemo = React.useCallback(() => setDemoOpen(true), []);
 
   return (
@@ -38,10 +40,10 @@ export function LandingPageClient() {
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 p-3 backdrop-blur md:hidden">
         <div className="mx-auto grid max-w-md grid-cols-2 gap-2">
           <Button asChild className="min-h-11">
-            <Link href="/register">Create account</Link>
+            <Link href="/register">{isFr ? "Créer un compte" : "Create account"}</Link>
           </Button>
           <Button variant="outline" className="min-h-11" onClick={openDemo}>
-            Request demo
+            {isFr ? "Demander une démo" : "Request demo"}
           </Button>
         </div>
       </div>

@@ -17,6 +17,7 @@ export function Navbar({ onRequestDemo }: NavbarProps) {
 
   const navLinks = [
     { label: isFr ? "Plateforme" : "Platform", href: "#features" },
+    { label: isFr ? "Pour qui ?" : "Who it’s for", href: "#audience" },
     { label: isFr ? "Planification" : "Scheduling", href: "#preview" },
     { label: isFr ? "Sécurité" : "Security", href: "#security" },
     { label: "FAQ", href: "#faq" },
