@@ -9,7 +9,7 @@ test("host calendar workspace keeps booking and meeting actions inside the dashb
   await expect(page.getByRole("heading", { name: "Your booking links" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Three ways to meet" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Schedule meeting" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Start instant" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Instant meeting" })).toBeVisible();
 
   await page.getByRole("button", { name: "Schedule meeting" }).click();
   const dialog = page.getByRole("dialog");
