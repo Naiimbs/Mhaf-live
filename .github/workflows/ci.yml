@@ -7,7 +7,7 @@ on:
     branches: [master]
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: mhaf-live-ci-${{ github.event.pull_request.number || github.ref }}-${{ github.sha }}
@@ -17,6 +17,8 @@ jobs:
   refresh-lockfiles:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Check out PR branch
         uses: actions/checkout@v4
