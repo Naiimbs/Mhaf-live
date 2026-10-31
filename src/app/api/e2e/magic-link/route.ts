@@ -1,11 +1,12 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { consumeE2EMagicLink } from "@/lib/email/mailer";
+import { getE2EAuthHarnessSecret } from "@/lib/e2e-auth";
 
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
-  const configuredSecret = process.env.MHAF_E2E_AUTH_HARNESS_SECRET;
+  const configuredSecret = getE2EAuthHarnessSecret();
   const suppliedSecret = request.headers.get("x-mhaf-e2e-secret") || "";
 
   if (process.env.NODE_ENV !== "development") {
