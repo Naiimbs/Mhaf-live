@@ -1,4 +1,5 @@
 import type { APIRequestContext, Page } from "@playwright/test";
+import { getE2EAuthHarnessSecret } from "@/lib/e2e-auth";
 
 type VerifiedHost = { email: string; userId: string; cookie: string };
 
@@ -6,7 +7,7 @@ type VerifiedHost = { email: string; userId: string; cookie: string };
 export async function registerAndVerifyHost(page: Page, request: APIRequestContext, name = "Playwright E2E Host"): Promise<VerifiedHost> {
   const suffix = `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
   const email = `e2e_${suffix}@test.live`;
-  const secret = process.env.MHAF_E2E_AUTH_HARNESS_SECRET;
+  const secret = getE2EAuthHarnessSecret();
   if (!secret) throw new Error("MHAF_E2E_AUTH_HARNESS_SECRET is missing from the Playwright process.");
 
   const clientIp = `198.51.100.${Math.floor(Math.random() * 254) + 1}`;
