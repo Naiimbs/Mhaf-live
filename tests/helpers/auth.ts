@@ -1,5 +1,5 @@
 import type { APIRequestContext, Page } from "@playwright/test";
-import { getE2EAuthHarnessSecret } from "@/lib/e2e-auth";
+import { getE2EAuthHarnessSecret } from "../../src/lib/e2e-auth";
 
 type VerifiedHost = { email: string; userId: string; cookie: string };
 
