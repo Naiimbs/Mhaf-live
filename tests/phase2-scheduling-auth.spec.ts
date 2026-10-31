@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { getE2EAuthHarnessSecret } from "@/lib/e2e-auth";
 
 function e2eClientIp() {
   return `198.51.100.${Math.floor(Math.random() * 254) + 1}`;
@@ -77,7 +78,7 @@ test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests",
     // The development-only E2E mail harness captures the actual one-time link without SMTP.
     const capturedLinkResponse = await request.get(
       `/api/e2e/magic-link?email=${encodeURIComponent(uniqueEmail)}`,
-      { headers: { "x-mhaf-e2e-secret": process.env.MHAF_E2E_AUTH_HARNESS_SECRET! } }
+      { headers: { "x-mhaf-e2e-secret": getE2EAuthHarnessSecret()! } }
     );
     expect(capturedLinkResponse.status()).toBe(200);
     const { url } = await capturedLinkResponse.json();
