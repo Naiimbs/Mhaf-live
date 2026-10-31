@@ -73,7 +73,7 @@ test.describe("LiveKit rooms and meeting lifecycle", () => {
       await authPage.close();
       await api.dispose();
     }
-  });;
+  });
 
   test("rejects a token request without room identifier", async ({ request }) => {
     const response = await request.get("/api/connection-details");
