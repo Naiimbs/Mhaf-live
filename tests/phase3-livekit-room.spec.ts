@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, request as playwrightRequest } from "@playwright/test";
 import { jwtVerify } from "jose";
 import { registerAndVerifyHost } from "./helpers/auth";
 
@@ -7,15 +7,14 @@ test.describe("LiveKit rooms and meeting lifecycle", () => {
   let bookingUid: string;
   let futureMeetingUid: string;
   let testHostId: string;
-  let testHostEmail: string;
   let hostCookie = "";
 
-  test.beforeAll(async ({ browser, request }) => {
+  test.beforeAll(async ({ browser }) => {
     const authPage = await browser.newPage();
+    const api = await playwrightRequest.newContext({ baseURL: "http://localhost:3000" });
     try {
-      const host = await registerAndVerifyHost(authPage, request, "Dr. Jordan Hayes");
+      const host = await registerAndVerifyHost(authPage, api, "Dr. Jordan Hayes");
       testHostId = host.userId;
-      testHostEmail = host.email;
       hostCookie = host.cookie;
 
       let openSlot: { startTimeUtc: string; endTimeUtc: string; eventTypeId: string } | null = null;
@@ -26,7 +25,7 @@ test.describe("LiveKit rooms and meeting lifecycle", () => {
         const weekday = candidate.getUTCDay();
         if (weekday === 0 || weekday === 6) continue;
         const date = candidate.toISOString().slice(0, 10);
-        const slotsResponse = await request.get(`/api/schedule/slots?hostId=${testHostId}&eventSlug=30min&date=${date}&timezone=UTC`);
+        const slotsResponse = await api.get(`/api/schedule/slots?hostId=${testHostId}&eventSlug=30min&date=${date}&timezone=UTC`);
         if (slotsResponse.ok()) {
           const slotsBody = await slotsResponse.json();
           const available = slotsBody.slots?.find((slot: { available: boolean }) => slot.available);
@@ -35,7 +34,7 @@ test.describe("LiveKit rooms and meeting lifecycle", () => {
       }
       expect(openSlot).not.toBeNull();
 
-      const bookingResponse = await request.post("/api/schedule/book", {
+      const bookingResponse = await api.post("/api/schedule/book", {
         data: {
           hostId: testHostId,
           eventTypeId: openSlot!.eventTypeId,
@@ -50,7 +49,7 @@ test.describe("LiveKit rooms and meeting lifecycle", () => {
       bookingUid = (await bookingResponse.json()).booking.uid;
 
       const futureStart = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
-      const futureMeeting = await request.post("/api/meetings", {
+      const futureMeeting = await api.post("/api/meetings", {
         headers: { Cookie: hostCookie },
         data: {
           title: "Future room access test",
@@ -64,7 +63,7 @@ test.describe("LiveKit rooms and meeting lifecycle", () => {
       expect(futureMeeting.status()).toBe(201);
       futureMeetingUid = (await futureMeeting.json()).meeting.uid;
 
-      const instantResponse = await request.post("/api/rooms/instant", {
+      const instantResponse = await api.post("/api/rooms/instant", {
         headers: { Cookie: hostCookie },
         data: { title: "LiveKit test room" },
       });
@@ -72,6 +71,7 @@ test.describe("LiveKit rooms and meeting lifecycle", () => {
       activeInstantUid = (await instantResponse.json()).meeting.uid;
     } finally {
       await authPage.close();
+      await api.dispose();
     }
   });;
 
