@@ -56,7 +56,7 @@ test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests",
     await page.click("#submit-register-button");
 
     // Registration must not create an authenticated session before email verification.
-    await expect(page).toHaveURL(/\\/register$/);
+    await expect(page).toHaveURL(/register$/);
     await expect(page.getByRole("status")).toContainText("Check your inbox");
     await expect(page.getByRole("status")).toContainText(uniqueEmail);
     await expect(page.locator("#register-password")).toHaveCount(0);
@@ -73,7 +73,7 @@ test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests",
     await page.goto(url);
     await expect(page.getByRole("button", { name: "Confirm and continue" })).toBeVisible();
     await page.getByRole("button", { name: "Confirm and continue" }).click();
-    await expect(page).toHaveURL(/\\/dashboard/);
+    await expect(page).toHaveURL(/dashboard/);
     await expect(page.getByText(uniqueEmail)).toBeVisible();
 
     // A newly registered host receives the default availability schedule in their timezone.
