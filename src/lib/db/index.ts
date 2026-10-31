@@ -27,6 +27,7 @@ interface DatabaseSchema {
   bookingChangeRequests: BookingChangeRequest[];
   meetings: Meeting[];
   auditLogs: AuditLog[];
+  processedLiveKitWebhookEvents: string[];
 }
 
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -132,6 +133,9 @@ class DatabaseStore {
             ...l,
             timestamp: new Date(l.timestamp),
           })),
+          processedLiveKitWebhookEvents: Array.isArray(parsed.processedLiveKitWebhookEvents)
+            ? parsed.processedLiveKitWebhookEvents.filter((id: unknown): id is string => typeof id === "string")
+            : [],
         };
       }
     } catch (err) {
@@ -148,6 +152,7 @@ class DatabaseStore {
       bookingChangeRequests: [],
       meetings: [],
       auditLogs: [],
+      processedLiveKitWebhookEvents: [],
     };
   }
 
@@ -964,6 +969,63 @@ class DatabaseStore {
         throw error;
       }
       return meeting;
+    });
+  }
+
+  // --- Verified LiveKit webhook lifecycle (idempotent by provider event ID) ---
+  async processLiveKitWebhookEvent(
+    eventId: string,
+    roomUid: string,
+    action: "JOIN" | "LEAVE"
+  ): Promise<{ processed: boolean; roomUpdated: boolean }> {
+    return globalLock.acquire(async () => {
+      if (this.data.processedLiveKitWebhookEvents.includes(eventId)) {
+        return { processed: false, roomUpdated: false };
+      }
+
+      const now = new Date();
+      let roomUpdated = false;
+      const booking = this.data.bookings.find((item) => item.uid === roomUid);
+      const meeting = this.data.meetings.find((item) => item.uid === roomUid);
+
+      if (action === "JOIN") {
+        if (booking && booking.status !== "CANCELLED" && booking.status !== "COMPLETED" && booking.lastLeftAt) {
+          booking.lastLeftAt = null;
+          booking.updatedAt = now;
+          roomUpdated = true;
+        }
+        if (meeting && meeting.status !== "CANCELLED" && meeting.status !== "COMPLETED" && meeting.lastLeftAt) {
+          meeting.lastLeftAt = null;
+          meeting.updatedAt = now;
+          roomUpdated = true;
+        }
+      } else {
+        if (booking && booking.status !== "CANCELLED" && booking.status !== "COMPLETED") {
+          booking.lastLeftAt = now;
+          booking.updatedAt = now;
+          roomUpdated = true;
+        }
+        if (meeting && meeting.status !== "CANCELLED" && meeting.status !== "COMPLETED") {
+          meeting.lastLeftAt = now;
+          meeting.updatedAt = now;
+          roomUpdated = true;
+        }
+      }
+
+      this.data.processedLiveKitWebhookEvents.push(eventId);
+      // Bound the JSON-backed idempotency ledger while retaining ample replay protection.
+      if (this.data.processedLiveKitWebhookEvents.length > 10000) {
+        this.data.processedLiveKitWebhookEvents.splice(0, this.data.processedLiveKitWebhookEvents.length - 10000);
+      }
+
+      try {
+        this.persist();
+      } catch (error) {
+        this.data.processedLiveKitWebhookEvents = this.data.processedLiveKitWebhookEvents.filter((id) => id !== eventId);
+        throw error;
+      }
+
+      return { processed: true, roomUpdated };
     });
   }
 

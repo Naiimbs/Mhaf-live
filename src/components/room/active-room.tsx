@@ -1073,38 +1073,7 @@ export function ActiveRoom({
     setMessageInput("");
   };
 
-  const notifyLeave = React.useCallback(() => {
-    try {
-      const payload = JSON.stringify({ roomUid: roomName, action: "LEAVE" });
-      if (typeof navigator !== "undefined" && navigator.sendBeacon) {
-        navigator.sendBeacon("/api/rooms/lifecycle", new Blob([payload], { type: "application/json" }));
-      } else {
-        fetch("/api/rooms/lifecycle", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: payload,
-          keepalive: true,
-        }).catch(() => {});
-      }
-    } catch {
-      // ignore
-    }
-  }, [roomName]);
-
-  React.useEffect(() => {
-    const onPageHide = () => {
-      notifyLeave();
-    };
-    window.addEventListener("pagehide", onPageHide);
-    window.addEventListener("beforeunload", onPageHide);
-    return () => {
-      window.removeEventListener("pagehide", onPageHide);
-      window.removeEventListener("beforeunload", onPageHide);
-    };
-  }, [notifyLeave]);
-
   const handleLeave = () => {
-    notifyLeave();
     localTracksRef.current.forEach((track) => track.stop());
     roomRef.current?.disconnect();
     onLeaveRoom();
