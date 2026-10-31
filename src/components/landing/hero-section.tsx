@@ -37,7 +37,13 @@ export function HeroSection({ onRequestDemo }: HeroSectionProps) {
                 {isFr ? "Discuter de votre besoin" : "Discuss your use case"}
               </Button>
             </div>
-            <p className="mt-4 text-xs text-muted-foreground">
+            <p className="mt-4 text-sm text-muted-foreground">
+              {isFr ? "Vous avez déjà un espace MHAF Live ?" : "Already have a MHAF Live workspace?"}{" "}
+              <Link href="/login" className="font-semibold text-primary underline-offset-4 hover:underline">
+                {isFr ? "Se connecter" : "Sign in"}
+              </Link>
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
               {isFr
                 ? "Vos invités rejoignent la réunion via le lien que vous partagez. Vous gardez la gestion de l’espace hôte."
                 : "Guests join through the link you share. Hosts manage the meeting from their workspace."}
