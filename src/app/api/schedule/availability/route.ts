@@ -26,9 +26,9 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { availabilities, timezone } = body ?? {};
 
-    if (!Array.isArray(availabilities) || availabilities.length > 42) {
+    if (!Array.isArray(availabilities)) {
       return NextResponse.json(
-        { error: "Availabilities must be an array containing no more than 42 intervals." },
+        { error: "Availabilities must be an array of schedule intervals." },
         { status: 400 }
       );
     }
