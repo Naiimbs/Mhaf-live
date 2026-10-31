@@ -131,6 +131,12 @@ A lookup for `prisma/migrations/migration_lock.toml` on the inspected repository
 - Confirm whether any active feature branch already uses `MeetingRoom`, `MeetingSession`, or `ParticipantEvent` persistence.
 - Add tests that lock down current behavior for case-insensitive email/slug handling, booking buffers, reschedule conflict checks, room re-entry/expiry, webhook retries, and reminder deduplication.
 
+### 8.1 Targeted feature-branch schema check
+
+The Prisma schema was also read from the following existing branches: `feat/meeting-experience-and-recording`, `feature/livekit-video-rooms`, and `feature/assisted-onboarding`. In the inspected snapshots, all three carry the same limited Prisma model set as `master`; none adds `MeetingRoom`, `MeetingSession`, `ParticipantEvent`, `Transcript`, or `MeetingSummary`. This is a targeted schema-file comparison only, not a full branch diff or proof that no application code on those branches references the richer model.
+
+The repository-wide caller inventory remains incomplete. The available GitHub code-search queries for the four unresolved method names returned no indexed matches, but this is not sufficient evidence to classify them as dead code. A complete file-tree scan and inspection of test/mocks, destructured calls, and dynamic access are still required.
+
 ## 9. Explicit non-actions
 
 This reconciliation does not:
