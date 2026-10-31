@@ -52,7 +52,7 @@ test.describe("LiveKit rooms and meeting lifecycle", () => {
 
       const futureStart = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
       const futureMeeting = await api.post("/api/meetings", {
-        headers: { Cookie: hostCookie },
+        headers: { Cookie: hostCookie, "x-forwarded-for": `198.51.100.${Math.floor(Math.random() * 254) + 1}` },
         data: {
           title: "Future room access test",
           date: futureStart.toISOString().slice(0, 10),
@@ -66,7 +66,7 @@ test.describe("LiveKit rooms and meeting lifecycle", () => {
       futureMeetingUid = (await futureMeeting.json()).meeting.uid;
 
       const instantResponse = await api.post("/api/rooms/instant", {
-        headers: { Cookie: hostCookie },
+        headers: { Cookie: hostCookie, "x-forwarded-for": `198.51.100.${Math.floor(Math.random() * 254) + 1}` },
         data: { title: "LiveKit test room" },
       });
       expect(instantResponse.status()).toBe(201);
