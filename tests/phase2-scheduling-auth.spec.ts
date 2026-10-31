@@ -9,7 +9,7 @@ test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests",
     // Navigate directly without session
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/login/);
-    await expect(page.locator("h1")).toContainText("Sign in to MHAF Live");
+    await expect(page.locator("h1")).toContainText("Sign in to mhaf meet");
   });
 
   test("2. Protected API routes return 401 Unauthorized when unauthenticated", async ({ request }) => {
@@ -23,7 +23,7 @@ test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests",
   test("3. Login uses email-only magic-link requests and does not expose password sign-in", async ({ page, request }) => {
     await page.goto("/login");
 
-    await expect(page.locator("h1")).toContainText("Sign in to MHAF Live");
+    await expect(page.locator("h1")).toContainText("Sign in to mhaf meet");
     await expect(page.locator("#login-email")).toBeVisible();
     await expect(page.locator("#login-password")).toHaveCount(0);
 
