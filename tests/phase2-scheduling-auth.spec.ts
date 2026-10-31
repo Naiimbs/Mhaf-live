@@ -34,32 +34,38 @@ test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests",
     expect(response.status()).toBe(200);
     const body = await response.json();
     expect(body.success).toBe(true);
-    expect(body.message).toContain("If an account exists");
+    expect(body.message).toContain("If this address can receive a sign-in link");
+
+    // Existing and unknown addresses must receive the same public response.
+    const existingResponse = await request.post("/api/auth/magic-link", {
+      data: { email: seedEmail },
+    });
+    expect(existingResponse.status()).toBe(200);
+    const existingBody = await existingResponse.json();
+    expect(existingBody).toEqual(body);
   });
 
-  test("4. Host Registration creates new host account with custom timezone and default schedule", async ({ page, request }) => {
+  test("4. Host Registration creates an unverified host account and verifies it through a one-time magic link", async ({ page, request }) => {
     const uniqueEmail = `host_${Date.now()}@test.live`;
-    const hostPassword = process.env.E2E_NEW_HOST_PASSWORD || "Password123!";
+    const uniqueName = "Playwright Test Host";
 
     await page.goto("/register");
-    await page.fill("#register-name", "Test Doctor");
+    await page.fill("#register-name", uniqueName);
     await page.fill("#register-email", uniqueEmail);
-    await page.fill("#register-password", hostPassword);
-    await page.selectOption("#register-tz", "America/New_York");
+    await page.selectOption("#register-timezone", "America/New_York");
     await page.click("#submit-register-button");
 
-    await expect(page).toHaveURL(/\/dashboard/);
-    await expect(page.getByText(uniqueEmail)).toBeVisible();
+    // Registration must not create an authenticated session before email verification.
+    await expect(page).toHaveURL(/register$/);
+    await expect(page.getByRole("status")).toContainText("Check your inbox");
+    await expect(page.getByRole("status")).toContainText(uniqueEmail);
+    await expect(page.locator("#register-password")).toHaveCount(0);
 
-    // Re-authenticate using the actual one-time magic-link flow, without SMTP.
-    await page.request.post("/api/auth/logout");
-    await page.goto("/login");
-    const magicLinkResponse = await request.post("/api/auth/magic-link", {
-      data: { email: uniqueEmail },
-    });
-    expect(magicLinkResponse.status()).toBe(200);
-    expect((await magicLinkResponse.json()).success).toBe(true);
+    // A new host must not reach the protected workspace before email verification.
+    await page.goto("/dashboard");
+    await expect(page).toHaveURL(/login/);
 
+    // The development-only E2E mail harness captures the actual one-time link without SMTP.
     const capturedLinkResponse = await request.get(
       `/api/__e2e__/magic-link?email=${encodeURIComponent(uniqueEmail)}`,
       { headers: { "x-mhaf-e2e-secret": process.env.MHAF_E2E_AUTH_HARNESS_SECRET! } }
@@ -68,19 +74,27 @@ test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests",
     const { url } = await capturedLinkResponse.json();
     expect(url).toContain("/auth/verify?token=");
 
-    await page.goto(url);
-    await page.getByRole("button", { name: "Continue to dashboard" }).click();
-    await expect(page).toHaveURL(/\/dashboard/);
+    // Keep the verification flow on the local Playwright server even when
+    // NEXT_PUBLIC_APP_URL is configured with the production hostname.
+    const verificationUrl = new URL(url);
+    const token = verificationUrl.searchParams.get("token");
+    expect(token).toBeTruthy();
+    await page.goto(`${verificationUrl.pathname}${verificationUrl.search}`);
+    await expect(page.getByRole("button", { name: "Confirm and continue" })).toBeVisible();
+    await page.getByRole("button", { name: "Confirm and continue" }).click();
+    await expect(page).toHaveURL(/dashboard/);
     await expect(page.getByText(uniqueEmail)).toBeVisible();
 
-    // Restore the availability regression coverage using the magic-link session.
+    // The same token must be rejected after its first successful use.
+    const replayResponse = await request.post("/api/auth/magic-link/verify", {
+      data: { token },
+    });
+    expect(replayResponse.status()).toBe(400);
+
+    // A newly registered host receives the default availability schedule in their timezone.
     await page.goto("/dashboard/availability");
     await expect(page.locator("h1")).toContainText("Weekly Availability Schedule");
-    await page.selectOption("#end-time-1", "18:00");
-    await page.click("#save-availability-btn");
-    await expect(page.locator("#availability-feedback-alert")).toContainText(
-      "Weekly availability and operating timezone saved successfully."
-    );
+    await expect(page.locator("#end-time-1")).toHaveValue("17:00");
   });
 
   test("5. Legacy password login API is disabled", async ({ request }) => {

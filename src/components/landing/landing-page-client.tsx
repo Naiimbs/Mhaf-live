@@ -10,7 +10,6 @@ import { FeaturesBento } from "@/components/landing/features-bento";
 import { ProductSections } from "@/components/landing/product-sections";
 import { InteractivePreview } from "@/components/landing/interactive-preview";
 import { AnalyticsPreview } from "@/components/landing/analytics-preview";
-import { PricingTiers } from "@/components/landing/pricing-tiers";
 import { AudienceSection } from "@/components/landing/audience-section";
 import { FaqSection } from "@/components/landing/faq-section";
 import { Footer } from "@/components/landing/footer";
@@ -35,7 +34,6 @@ export function LandingPageClient() {
         <InteractivePreview />
         <AnalyticsPreview />
         <AudienceSection onRequestDemo={openDemo} />
-        <PricingTiers onRequestDemo={openDemo} />
         <FaqSection />
       </main>
       <Footer />

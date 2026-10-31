@@ -2,8 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Lock, Mail, User, Globe, ArrowRight, AlertCircle } from "lucide-react";
+import { ArrowRight, AlertCircle, CheckCircle2, Mail, User, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand-logo";
 import { LanguageToggle } from "@/components/language-toggle";
@@ -11,212 +10,160 @@ import { useLanguage } from "@/lib/i18n/language-context";
 
 const COMMON_TIMEZONES = [
   "UTC",
+  "Africa/Tunis",
+  "Europe/Paris",
+  "Europe/London",
   "America/New_York",
   "America/Chicago",
-  "America/Denver",
   "America/Los_Angeles",
-  "Europe/London",
-  "Europe/Paris",
-  "Africa/Casablanca",
   "Asia/Dubai",
   "Asia/Singapore",
   "Asia/Tokyo",
-  "Australia/Sydney",
 ];
 
 export default function RegisterPage() {
-  const router = useRouter();
-  const { isFr } = useLanguage();
+  const { isFr, locale } = useLanguage();
   const [name, setName] = React.useState("");
   const [email, setEmail] = React.useState("");
-  const [password, setPassword] = React.useState("");
   const [timezone, setTimezone] = React.useState("UTC");
   const [error, setError] = React.useState<string | null>(null);
+  const [sent, setSent] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
 
   React.useEffect(() => {
     try {
-      const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      if (userTz) {
-        setTimezone(userTz);
-      }
+      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (userTimezone) setTimezone(userTimezone);
     } catch {
-      // fallback to UTC
+      // Keep UTC as the fallback.
     }
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setError(null);
     setLoading(true);
 
-    if (password.length < 8) {
-      setError(isFr ? "Le mot de passe doit comporter au moins 8 caractères." : "Password must be at least 8 characters long.");
-      setLoading(false);
-      return;
-    }
-
     try {
-      const res = await fetch("/api/auth/register", {
+      const response = await fetch("/api/auth/magic-link", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, timezone }),
+        body: JSON.stringify({ name, email, timezone, locale }),
       });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || (isFr ? "Échec de l'inscription." : "Registration failed."));
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || (isFr ? "Impossible d'envoyer le lien." : "Could not send your sign-in link."));
       }
-
-      router.push("/dashboard");
-      router.refresh();
-    } catch (err: any) {
-      setError(err.message || (isFr ? "Une erreur inattendue est survenue." : "An unexpected error occurred."));
+      setSent(true);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : (isFr ? "Une erreur inattendue est survenue." : "An unexpected error occurred."));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center bg-background px-4 py-12 relative">
-      <div className="absolute top-4 right-4">
+    <main className="relative flex min-h-screen flex-col items-center justify-center bg-background px-4 py-12">
+      <div className="absolute right-4 top-4">
         <LanguageToggle variant="compact" />
       </div>
 
       <div className="w-full max-w-md space-y-6">
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <Link href="/" className="inline-flex items-center" aria-label="meet home">
+        <header className="space-y-2 text-center">
+          <Link href="/" className="inline-flex items-center" aria-label="MHAF Live home">
             <BrandLogo size="large" priority />
           </Link>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            {isFr ? "Créer un compte hôte" : "Create Host Account"}
+            {isFr ? "Créer un compte hôte" : "Create a host account"}
           </h1>
           <p className="text-sm text-muted-foreground">
             {isFr
-              ? "Configurez votre calendrier, vos types d'événements et votre moteur de réservation."
-              : "Establish your booking calendar, custom event types, and scheduling engine."}
+              ? "Aucun mot de passe à retenir. Confirmez votre adresse e-mail pour accéder à votre espace."
+              : "No password to remember. Verify your email address to access your host workspace."}
           </p>
-        </div>
+        </header>
 
-        {/* Card */}
-        <div className="rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-sm">
+        <section className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
           {error && (
             <div className="mb-5 flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">
-              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground uppercase tracking-wider" htmlFor="register-name">
-                {isFr ? "Nom et prénom" : "Full Name"}
-              </label>
-              <div className="relative">
-                <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <input
-                  id="register-name"
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Dr. Jordan Hayes"
-                  className="w-full rounded-lg border border-input bg-background pl-9 pr-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-              </div>
+          {sent ? (
+            <div className="space-y-4 text-center" role="status">
+              <CheckCircle2 className="mx-auto h-11 w-11 text-emerald-500" />
+              <h2 className="font-semibold text-foreground">
+                {isFr ? "Vérifiez votre boîte e-mail" : "Check your inbox"}
+              </h2>
+              <p className="text-sm leading-6 text-muted-foreground">
+                {isFr
+                  ? <>Si cette adresse peut recevoir un lien de connexion, un e-mail sera envoyé à <strong>{email}</strong>. Le lien expire dans 15 minutes et ne peut être utilisé qu’une seule fois.</>
+                  : <>If this address can receive a sign-in link, an email will be sent to <strong>{email}</strong>. The link expires in 15 minutes and can only be used once.</>}
+              </p>
+              <button type="button" onClick={() => setSent(false)} className="text-sm font-semibold text-primary hover:underline">
+                {isFr ? "Utiliser une autre adresse" : "Use a different email"}
+              </button>
             </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground uppercase tracking-wider" htmlFor="register-email">
-                {isFr ? "Adresse e-mail de l'hôte" : "Host Email Address"}
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <input
-                  id="register-email"
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="jordan@domain.com"
-                  className="w-full rounded-lg border border-input bg-background pl-9 pr-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                />
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <label htmlFor="register-name" className="text-xs font-semibold uppercase tracking-wider text-foreground">
+                  {isFr ? "Nom et prénom" : "Full name"}
+                </label>
+                <div className="relative">
+                  <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <input id="register-name" type="text" required minLength={2} maxLength={120} autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} placeholder="Jordan Hayes" className="w-full rounded-lg border border-input bg-background py-2 pl-9 pr-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground uppercase tracking-wider" htmlFor="register-password">
-                {isFr ? "Mot de passe (min. 8 caractères)" : "Password (min. 8 characters)"}
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <input
-                  id="register-password"
-                  type="password"
-                  required
-                  minLength={8}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••••••"
-                  className="w-full rounded-lg border border-input bg-background pl-9 pr-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                />
+              <div className="space-y-1.5">
+                <label htmlFor="register-email" className="text-xs font-semibold uppercase tracking-wider text-foreground">
+                  {isFr ? "Adresse e-mail" : "Email address"}
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <input id="register-email" type="email" required maxLength={254} autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@company.com" className="w-full rounded-lg border border-input bg-background py-2 pl-9 pr-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground uppercase tracking-wider" htmlFor="register-tz">
-                {isFr ? "Fuseau horaire (IANA)" : "Operating Timezone (IANA)"}
-              </label>
-              <div className="relative">
-                <Globe className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <select
-                  id="register-tz"
-                  value={timezone}
-                  onChange={(e) => setTimezone(e.target.value)}
-                  className="w-full rounded-lg border border-input bg-background pl-9 pr-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  {!COMMON_TIMEZONES.includes(timezone) && (
-                    <option value={timezone}>{timezone}</option>
-                  )}
-                  {COMMON_TIMEZONES.map((tz) => (
-                    <option key={tz} value={tz}>
-                      {tz}
-                    </option>
-                  ))}
-                </select>
+              <div className="space-y-1.5">
+                <label htmlFor="register-timezone" className="text-xs font-semibold uppercase tracking-wider text-foreground">
+                  {isFr ? "Fuseau horaire" : "Timezone"}
+                </label>
+                <div className="relative">
+                  <Globe className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <select id="register-timezone" value={timezone} onChange={(event) => setTimezone(event.target.value)} className="w-full rounded-lg border border-input bg-background py-2 pl-9 pr-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
+                    {!COMMON_TIMEZONES.includes(timezone) && <option value={timezone}>{timezone}</option>}
+                    {COMMON_TIMEZONES.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
+                  </select>
+                </div>
               </div>
-            </div>
 
-            <Button
-              type="submit"
-              disabled={loading}
-              className="w-full gap-2 mt-2"
-              id="submit-register-button"
-            >
-              {loading
-                ? (isFr ? "Création du compte en cours..." : "Creating Host Account...")
-                : (isFr ? "Créer mon compte & accéder au tableau de bord" : "Create Account & Go to Dashboard")}
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </form>
-        </div>
+              <Button type="submit" disabled={loading} className="mt-2 w-full gap-2" id="submit-register-button">
+                {loading
+                  ? (isFr ? "Envoi du lien..." : "Sending your link...")
+                  : (isFr ? "Recevoir mon lien de création" : "Email me a sign-up link")}
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+              <p className="text-center text-xs leading-5 text-muted-foreground">
+                {isFr ? "En continuant, vous confirmez que vous avez accès à cette adresse e-mail." : "By continuing, you confirm that you have access to this email address."}
+              </p>
+            </form>
+          )}
+        </section>
 
-        {/* Footer links */}
-        <div className="text-center text-xs text-muted-foreground space-y-1">
+        <div className="space-y-2 text-center text-xs text-muted-foreground">
           <p>
             {isFr ? "Vous avez déjà un compte ?" : "Already have an account?"}{" "}
             <Link href="/login" className="font-semibold text-primary hover:underline">
-              {isFr ? "Se connecter à votre espace" : "Sign in to your dashboard"}
+              {isFr ? "Se connecter" : "Sign in"}
             </Link>
           </p>
-          <p>
-            <Link href="/" className="hover:underline">
-              {isFr ? "← Retour à l'accueil" : "← Back to Home"}
-            </Link>
-          </p>
+          <p><Link href="/" className="hover:underline">{isFr ? "← Retour à l’accueil" : "← Back to home"}</Link></p>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

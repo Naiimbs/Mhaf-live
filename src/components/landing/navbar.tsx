@@ -39,7 +39,7 @@ export function Navbar({ onRequestDemo }: NavbarProps) {
         <div className="hidden items-center gap-2 md:flex">
           <LanguageToggle />
           <ThemeToggle id="desktop-theme-toggle" />
-          <Button variant="ghost" size="sm" asChild>
+          <Button variant="outline" size="sm" asChild>
             <Link href="/login">{t("nav.signIn")}</Link>
           </Button>
           <Button size="sm" variant="outline" onClick={onRequestDemo}>
@@ -65,13 +65,18 @@ export function Navbar({ onRequestDemo }: NavbarProps) {
                 {link.label}
               </a>
             ))}
-            <div className="mt-3 grid grid-cols-2 gap-2 border-t border-border pt-4">
-              <Button variant="outline" className="min-h-11" onClick={() => { setMobileMenuOpen(false); onRequestDemo(); }}>
-                {isFr ? "Demander une démo" : "Request demo"}
+            <div className="mt-3 border-t border-border pt-4">
+              <Button variant="outline" className="mb-2 min-h-11 w-full" asChild>
+                <Link href="/login" onClick={() => setMobileMenuOpen(false)}>{t("nav.signIn")}</Link>
               </Button>
-              <Button asChild className="min-h-11">
-                <Link href="/register" onClick={() => setMobileMenuOpen(false)}>{isFr ? "Commencer" : "Get started"}</Link>
-              </Button>
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" className="min-h-11" onClick={() => { setMobileMenuOpen(false); onRequestDemo(); }}>
+                  {isFr ? "Demander une démo" : "Request demo"}
+                </Button>
+                <Button asChild className="min-h-11">
+                  <Link href="/register" onClick={() => setMobileMenuOpen(false)}>{isFr ? "Commencer" : "Get started"}</Link>
+                </Button>
+              </div>
             </div>
           </nav>
         </div>
