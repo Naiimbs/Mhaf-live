@@ -10,6 +10,7 @@ export const runtime = "nodejs";
 const TOKEN_TTL_MS = 15 * 60 * 1000;
 
 export async function POST(request: NextRequest) {
+  // This in-memory limiter is scoped to the current single-container deployment.
   const clientIp = extractClientIp(request);
   const ipLimit = checkRateLimit(`magic-link:ip:${clientIp}`, 10, 15 * 60 * 1000);
 
