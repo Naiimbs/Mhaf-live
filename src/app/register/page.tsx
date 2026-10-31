@@ -105,6 +105,11 @@ export default function RegisterPage() {
                   ? <>Si cette adresse peut recevoir un lien de connexion, un e-mail sera envoyé à <strong>{email}</strong>. Le lien expire dans 15 minutes et ne peut être utilisé qu’une seule fois.</>
                   : <>If this address can receive a sign-in link, an email will be sent to <strong>{email}</strong>. The link expires in 15 minutes and can only be used once.</>}
               </p>
+              <p className="text-xs leading-5 text-muted-foreground">
+                {isFr
+                  ? "Vous ne trouvez pas l’e-mail ? Pensez à vérifier votre dossier Spam ou Courrier indésirable."
+                  : "Can’t find the email? Please check your spam or junk folder."}
+              </p>
               <button type="button" onClick={() => setSent(false)} className="text-sm font-semibold text-primary hover:underline">
                 {isFr ? "Utiliser une autre adresse" : "Use a different email"}
               </button>
