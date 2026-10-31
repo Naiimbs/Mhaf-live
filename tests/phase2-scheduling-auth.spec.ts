@@ -278,7 +278,7 @@ test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests",
     await page.fill("#booking-date-picker", dateStr);
 
     // Wait for slot buttons to render
-    const firstSlot = page.locator("button[id^='slot-btn-']").first();
+    const firstSlot = page.locator("button[id^='slot-btn-']:not([disabled])").first();
     await firstSlot.waitFor({ state: "visible" });
     await firstSlot.click();
 
