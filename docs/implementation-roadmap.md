@@ -41,3 +41,20 @@ Ces vérifications ne démontrent ni l’unicité des créneaux entre plusieurs 
 - Ajouter des webhooks LiveKit signés et un modèle de session/participant avant de construire des analytics d’assiduité.
 - N’ajouter l’archivage, la transcription ou les résumés IA qu’après choix d’un fournisseur, configuration du stockage, consentement, rétention et tests de bout en bout.
 - Maintenir les tests couvrant les erreurs de fuseau, annulations, conflits, permissions d’hôte et compatibilité des anciens UIDs.
+
+
+## Product decisions — launch polish and future capabilities
+
+### Authentication and homepage
+
+- Host registration is passwordless: collect name, email, and timezone, then send a one-time email verification/sign-in link. The login page remains email-only and uses the same magic-link mechanism.
+- Make existing-user access easy to discover from the homepage: a visible Sign in action in the desktop navigation and mobile menu, plus an “Already have an account? Sign in” link in the hero. Keep Sign in in the footer.
+- Keep the pricing section hidden until plans, prices, commercial availability, and included scope are approved. Do not show placeholder prices or draft deployment tiers on the public homepage.
+
+### Post-meeting roadmap (not available yet)
+
+1. **Meeting history:** searchable past meetings with date, duration, host, status, and links to permitted artifacts.
+2. **Participant history and participation map:** participant timeline showing join/leave events, time present, and a visual participation map/heatmap. Requires signed LiveKit webhooks and a durable participant/session data model; do not infer attendance from static UI state.
+3. **Post-meeting intelligence:** consent-based transcription and speaker attribution, meeting summary, key topics, decisions, and action items. Requires an explicit provider decision, recording/transcription consent, secure storage, retention/deletion controls, and end-to-end tests.
+
+These capabilities are roadmap items only. Do not represent meeting history analytics, a participant heatmap, recording, transcription, or AI summaries as currently available until their backend, privacy controls, and tests are implemented.
