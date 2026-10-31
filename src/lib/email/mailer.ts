@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { createHash, randomBytes } from "node:crypto";
 import path from "node:path";
 import fs from "node:fs";
 
@@ -601,22 +602,61 @@ export async function sendHostBookingNotificationEmail({
   return info;
 }
 
-type E2EGlobal = typeof globalThis & { __mhafE2EMagicLinks?: Map<string, string> };
+function getE2EMagicLinkPath(email: string): string {
+  const dataDir = process.env.MHAF_DATA_DIR?.trim() || path.join(process.cwd(), "data");
+  const key = createHash("sha256").update(email.trim().toLowerCase()).digest("hex");
+  return path.join(dataDir, ".e2e-magic-links", `${key}.json`);
+}
 
 export function consumeE2EMagicLink(email: string): string | null {
   if (process.env.NODE_ENV !== "development" || !process.env.MHAF_E2E_AUTH_HARNESS_SECRET) return null;
-  const links = (globalThis as E2EGlobal).__mhafE2EMagicLinks;
+
   const key = email.trim().toLowerCase();
-  const link = links?.get(key) ?? null;
-  links?.delete(key);
-  return link;
+  const filePath = getE2EMagicLinkPath(key);
+  try {
+    const stored = JSON.parse(fs.readFileSync(filePath, "utf8")) as {
+      email?: string;
+      url?: string;
+      createdAt?: number;
+    };
+    // Consume before returning so the harness cannot replay a captured link.
+    fs.unlinkSync(filePath);
+
+    if (
+      stored.email !== key ||
+      typeof stored.url !== "string" ||
+      typeof stored.createdAt !== "number" ||
+      Date.now() - stored.createdAt > 15 * 60 * 1000
+    ) {
+      return null;
+    }
+
+    return stored.url;
+  } catch {
+    return null;
+  }
 }
 
 export async function sendMagicLinkEmail(to: string, magicLink: string, locale: "en" | "fr" = "en"): Promise<void> {
   if (process.env.NODE_ENV === "development" && process.env.MHAF_E2E_AUTH_HARNESS_SECRET) {
-    const root = globalThis as E2EGlobal;
-    root.__mhafE2EMagicLinks ??= new Map<string, string>();
-    root.__mhafE2EMagicLinks.set(to.trim().toLowerCase(), magicLink);
+    const key = to.trim().toLowerCase();
+    const filePath = getE2EMagicLinkPath(key);
+    const directory = path.dirname(filePath);
+    fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+
+    // A file-backed handoff is shared by Next.js development route bundles,
+    // unlike globalThis state which can be isolated between route workers.
+    const temporaryPath = `${filePath}.${process.pid}.${randomBytes(8).toString("hex")}.tmp`;
+    try {
+      fs.writeFileSync(
+        temporaryPath,
+        JSON.stringify({ email: key, url: magicLink, createdAt: Date.now() }),
+        { encoding: "utf8", mode: 0o600, flag: "wx" }
+      );
+      fs.renameSync(temporaryPath, filePath);
+    } finally {
+      if (fs.existsSync(temporaryPath)) fs.unlinkSync(temporaryPath);
+    }
     return;
   }
 
