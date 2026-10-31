@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { checkRateLimit, extractClientIp } from "@/lib/db/demo-requests";
+import { checkRateLimit } from "@/lib/db/demo-requests";
+import { extractClientIp } from "@/lib/client-ip";
 import { db } from "@/lib/db";
 import { sendMagicLinkEmail } from "@/lib/email/mailer";
 
