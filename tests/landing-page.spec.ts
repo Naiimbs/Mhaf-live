@@ -7,8 +7,8 @@ test.describe("MHAF Live marketing landing page", () => {
 
   test("loads the product message and calendar illustration", async ({ page }) => {
     await expect(page).toHaveTitle(/mhaf meet/i);
-    await expect(page.locator("h1")).toContainText("Plan the time.");
-    await expect(page.locator("h1")).toContainText("Meet when it matters.");
+    await expect(page.locator("h1")).toContainText("From booking");
+    await expect(page.locator("h1")).toContainText("to conversation.");
     await expect(page.getByText("Static preview")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Bookings and meetings, together." })).toBeVisible();
   });
