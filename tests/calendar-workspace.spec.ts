@@ -1,14 +1,8 @@
 import { test, expect } from "@playwright/test";
+import { registerAndVerifyHost } from "./helpers/auth";
 
-test("host calendar workspace keeps booking and meeting actions inside the dashboard", async ({ page }) => {
-  const seedEmail = process.env.E2E_SEED_EMAIL || "host@mhaf.live";
-  const seedPassword = process.env.E2E_SEED_PASSWORD || "Password123!";
-
-  await page.goto("/login");
-  await page.fill("#login-email", seedEmail);
-  await page.fill("#login-password", seedPassword);
-  await page.click("#submit-login-button");
-  await expect(page).toHaveURL(/\/dashboard/);
+test("host calendar workspace keeps booking and meeting actions inside the dashboard", async ({ page, request }) => {
+  await registerAndVerifyHost(page, request);
 
   await expect(page.getByRole("img", { name: "meet" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Weekly calendar" })).toBeVisible();
@@ -27,15 +21,8 @@ test("host calendar workspace keeps booking and meeting actions inside the dashb
   await expect(dialog).toBeHidden();
 });
 
-test("scheduled meetings succeed when free and reject a genuine overlapping duplicate", async ({ page }) => {
-  const seedEmail = process.env.E2E_SEED_EMAIL || "host@mhaf.live";
-  const seedPassword = process.env.E2E_SEED_PASSWORD || "Password123!";
-
-  await page.goto("/login");
-  await page.fill("#login-email", seedEmail);
-  await page.fill("#login-password", seedPassword);
-  await page.click("#submit-login-button");
-  await expect(page).toHaveURL(/\/dashboard/);
+test("scheduled meetings succeed when free and reject a genuine overlapping duplicate", async ({ page, request }) => {
+  await registerAndVerifyHost(page, request);
 
   const start = new Date(Date.now() + 48 * 60 * 60 * 1000);
   const payload = {
