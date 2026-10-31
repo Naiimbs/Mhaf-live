@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { getE2EAuthHarnessSecret } from "@/lib/e2e-auth";
+import { getE2EAuthHarnessSecret } from "../src/lib/e2e-auth";
 
 function e2eClientIp() {
   return `198.51.100.${Math.floor(Math.random() * 254) + 1}`;
