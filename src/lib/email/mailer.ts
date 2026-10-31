@@ -144,6 +144,18 @@ function getTransporter() {
   });
 }
 
+function escapeIcsText(value: string): string {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/\r\n|\n|\r/g, "\\n")
+    .replace(/,/g, "\\,")
+    .replace(/;/g, "\\;");
+}
+
+function toIcsUtcStamp(value: Date): string {
+  return value.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+}
+
 export async function sendMeetingConfirmationEmail({
   to,
   attendeeName,
@@ -348,7 +360,33 @@ export async function sendMeetingConfirmationEmail({
     subject,
     text: `${greeting}\n\n${intro.replace(/<[^>]+>/g, "")}\n${topicLabel} ${meetingTitle}\n${dateLabel} ${formattedDate}\n${timeLabel} ${formattedTime} (${tz})\n\n${fallbackLabel} ${fullRoomUrl}\n\n${managementUrl ? `${isFrench ? "Gérer votre réservation" : "Manage your reservation"}: ${managementUrl}\n\n` : ""}${uidLabel} ${bookingUid}\n\nmeet`,
     html,
-    attachments: getEmailBrandAttachments(),
+    attachments: [
+      ...getEmailBrandAttachments(),
+      {
+        filename: `mhaf-live-${bookingUid}.ics`,
+        content: [
+          "BEGIN:VCALENDAR",
+          "VERSION:2.0",
+          "PRODID:-//MHAF Live//Booking Calendar//EN",
+          "CALSCALE:GREGORIAN",
+          "METHOD:PUBLISH",
+          "BEGIN:VEVENT",
+          `UID:${escapeIcsText(bookingUid)}@mhaf.live`,
+          `DTSTAMP:${toIcsUtcStamp(new Date())}`,
+          `DTSTART:${toIcsUtcStamp(startDate)}`,
+          `DTEND:${toIcsUtcStamp(endDate)}`,
+          `SUMMARY:${escapeIcsText(meetingTitle)}`,
+          `DESCRIPTION:${escapeIcsText(`Join meeting: ${fullRoomUrl}${managementUrl ? `\\nManage booking: ${managementUrl}` : ""}`)}`,
+          `URL:${escapeIcsText(fullRoomUrl)}`,
+          "STATUS:CONFIRMED",
+          "END:VEVENT",
+          "END:VCALENDAR",
+          "",
+        ].join("\\r\\n"),
+        contentType: "text/calendar; charset=utf-8; method=PUBLISH",
+        contentDisposition: "attachment",
+      },
+    ],
   });
 
   return info;
