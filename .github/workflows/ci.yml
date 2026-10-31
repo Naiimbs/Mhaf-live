@@ -53,3 +53,43 @@ jobs:
         run: npm run test:e2e
         env:
           CI: "true"
+
+  production-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Generate Prisma client
+        run: npx prisma generate
+      - name: Build production application
+        run: npm run build
+        env:
+          NEXTAUTH_SECRET: ci-only-secret-not-for-production-32-chars
+          NEXTAUTH_URL: http://localhost:3000
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+          LIVEKIT_URL: wss://livekit.test.invalid
+          LIVEKIT_API_KEY: mhaf-ci-test-key
+          LIVEKIT_API_SECRET: mhaf-ci-test-secret
+
+  dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Audit production dependencies
+        # Advisory initially: report existing dependency risk without blocking unrelated fixes.
+        continue-on-error: true
+        run: npm audit --omit=dev --audit-level=high
