@@ -25,16 +25,17 @@ test("scheduled meetings succeed when free and reject a genuine overlapping dupl
   await registerAndVerifyHost(page, request);
 
   const start = new Date(Date.now() + 48 * 60 * 60 * 1000);
+  const clientIp = `198.51.100.${Math.floor(Math.random() * 254) + 1}`;
   const payload = {
     title: "Conflict regression test",
     date: start.toISOString().slice(0, 10),
     time: start.toISOString().slice(11, 16),
     durationMinutes: 30,
   };
-  const first = await page.request.post("/api/meetings", { data: payload });
+  const first = await page.request.post("/api/meetings", { data: payload, headers: { "x-forwarded-for": clientIp } });
   expect(first.status()).toBe(201);
 
-  const overlapping = await page.request.post("/api/meetings", { data: payload });
+  const overlapping = await page.request.post("/api/meetings", { data: payload, headers: { "x-forwarded-for": clientIp } });
   expect(overlapping.status()).toBe(409);
   expect((await overlapping.json()).error).toContain("MEETING_CONFLICT");
 });
