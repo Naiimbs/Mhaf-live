@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import { defineConfig } from "@playwright/test";
 import { loadEnvConfig } from "@next/env";
 import { tmpdir } from "node:os";
@@ -13,7 +12,7 @@ const e2eLiveKitEnv = {
   LIVEKIT_API_KEY: "mhaf-e2e-test-key",
   LIVEKIT_API_SECRET: "mhaf-e2e-test-secret",
 };
-const e2eAuthEnv = { MHAF_E2E_AUTH_HARNESS_SECRET: randomBytes(32).toString("hex") };
+const e2eAuthEnv = { MHAF_E2E_AUTH_HARNESS_SECRET: "mhaf-live-playwright-e2e-only-2026-10-31-7f3c9a1e" };
 const e2eDataDir = path.join(tmpdir(), `mhaf-live-e2e-${process.pid}`);
 Object.assign(process.env, e2eLiveKitEnv, e2eAuthEnv);
 
