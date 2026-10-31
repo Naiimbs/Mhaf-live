@@ -61,6 +61,10 @@ test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests",
     await expect(page.getByRole("status")).toContainText(uniqueEmail);
     await expect(page.locator("#register-password")).toHaveCount(0);
 
+    // A new host must not reach the protected workspace before email verification.
+    await page.goto("/dashboard");
+    await expect(page).toHaveURL(/login/);
+
     // The development-only E2E mail harness captures the actual one-time link without SMTP.
     const capturedLinkResponse = await request.get(
       `/api/__e2e__/magic-link?email=${encodeURIComponent(uniqueEmail)}`,
@@ -73,11 +77,19 @@ test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests",
     // Keep the verification flow on the local Playwright server even when
     // NEXT_PUBLIC_APP_URL is configured with the production hostname.
     const verificationUrl = new URL(url);
+    const token = verificationUrl.searchParams.get("token");
+    expect(token).toBeTruthy();
     await page.goto(`${verificationUrl.pathname}${verificationUrl.search}`);
     await expect(page.getByRole("button", { name: "Confirm and continue" })).toBeVisible();
     await page.getByRole("button", { name: "Confirm and continue" }).click();
     await expect(page).toHaveURL(/dashboard/);
     await expect(page.getByText(uniqueEmail)).toBeVisible();
+
+    // The same token must be rejected after its first successful use.
+    const replayResponse = await request.post("/api/auth/magic-link/verify", {
+      data: { token },
+    });
+    expect(replayResponse.status()).toBe(400);
 
     // A newly registered host receives the default availability schedule in their timezone.
     await page.goto("/dashboard/availability");
