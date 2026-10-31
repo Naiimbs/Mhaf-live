@@ -306,7 +306,7 @@ test.describe("Demo Request Workflow & API", () => {
 
     // Verify modal visible
     await expect(page.getByRole("dialog")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Request Enterprise Demo" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Talk to us about MHAF Live" })).toBeVisible();
 
     // Fill form
     const uiEmail = `ui_demo_${Date.now()}_${Math.random().toString(36).substring(2, 5)}@medtech.com`;
@@ -319,7 +319,7 @@ test.describe("Demo Request Workflow & API", () => {
     await submitBtn.click();
 
     // Verify confirmation
-    await expect(page.getByRole("heading", { name: "Demo Request Received" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Request received" })).toBeVisible();
     await expect(page.getByText("Elena Rostova")).toBeVisible();
     await expect(page.getByText("Rostova Security Labs")).toBeVisible();
     await expect(page.getByText(/Ref:/i)).toBeVisible();
