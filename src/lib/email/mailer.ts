@@ -2,7 +2,7 @@ import nodemailer from "nodemailer";
 import { createHash, randomBytes } from "node:crypto";
 import path from "node:path";
 import fs from "node:fs";
-import { getE2EAuthHarnessSecret } from "../e2e-auth";
+import { tmpdir } from "node:os";
 
 interface SendConfirmationEmailParams {
   to: string;
@@ -109,6 +109,16 @@ export function renderEmailFooter(locale: "en" | "fr" = "fr"): string {
       ${text}
     </div>
   `;
+}
+
+function hasE2EAuthHarnessSecret(): boolean {
+  const configuredPath = process.env.MHAF_E2E_AUTH_HARNESS_SECRET_FILE?.trim();
+  const secretPath = configuredPath || path.join(tmpdir(), "mhaf-live-playwright-e2e-secret");
+  try {
+    return Boolean(fs.readFileSync(secretPath, "utf8").trim());
+  } catch {
+    return Boolean(process.env.MHAF_E2E_AUTH_HARNESS_SECRET?.trim());
+  }
 }
 
 function getTransporter() {
@@ -610,7 +620,7 @@ function getE2EMagicLinkPath(email: string): string {
 }
 
 export function consumeE2EMagicLink(email: string): string | null {
-  if (process.env.NODE_ENV !== "development" || !getE2EAuthHarnessSecret()) return null;
+  if (process.env.NODE_ENV !== "development" || !hasE2EAuthHarnessSecret()) return null;
 
   const key = email.trim().toLowerCase();
   const filePath = getE2EMagicLinkPath(key);
@@ -639,7 +649,7 @@ export function consumeE2EMagicLink(email: string): string | null {
 }
 
 export async function sendMagicLinkEmail(to: string, magicLink: string, locale: "en" | "fr" = "en"): Promise<void> {
-  if (process.env.NODE_ENV === "development" && getE2EAuthHarnessSecret()) {
+  if (process.env.NODE_ENV === "development" && hasE2EAuthHarnessSecret()) {
     const key = to.trim().toLowerCase();
     const filePath = getE2EMagicLinkPath(key);
     const directory = path.dirname(filePath);
