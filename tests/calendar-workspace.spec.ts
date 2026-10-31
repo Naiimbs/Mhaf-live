@@ -4,7 +4,7 @@ import { registerAndVerifyHost } from "./helpers/auth";
 test("host calendar workspace keeps booking and meeting actions inside the dashboard", async ({ page, request }) => {
   await registerAndVerifyHost(page, request);
 
-  await expect(page.getByRole("img", { name: "meet" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "mhaf meet" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Weekly calendar" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Your booking links" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Three ways to meet" })).toBeVisible();
