@@ -10,7 +10,8 @@ test.describe("LiveKit rooms and meeting lifecycle", () => {
   let hostCookie = "";
 
   test.beforeAll(async ({ browser }) => {
-    const authPage = await browser.newPage();
+    const authContext = await browser.newContext({ baseURL: "http://localhost:3000" });
+    const authPage = await authContext.newPage();
     const api = await playwrightRequest.newContext({ baseURL: "http://localhost:3000" });
     try {
       const host = await registerAndVerifyHost(authPage, api, "Dr. Jordan Hayes");
@@ -70,7 +71,7 @@ test.describe("LiveKit rooms and meeting lifecycle", () => {
       expect(instantResponse.status()).toBe(201);
       activeInstantUid = (await instantResponse.json()).meeting.uid;
     } finally {
-      await authPage.close();
+      await authContext.close();
       await api.dispose();
     }
   });
