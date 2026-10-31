@@ -9,10 +9,11 @@ export async function registerAndVerifyHost(page: Page, request: APIRequestConte
   const secret = process.env.MHAF_E2E_AUTH_HARNESS_SECRET;
   if (!secret) throw new Error("MHAF_E2E_AUTH_HARNESS_SECRET is missing from the Playwright process.");
 
-  const registration = await request.post("/api/auth/magic-link", { data: { name, email, timezone: "UTC" } });
+  const clientIp = `198.51.100.${Math.floor(Math.random() * 254) + 1}`;
+  const registration = await request.post("/api/auth/magic-link", { data: { name, email, timezone: "UTC" }, headers: { "x-forwarded-for": clientIp } });
   if (!registration.ok()) throw new Error(`E2E host registration failed (${registration.status()}): ${await registration.text()}`);
 
-  const captured = await request.get(`/api/__e2e__/magic-link?email=${encodeURIComponent(email)}`, { headers: { "x-mhaf-e2e-secret": secret } });
+  const captured = await request.get(`/api/e2e/magic-link?email=${encodeURIComponent(email)}`, { headers: { "x-mhaf-e2e-secret": secret } });
   if (!captured.ok()) throw new Error(`Could not retrieve E2E magic link (${captured.status()}): ${await captured.text()}`);
 
   const { url } = await captured.json() as { url: string };
