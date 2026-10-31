@@ -270,7 +270,13 @@ test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests",
     await page.fill("#attendee-name-input", "Playwright E2E Tester");
     await page.fill("#attendee-email-input", "e2e@test.live");
     await page.fill("#attendee-notes-input", "Automated booking integration verification.");
+    const bookingResponsePromise = page.waitForResponse((response) =>
+      response.url().includes("/api/schedule/book") && response.request().method() === "POST"
+    );
     await page.click("#confirm-booking-btn");
+    const bookingResponse = await bookingResponsePromise;
+    const bookingBody = await bookingResponse.json();
+    expect(bookingResponse.status(), JSON.stringify(bookingBody)).toBe(201);
 
     // Should land on confirmation page
     await expect(page).toHaveURL(/\/book\/confirmation\/mhaf-/);
