@@ -57,7 +57,7 @@ test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests",
 
     await page.goto(url);
     await page.getByRole("button", { name: "Continue to dashboard" }).click();
-    await expect(page).toHaveURL(/\\/dashboard/);
+    await expect(page).toHaveURL(/\/dashboard/);
     await expect(page.getByText(uniqueEmail)).toBeVisible();
 
     await page.goto("/dashboard/availability");
