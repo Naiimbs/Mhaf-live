@@ -2,6 +2,7 @@ import nodemailer from "nodemailer";
 import { createHash, randomBytes } from "node:crypto";
 import path from "node:path";
 import fs from "node:fs";
+import { getE2EAuthHarnessSecret } from "@/lib/e2e-auth";
 
 interface SendConfirmationEmailParams {
   to: string;
@@ -609,7 +610,7 @@ function getE2EMagicLinkPath(email: string): string {
 }
 
 export function consumeE2EMagicLink(email: string): string | null {
-  if (process.env.NODE_ENV !== "development" || !process.env.MHAF_E2E_AUTH_HARNESS_SECRET) return null;
+  if (process.env.NODE_ENV !== "development" || !getE2EAuthHarnessSecret()) return null;
 
   const key = email.trim().toLowerCase();
   const filePath = getE2EMagicLinkPath(key);
@@ -638,7 +639,7 @@ export function consumeE2EMagicLink(email: string): string | null {
 }
 
 export async function sendMagicLinkEmail(to: string, magicLink: string, locale: "en" | "fr" = "en"): Promise<void> {
-  if (process.env.NODE_ENV === "development" && process.env.MHAF_E2E_AUTH_HARNESS_SECRET) {
+  if (process.env.NODE_ENV === "development" && getE2EAuthHarnessSecret()) {
     const key = to.trim().toLowerCase();
     const filePath = getE2EMagicLinkPath(key);
     const directory = path.dirname(filePath);
