@@ -37,28 +37,15 @@ test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests",
     expect(body.message).toContain("If an account exists");
   });
 
-  test("4. Host Registration creates new host account with custom timezone and default schedule", async ({ page, request }) => {
+  test("4. Host Registration creates a passwordless host account and verifies it by magic link", async ({ page, request }) => {
     const uniqueEmail = `host_${Date.now()}@test.live`;
-    const hostPassword = process.env.E2E_NEW_HOST_PASSWORD || "Password123!";
 
     await page.goto("/register");
     await page.fill("#register-name", "Test Doctor");
     await page.fill("#register-email", uniqueEmail);
-    await page.fill("#register-password", hostPassword);
     await page.selectOption("#register-tz", "America/New_York");
     await page.click("#submit-register-button");
-
-    await expect(page).toHaveURL(/\/dashboard/);
-    await expect(page.getByText(uniqueEmail)).toBeVisible();
-
-    // Re-authenticate using the actual one-time magic-link flow, without SMTP.
-    await page.request.post("/api/auth/logout");
-    await page.goto("/login");
-    const magicLinkResponse = await request.post("/api/auth/magic-link", {
-      data: { email: uniqueEmail },
-    });
-    expect(magicLinkResponse.status()).toBe(200);
-    expect((await magicLinkResponse.json()).success).toBe(true);
+    await expect(page.getByRole("heading", { name: "Check your inbox" })).toBeVisible();
 
     const capturedLinkResponse = await request.get(
       `/api/__e2e__/magic-link?email=${encodeURIComponent(uniqueEmail)}`,
@@ -70,10 +57,9 @@ test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests",
 
     await page.goto(url);
     await page.getByRole("button", { name: "Continue to dashboard" }).click();
-    await expect(page).toHaveURL(/\/dashboard/);
+    await expect(page).toHaveURL(/\\/dashboard/);
     await expect(page.getByText(uniqueEmail)).toBeVisible();
 
-    // Restore the availability regression coverage using the magic-link session.
     await page.goto("/dashboard/availability");
     await expect(page.locator("h1")).toContainText("Weekly Availability Schedule");
     await page.selectOption("#end-time-1", "18:00");
