@@ -159,3 +159,66 @@ This inventory does not:
 - run `prisma migrate deploy`, `db push`, or destructive database commands;
 - change credentials, LiveKit settings, or deployment configuration;
 - deploy to staging or production.
+
+## 9. Caller-to-method map — first runtime pass
+
+**Inspection scope:** targeted inspection of the API route handlers, auth and scheduling services, booking/room pages, dashboard entry points, and related Phase 2/3 tests. The paths below are direct db.method references observed in the inspected source. Shared service calls are listed separately where the route delegates to a service. This is a source-level inventory, not proof that every method is exercised in production.
+
+| Repository method | Direct caller(s) observed |
+|---|---|
+| findUserByEmail | src/lib/auth/session.ts; src/app/api/auth/magic-link/route.ts |
+| findUserById | src/lib/scheduling/booking.ts; src/app/api/schedule/book/route.ts; src/app/api/schedule/manage/[token]/route.ts; src/app/api/internal/booking-reminders/route.ts; src/app/api/schedule/bookings/email/route.ts; src/app/rooms/[slug]/page.tsx |
+| createUser | src/lib/auth/session.ts; src/app/api/auth/magic-link/route.ts |
+| createMagicLinkToken | src/app/api/auth/magic-link/route.ts |
+| hasRecentMagicLinkToken | src/app/api/auth/magic-link/route.ts |
+| deleteMagicLinkToken | src/app/api/auth/magic-link/route.ts |
+| consumeMagicLinkToken | src/app/api/auth/magic-link/verify/route.ts |
+| createSession | src/lib/auth/session.ts |
+| findSessionByToken | src/lib/auth/session.ts |
+| deleteSession | src/lib/auth/session.ts |
+| getEventTypesByHostId | src/app/api/calendar/route.ts; src/app/api/schedule/event-types/route.ts; src/app/dashboard/page.tsx |
+| getEventTypeBySlug | No direct runtime caller found in the inspected source set |
+| getEventTypeById | src/app/rooms/[slug]/page.tsx |
+| createEventType | src/app/api/schedule/event-types/route.ts |
+| getAvailabilityByHostId | src/app/api/schedule/availability/route.ts |
+| updateAvailability | src/app/api/schedule/availability/route.ts |
+| updateUserTimezone | src/app/api/auth/settings/route.ts; src/app/api/schedule/availability/route.ts |
+| getBookingsByHostId | src/app/api/calendar/route.ts; src/app/api/schedule/bookings/route.ts |
+| getBookingByManagementTokenHash | src/app/api/schedule/manage/[token]/route.ts |
+| getBookingByUid | src/app/api/connection-details/route.ts; src/app/book/confirmation/[uid]/page.tsx; src/app/rooms/[slug]/page.tsx |
+| findBookingById | src/app/api/schedule/bookings/route.ts; src/app/api/schedule/book/route.ts; src/app/api/schedule/bookings/email/route.ts |
+| findEventTypeById | src/lib/scheduling/booking.ts; src/app/api/schedule/book/route.ts; src/app/api/schedule/bookings/route.ts; src/app/api/schedule/manage/[token]/route.ts; src/app/api/internal/booking-reminders/route.ts; src/app/api/schedule/bookings/email/route.ts |
+| createBookingWithConflictLock | src/lib/scheduling/booking.ts (called by the scheduling booking flow) |
+| createBookingChangeRequest | src/app/api/schedule/manage/[token]/route.ts |
+| getBookingChangeRequestById | src/app/api/schedule/bookings/route.ts |
+| getBookingChangeRequestsByHostId | src/app/api/schedule/bookings/route.ts; src/app/api/schedule/manage/[token]/route.ts |
+| resolveBookingChangeRequest | src/app/api/schedule/bookings/route.ts |
+| updateBookingManagementToken | src/app/api/schedule/bookings/email/route.ts |
+| updateBookingConfirmationEmail | src/app/api/schedule/book/route.ts; src/app/api/schedule/bookings/email/route.ts |
+| getBookingsDueForReminders | src/app/api/internal/booking-reminders/route.ts |
+| markBookingReminderSent | src/app/api/internal/booking-reminders/route.ts |
+| cancelBooking | src/app/api/schedule/bookings/route.ts |
+| getMeetingsByHostId | src/app/api/calendar/route.ts |
+| getMeetingByUid | src/app/api/connection-details/route.ts; src/app/rooms/[slug]/page.tsx |
+| findMeetingById | No direct runtime caller found in the inspected source set |
+| createMeetingWithConflictLock | src/app/api/meetings/route.ts; src/app/api/rooms/instant/route.ts |
+| cancelMeeting | src/app/api/meetings/route.ts |
+| processLiveKitWebhookEvent | src/app/api/livekit/webhook/route.ts |
+| recordRoomParticipantLeave | No direct runtime caller found in the inspected source set |
+| recordRoomParticipantJoin | No direct runtime caller found in the inspected source set |
+| isRoomExpired | src/app/api/connection-details/route.ts; src/app/rooms/[slug]/page.tsx |
+
+### 9.1 Important flow boundaries
+
+- Authentication routes delegate session operations through src/lib/auth/session.ts; the login/logout handlers do not each call the repository directly.
+- The public booking route delegates booking validation and persistence to src/lib/scheduling/booking.ts, which owns the call to createBookingWithConflictLock.
+- Booking reminder delivery is orchestrated by src/app/api/internal/booking-reminders/route.ts; it reads due bookings, resolves host/event-type details, sends mail, and marks reminder delivery.
+- Room access reads booking/meeting state and checks expiry before minting LiveKit connection details in src/app/api/connection-details/route.ts. The room page performs a parallel server-side lookup for initial rendering.
+- LiveKit webhook signature/event handling reaches the repository through src/app/api/livekit/webhook/route.ts and processLiveKitWebhookEvent.
+- Demo requests remain a separate persistence path in src/lib/db/demo-requests.ts; they are not part of the 41-method db interface.
+
+### 9.2 Methods needing an explicit disposition
+
+The inspection did not find direct runtime call sites for getEventTypeBySlug, findMeetingById, recordRoomParticipantLeave, or recordRoomParticipantJoin. Before replacing the repository, decide whether each method is retained for a planned flow, covered only through indirect/dynamic access not found by this scan, or safe to remove after confirming no external consumer.
+
+This caller map is a first targeted pass. Before implementation, complete a final repo-wide check for dynamic imports, destructured repository methods, test fixtures/mocks, server actions, and any consumers outside src/app/api, src/lib, and the inspected page/component set. Do not treat absence in this table as authorization to delete a method.
