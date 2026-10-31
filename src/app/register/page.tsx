@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Lock, Mail, User, Globe, ArrowRight, AlertCircle } from "lucide-react";
+import { Mail, User, Globe, ArrowRight, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand-logo";
 import { LanguageToggle } from "@/components/language-toggle";
@@ -29,7 +29,7 @@ export default function RegisterPage() {
   const { isFr } = useLanguage();
   const [name, setName] = React.useState("");
   const [email, setEmail] = React.useState("");
-  const [password, setPassword] = React.useState("");
+  const [sent, setSent] = React.useState(false);
   const [timezone, setTimezone] = React.useState("UTC");
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
@@ -50,17 +50,11 @@ export default function RegisterPage() {
     setError(null);
     setLoading(true);
 
-    if (password.length < 8) {
-      setError(isFr ? "Le mot de passe doit comporter au moins 8 caractères." : "Password must be at least 8 characters long.");
-      setLoading(false);
-      return;
-    }
-
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, timezone }),
+        body: JSON.stringify({ name, email, timezone, locale: isFr ? "fr" : "en" }),
       });
 
       const data = await res.json();
@@ -68,8 +62,7 @@ export default function RegisterPage() {
         throw new Error(data.error || (isFr ? "Échec de l'inscription." : "Registration failed."));
       }
 
-      router.push("/dashboard");
-      router.refresh();
+      setSent(true);
     } catch (err: any) {
       setError(err.message || (isFr ? "Une erreur inattendue est survenue." : "An unexpected error occurred."));
     } finally {
@@ -94,8 +87,8 @@ export default function RegisterPage() {
           </h1>
           <p className="text-sm text-muted-foreground">
             {isFr
-              ? "Configurez votre calendrier, vos types d'événements et votre moteur de réservation."
-              : "Establish your booking calendar, custom event types, and scheduling engine."}
+              ? "Créez votre espace hôte avec votre adresse e-mail. Aucun mot de passe nécessaire."
+              : "Create your host workspace with your email address. No password required."}
           </p>
         </div>
 
@@ -108,6 +101,17 @@ export default function RegisterPage() {
             </div>
           )}
 
+          {sent ? (
+            <div className="space-y-3 text-center" role="status">
+              <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-500" />
+              <h2 className="font-semibold text-foreground">{isFr ? "Vérifiez votre boîte de réception" : "Check your inbox"}</h2>
+              <p className="text-sm text-muted-foreground">
+                {isFr ? "Si cette adresse peut être utilisée, un lien sécurisé vous sera envoyé pour confirmer votre e-mail et activer votre espace hôte." : "If this address can be used, we’ll send a secure link to verify your email and activate your host workspace."}
+              </p>
+              <p className="text-xs text-muted-foreground">{email}</p>
+              <Link href="/login" className="text-sm font-semibold text-primary hover:underline">{isFr ? "Déjà inscrit ? Se connecter" : "Already registered? Sign in"}</Link>
+            </div>
+          ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-foreground uppercase tracking-wider" htmlFor="register-name">
@@ -145,24 +149,6 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground uppercase tracking-wider" htmlFor="register-password">
-                {isFr ? "Mot de passe (min. 8 caractères)" : "Password (min. 8 characters)"}
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <input
-                  id="register-password"
-                  type="password"
-                  required
-                  minLength={8}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••••••"
-                  className="w-full rounded-lg border border-input bg-background pl-9 pr-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-              </div>
-            </div>
 
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-foreground uppercase tracking-wider" htmlFor="register-tz">
@@ -195,11 +181,12 @@ export default function RegisterPage() {
               id="submit-register-button"
             >
               {loading
-                ? (isFr ? "Création du compte en cours..." : "Creating Host Account...")
-                : (isFr ? "Créer mon compte & accéder au tableau de bord" : "Create Account & Go to Dashboard")}
+                ? (isFr ? "Envoi du lien en cours..." : "Sending your sign-up link...")
+                : (isFr ? "Créer mon compte par e-mail" : "Continue with email")}
               <ArrowRight className="h-4 w-4" />
             </Button>
           </form>
+          )}
         </div>
 
         {/* Footer links */}
