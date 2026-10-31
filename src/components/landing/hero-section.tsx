@@ -42,6 +42,12 @@ export function HeroSection({ onRequestDemo }: HeroSectionProps) {
                 ? "Vos invités rejoignent la réunion via le lien que vous partagez. Vous gardez la gestion de l’espace hôte."
                 : "Guests join through the link you share. Hosts manage the meeting from their workspace."}
             </p>
+            <p className="mt-3 text-sm text-muted-foreground">
+              {isFr ? "Vous avez déjà un compte ?" : "Already have an account?"}{" "}
+              <Link href="/login" className="font-semibold text-foreground underline underline-offset-4 hover:text-primary">
+                {isFr ? "Se connecter" : "Sign in"}
+              </Link>
+            </p>
           </div>
           <div id="calendar" className="relative rounded-2xl border border-border bg-card p-4 shadow-xl shadow-black/5 sm:p-6">
             <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-4">
