@@ -70,7 +70,10 @@ test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests",
     const { url } = await capturedLinkResponse.json();
     expect(url).toContain("/auth/verify?token=");
 
-    await page.goto(url);
+    // Keep the verification flow on the local Playwright server even when
+    // NEXT_PUBLIC_APP_URL is configured with the production hostname.
+    const verificationUrl = new URL(url);
+    await page.goto(`${verificationUrl.pathname}${verificationUrl.search}`);
     await expect(page.getByRole("button", { name: "Confirm and continue" })).toBeVisible();
     await page.getByRole("button", { name: "Confirm and continue" }).click();
     await expect(page).toHaveURL(/dashboard/);
