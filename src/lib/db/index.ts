@@ -30,7 +30,7 @@ interface DatabaseSchema {
   processedLiveKitWebhookEvents: string[];
 }
 
-const DATA_DIR = path.join(process.cwd(), "data");
+const DATA_DIR = process.env.MHAF_DATA_DIR?.trim() || path.join(process.cwd(), "data");
 const DB_FILE = path.join(DATA_DIR, "mhaf_live_db.json");
 
 // In-memory Mutex Lock to guarantee atomic operations under concurrent load
@@ -1128,5 +1128,10 @@ class DatabaseStore {
   }
 }
 
-// Global singleton instance
-export const db = new DatabaseStore();
+// Share one store and its in-process lock across Next.js route/page bundles.
+ // This app currently runs as a single Node process; a globalThis singleton prevents
+ // each bundled route from keeping a stale, independent copy of the JSON database.
+const globalForDatabase = globalThis as typeof globalThis & {
+  __mhafDatabaseStore?: DatabaseStore;
+};
+export const db = globalForDatabase.__mhafDatabaseStore ?? (globalForDatabase.__mhafDatabaseStore = new DatabaseStore());

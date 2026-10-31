@@ -1,83 +1,80 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, request as playwrightRequest } from "@playwright/test";
 import { jwtVerify } from "jose";
+import { registerAndVerifyHost } from "./helpers/auth";
 
 test.describe("LiveKit rooms and meeting lifecycle", () => {
   let activeInstantUid: string;
   let bookingUid: string;
   let futureMeetingUid: string;
   let testHostId: string;
-  let testHostEmail: string;
-  const testHostPassword = process.env.E2E_NEW_HOST_PASSWORD || "Password123!";
   let hostCookie = "";
 
-  test.beforeAll(async ({ request }) => {
-    const hostEmail = `doctor_${Date.now()}_${Math.random().toString(36).substring(2, 6)}@test.live`;
-    const register = await request.post("/api/auth/register", {
-      data: { name: "Dr. Jordan Hayes", email: hostEmail, password: testHostPassword, timezone: "UTC" },
-    });
-    expect(register.status()).toBe(201);
-    const registerData = await register.json();
-    testHostId = registerData.user.id;
-    testHostEmail = hostEmail;
+  test.beforeAll(async ({ browser }) => {
+    const authContext = await browser.newContext({ baseURL: "http://localhost:3000" });
+    const authPage = await authContext.newPage();
+    const api = await playwrightRequest.newContext({ baseURL: "http://localhost:3000" });
+    try {
+      const host = await registerAndVerifyHost(authPage, api, "Dr. Jordan Hayes");
+      testHostId = host.userId;
+      hostCookie = host.cookie;
 
-    const login = await request.post("/api/auth/login", { data: { email: testHostEmail, password: testHostPassword } });
-    expect(login.status()).toBe(200);
-    hostCookie = login.headers()["set-cookie"] || "";
-    expect(hostCookie).toContain("mhaf_session=");
-
-    let openSlot: { startTimeUtc: string; endTimeUtc: string; eventTypeId: string } | null = null;
-    const baseDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
-    for (let index = 0; index < 45 && !openSlot; index++) {
-      const candidate = new Date(baseDate);
-      candidate.setUTCDate(candidate.getUTCDate() + index);
-      const weekday = candidate.getUTCDay();
-      if (weekday === 0 || weekday === 6) continue;
-      const date = candidate.toISOString().slice(0, 10);
-      const slotsResponse = await request.get(`/api/schedule/slots?hostId=${testHostId}&eventSlug=30min&date=${date}&timezone=UTC`);
-      if (slotsResponse.ok()) {
-        const slotsBody = await slotsResponse.json();
-        const available = slotsBody.slots?.find((slot: { available: boolean }) => slot.available);
-        if (available) openSlot = { ...available, eventTypeId: slotsBody.eventType.id };
+      let openSlot: { startTimeUtc: string; endTimeUtc: string; eventTypeId: string } | null = null;
+      const baseDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+      for (let index = 0; index < 45 && !openSlot; index++) {
+        const candidate = new Date(baseDate);
+        candidate.setUTCDate(candidate.getUTCDate() + index);
+        const weekday = candidate.getUTCDay();
+        if (weekday === 0 || weekday === 6) continue;
+        const date = candidate.toISOString().slice(0, 10);
+        const slotsResponse = await api.get(`/api/schedule/slots?hostId=${testHostId}&eventSlug=30min&date=${date}&timezone=UTC`);
+        if (slotsResponse.ok()) {
+          const slotsBody = await slotsResponse.json();
+          const available = slotsBody.slots?.find((slot: { available: boolean }) => slot.available);
+          if (available) openSlot = { ...available, eventTypeId: slotsBody.eventType.id };
+        }
       }
+      expect(openSlot).not.toBeNull();
+
+      const bookingResponse = await api.post("/api/schedule/book", {
+        headers: { "x-forwarded-for": `198.51.100.${Math.floor(Math.random() * 254) + 1}` },
+        data: {
+          hostId: testHostId,
+          eventTypeId: openSlot!.eventTypeId,
+          attendeeName: "Dr. Eleanor Vance",
+          attendeeEmail: "eleanor.vance@hillhouse.org",
+          attendeeNotes: "Room flow verification.",
+          startTimeUtc: openSlot!.startTimeUtc,
+          endTimeUtc: openSlot!.endTimeUtc,
+        },
+      });
+      expect(bookingResponse.status()).toBe(201);
+      bookingUid = (await bookingResponse.json()).booking.uid;
+
+      const futureStart = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+      const futureMeeting = await api.post("/api/meetings", {
+        headers: { Cookie: hostCookie, "x-forwarded-for": `198.51.100.${Math.floor(Math.random() * 254) + 1}` },
+        data: {
+          title: "Future room access test",
+          date: futureStart.toISOString().slice(0, 10),
+          time: "12:00",
+          durationMinutes: 30,
+          attendeeName: "Future Attendee",
+          attendeeEmail: "future@mhaf.live",
+        },
+      });
+      expect(futureMeeting.status()).toBe(201);
+      futureMeetingUid = (await futureMeeting.json()).meeting.uid;
+
+      const instantResponse = await api.post("/api/rooms/instant", {
+        headers: { Cookie: hostCookie, "x-forwarded-for": `198.51.100.${Math.floor(Math.random() * 254) + 1}` },
+        data: { title: "LiveKit test room" },
+      });
+      expect(instantResponse.status()).toBe(201);
+      activeInstantUid = (await instantResponse.json()).meeting.uid;
+    } finally {
+      await authContext.close();
+      await api.dispose();
     }
-    expect(openSlot).not.toBeNull();
-
-    const bookingResponse = await request.post("/api/schedule/book", {
-      data: {
-        hostId: testHostId,
-        eventTypeId: openSlot!.eventTypeId,
-        attendeeName: "Dr. Eleanor Vance",
-        attendeeEmail: "eleanor.vance@hillhouse.org",
-        attendeeNotes: "Room flow verification.",
-        startTimeUtc: openSlot!.startTimeUtc,
-        endTimeUtc: openSlot!.endTimeUtc,
-      },
-    });
-    expect(bookingResponse.status()).toBe(201);
-    bookingUid = (await bookingResponse.json()).booking.uid;
-
-    const now = new Date();
-    const futureStart = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
-    const futureMeeting = await request.post("/api/meetings", {
-      headers: { Cookie: hostCookie },
-      data: {
-        title: "Future room access test",
-        date: futureStart.toISOString().slice(0, 10),
-        time: "12:00",
-        durationMinutes: 30,
-        attendeeName: "Future Attendee",
-        attendeeEmail: "future@mhaf.live",
-      },
-    });
-    expect(futureMeeting.status()).toBe(201);
-    futureMeetingUid = (await futureMeeting.json()).meeting.uid;
-
-    const instantResponse = await request.post("/api/rooms/instant", {
-      headers: { Cookie: hostCookie },
-      data: { title: "LiveKit test room" },
-    });
-    expect(instantResponse.status()).toBe(201);
-    activeInstantUid = (await instantResponse.json()).meeting.uid;
   });
 
   test("rejects a token request without room identifier", async ({ request }) => {

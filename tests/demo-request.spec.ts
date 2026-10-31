@@ -300,13 +300,13 @@ test.describe("Demo Request Workflow & API", () => {
     await page.goto("/");
 
     // Open Demo Modal via landing hero button (always visible across desktop, tablet, and mobile)
-    const requestDemoBtn = page.getByRole("button", { name: "Request Enterprise Demo" }).first();
+    const requestDemoBtn = page.getByRole("button", { name: /discuss your use case|discuter de votre besoin/i }).first();
     await requestDemoBtn.scrollIntoViewIfNeeded();
     await requestDemoBtn.click();
 
     // Verify modal visible
     await expect(page.getByRole("dialog")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Request Enterprise Demo" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Talk to us about MHAF Live" })).toBeVisible();
 
     // Fill form
     const uiEmail = `ui_demo_${Date.now()}_${Math.random().toString(36).substring(2, 5)}@medtech.com`;
@@ -315,11 +315,11 @@ test.describe("Demo Request Workflow & API", () => {
     await page.fill("#demo-org", "Rostova Security Labs");
 
     // Submit
-    const submitBtn = page.getByRole("button", { name: /Submit Demo Request/i });
+    const submitBtn = page.getByRole("button", { name: /Send request/i });
     await submitBtn.click();
 
     // Verify confirmation
-    await expect(page.getByRole("heading", { name: "Demo Request Received" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Request received" })).toBeVisible();
     await expect(page.getByText("Elena Rostova")).toBeVisible();
     await expect(page.getByText("Rostova Security Labs")).toBeVisible();
     await expect(page.getByText(/Ref:/i)).toBeVisible();

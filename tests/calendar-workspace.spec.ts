@@ -1,21 +1,15 @@
 import { test, expect } from "@playwright/test";
+import { registerAndVerifyHost } from "./helpers/auth";
 
-test("host calendar workspace keeps booking and meeting actions inside the dashboard", async ({ page }) => {
-  const seedEmail = process.env.E2E_SEED_EMAIL || "host@mhaf.live";
-  const seedPassword = process.env.E2E_SEED_PASSWORD || "Password123!";
+test("host calendar workspace keeps booking and meeting actions inside the dashboard", async ({ page, request }) => {
+  await registerAndVerifyHost(page, request);
 
-  await page.goto("/login");
-  await page.fill("#login-email", seedEmail);
-  await page.fill("#login-password", seedPassword);
-  await page.click("#submit-login-button");
-  await expect(page).toHaveURL(/\/dashboard/);
-
-  await expect(page.getByRole("img", { name: "meet" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "mhaf meet" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Weekly calendar" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Your booking links" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Three ways to meet" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Schedule meeting" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Start instant" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Instant meeting" })).toBeVisible();
 
   await page.getByRole("button", { name: "Schedule meeting" }).click();
   const dialog = page.getByRole("dialog");
@@ -27,27 +21,21 @@ test("host calendar workspace keeps booking and meeting actions inside the dashb
   await expect(dialog).toBeHidden();
 });
 
-test("scheduled meetings succeed when free and reject a genuine overlapping duplicate", async ({ page }) => {
-  const seedEmail = process.env.E2E_SEED_EMAIL || "host@mhaf.live";
-  const seedPassword = process.env.E2E_SEED_PASSWORD || "Password123!";
-
-  await page.goto("/login");
-  await page.fill("#login-email", seedEmail);
-  await page.fill("#login-password", seedPassword);
-  await page.click("#submit-login-button");
-  await expect(page).toHaveURL(/\/dashboard/);
+test("scheduled meetings succeed when free and reject a genuine overlapping duplicate", async ({ page, request }) => {
+  await registerAndVerifyHost(page, request);
 
   const start = new Date(Date.now() + 48 * 60 * 60 * 1000);
+  const clientIp = `198.51.100.${Math.floor(Math.random() * 254) + 1}`;
   const payload = {
     title: "Conflict regression test",
     date: start.toISOString().slice(0, 10),
     time: start.toISOString().slice(11, 16),
     durationMinutes: 30,
   };
-  const first = await page.request.post("/api/meetings", { data: payload });
+  const first = await page.request.post("/api/meetings", { data: payload, headers: { "x-forwarded-for": clientIp } });
   expect(first.status()).toBe(201);
 
-  const overlapping = await page.request.post("/api/meetings", { data: payload });
+  const overlapping = await page.request.post("/api/meetings", { data: payload, headers: { "x-forwarded-for": clientIp } });
   expect(overlapping.status()).toBe(409);
   expect((await overlapping.json()).error).toContain("MEETING_CONFLICT");
 });

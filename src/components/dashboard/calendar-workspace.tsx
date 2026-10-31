@@ -153,6 +153,8 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
       title: String(form.get("title") || "").trim(),
       durationMinutes: Number(form.get("durationMinutes") || 30),
       description: String(form.get("description") || "").trim(),
+      bufferBeforeMin: Number(form.get("bufferBeforeMin") || 0),
+      bufferAfterMin: Number(form.get("bufferAfterMin") || 0),
       recipientEmail: sendLinkByEmail ? String(form.get("recipientEmail") || "").trim() : "",
     };
     try {
@@ -889,6 +891,32 @@ export function CalendarWorkspace({ hostId, hostTimeZone, eventTypes }: Calendar
                 <option value="120">2 hours</option>
               </select>
             </label>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="block space-y-1.5">
+                <span className="text-xs font-medium">Buffer before</span>
+                <select name="bufferBeforeMin" defaultValue="0" className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                  <option value="0">No buffer</option>
+                  <option value="5">5 minutes</option>
+                  <option value="10">10 minutes</option>
+                  <option value="15">15 minutes</option>
+                  <option value="30">30 minutes</option>
+                  <option value="45">45 minutes</option>
+                  <option value="60">60 minutes</option>
+                </select>
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-xs font-medium">Buffer after</span>
+                <select name="bufferAfterMin" defaultValue="0" className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                  <option value="0">No buffer</option>
+                  <option value="5">5 minutes</option>
+                  <option value="10">10 minutes</option>
+                  <option value="15">15 minutes</option>
+                  <option value="30">30 minutes</option>
+                  <option value="45">45 minutes</option>
+                  <option value="60">60 minutes</option>
+                </select>
+              </label>
+            </div>
             <label className="block space-y-1.5">
               <span className="text-xs font-medium">Description (optional)</span>
               <textarea
