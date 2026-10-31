@@ -45,6 +45,23 @@ export async function POST(request: NextRequest) {
 
     let user = await db.findUserByEmail(email);
 
+    // Login is only for existing accounts. Unknown addresses must use registration.
+    // This intentionally reveals account existence because the product requires
+    // a clear login-versus-signup flow; rate limiting remains in place above.
+    if (!user && !name) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: "ACCOUNT_NOT_FOUND",
+          error:
+            requestedLocale === "fr"
+              ? "Aucun compte n'est associé à cette adresse e-mail. Créez un compte pour continuer."
+              : "No account is registered with this email. Create an account to continue.",
+        },
+        { status: 404 }
+      );
+    }
+
     // Supplying a name means this is a registration request. New accounts stay
     // unverified and cannot access the host workspace until the email link is used.
     if (!user && name) {

@@ -13,11 +13,13 @@ export default function LoginPage() {
   const [email, setEmail] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const [sent, setSent] = React.useState(false);
+  const [accountNotFound, setAccountNotFound] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
+    setAccountNotFound(false);
     setLoading(true);
     try {
       const response = await fetch("/api/auth/magic-link", {
@@ -26,6 +28,10 @@ export default function LoginPage() {
         body: JSON.stringify({ email, locale }),
       });
       const data = await response.json();
+      if (response.status === 404 && data.code === "ACCOUNT_NOT_FOUND") {
+        setAccountNotFound(true);
+        return;
+      }
       if (!response.ok) throw new Error(data.error || (isFr ? "Impossible d'envoyer le lien de connexion." : "Could not send the sign-in link."));
       setSent(true);
     } catch (err: any) {
@@ -64,7 +70,26 @@ export default function LoginPage() {
             </div>
           )}
 
-          {sent ? (
+          {accountNotFound ? (
+            <div className="space-y-4 text-center" role="status">
+              <AlertCircle className="mx-auto h-10 w-10 text-amber-500" />
+              <h2 className="font-semibold text-foreground">
+                {isFr ? "Aucun compte trouvé" : "No account found"}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {isFr
+                  ? <>Aucun compte n’est associé à <strong>{email}</strong>. Créez un compte hôte avec cette adresse pour continuer.</>
+                  : <>There is no account registered with <strong>{email}</strong>. Create a host account with this email to continue.</>}
+              </p>
+              <Link href={`/register?email=${encodeURIComponent(email)}`} className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90">
+                {isFr ? "Créer un compte" : "Create an account"}
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <button type="button" onClick={() => setAccountNotFound(false)} className="text-sm font-semibold text-primary hover:underline">
+                {isFr ? "Essayer une autre adresse" : "Try another email"}
+              </button>
+            </div>
+          ) : sent ? (
             <div className="space-y-3 text-center" role="status">
               <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto" />
               <h2 className="font-semibold text-foreground">

@@ -31,6 +31,9 @@ export default function RegisterPage() {
   const [loading, setLoading] = React.useState(false);
 
   React.useEffect(() => {
+    const requestedEmail = new URLSearchParams(window.location.search).get("email");
+    if (requestedEmail) setEmail(requestedEmail.trim().toLowerCase());
+
     try {
       const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       if (userTimezone) setTimezone(userTimezone);
