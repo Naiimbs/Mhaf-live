@@ -74,7 +74,13 @@ export async function POST(request: NextRequest) {
         const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || new URL(request.url).origin;
         const link = new URL("/auth/verify", appUrl);
         link.searchParams.set("token", rawToken);
-        await sendMagicLinkEmail(user.email, link.toString(), requestedLocale);
+        try {
+          await sendMagicLinkEmail(user.email, link.toString(), requestedLocale);
+        } catch (error) {
+          // A token must not suppress retries when its email was never accepted by SMTP.
+          await db.deleteMagicLinkToken(storedToken.id);
+          throw error;
+        }
       }
     }
 
@@ -87,7 +93,18 @@ export async function POST(request: NextRequest) {
           : "If this address can receive a sign-in link, an email will arrive shortly.",
     });
   } catch (error) {
-    console.error("[auth] Magic-link request failed:", error instanceof Error ? error.message : "Unknown error");
+    const mailError = error as {
+      name?: string;
+      code?: string;
+      command?: string;
+      responseCode?: number;
+    };
+    console.error("[auth] Magic-link request failed:", {
+      name: mailError?.name || "UnknownError",
+      code: mailError?.code,
+      command: mailError?.command,
+      responseCode: mailError?.responseCode,
+    });
     return NextResponse.json(
       { error: "We could not send the sign-in link right now. Please try again later." },
       { status: 503 }

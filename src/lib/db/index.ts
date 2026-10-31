@@ -349,6 +349,14 @@ class DatabaseStore {
     );
   }
 
+  async deleteMagicLinkToken(tokenId: string): Promise<void> {
+    await globalLock.acquire(async () => {
+      const previousLength = this.data.magicLinkTokens.length;
+      this.data.magicLinkTokens = this.data.magicLinkTokens.filter((token) => token.id !== tokenId);
+      if (this.data.magicLinkTokens.length !== previousLength) this.persist();
+    });
+  }
+
   async consumeMagicLinkToken(tokenHash: string): Promise<User | null> {
     return globalLock.acquire(async () => {
       const now = new Date();
