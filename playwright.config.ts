@@ -1,6 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { defineConfig } from "@playwright/test";
 import { loadEnvConfig } from "@next/env";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 loadEnvConfig(process.cwd());
 
@@ -12,6 +14,7 @@ const e2eLiveKitEnv = {
   LIVEKIT_API_SECRET: "mhaf-e2e-test-secret",
 };
 const e2eAuthEnv = { MHAF_E2E_AUTH_HARNESS_SECRET: randomBytes(32).toString("hex") };
+const e2eDataDir = path.join(tmpdir(), `mhaf-live-e2e-${process.pid}`);
 Object.assign(process.env, e2eLiveKitEnv, e2eAuthEnv);
 
 export default defineConfig({
@@ -61,6 +64,7 @@ export default defineConfig({
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 60000,
-    env: { ...e2eLiveKitEnv, ...e2eAuthEnv },
+    // Isolate test records from developer and production data. PostgreSQL is not required in this phase.
+    env: { ...e2eLiveKitEnv, ...e2eAuthEnv, MHAF_DATA_DIR: e2eDataDir, DATABASE_URL: "" },
   },
 });
