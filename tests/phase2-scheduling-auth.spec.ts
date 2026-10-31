@@ -1,5 +1,9 @@
 import { test, expect } from "@playwright/test";
 
+function e2eClientIp() {
+  return `198.51.100.${Math.floor(Math.random() * 254) + 1}`;
+}
+
 test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests", () => {
   const seedEmail = process.env.E2E_SEED_EMAIL || "host@mhaf.live";
   const seedHostId = "host_default_01";
@@ -27,28 +31,33 @@ test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests",
     await expect(page.locator("#login-email")).toBeVisible();
     await expect(page.locator("#login-password")).toHaveCount(0);
 
-    // Unknown addresses receive the same generic success response without SMTP delivery.
+    // Unknown addresses are directed to registration; existing accounts receive a magic link.
+    const clientIp = e2eClientIp();
     const response = await request.post("/api/auth/magic-link", {
       data: { email: "unknown-account@e2e.test" },
+      headers: { "x-forwarded-for": clientIp },
     });
-    expect(response.status()).toBe(200);
+    expect(response.status()).toBe(404);
     const body = await response.json();
-    expect(body.success).toBe(true);
-    expect(body.message).toContain("If this address can receive a sign-in link");
+    expect(body.code).toBe("ACCOUNT_NOT_FOUND");
+    expect(body.error).toContain("Create an account");
 
-    // Existing and unknown addresses must receive the same public response.
     const existingResponse = await request.post("/api/auth/magic-link", {
       data: { email: seedEmail },
+      headers: { "x-forwarded-for": clientIp },
     });
     expect(existingResponse.status()).toBe(200);
     const existingBody = await existingResponse.json();
-    expect(existingBody).toEqual(body);
+    expect(existingBody.success).toBe(true);
+    expect(existingBody.message).toContain("If this address can receive a sign-in link");
   });
 
   test("4. Host Registration creates an unverified host account and verifies it through a one-time magic link", async ({ page, request }) => {
     const uniqueEmail = `host_${Date.now()}@test.live`;
     const uniqueName = "Playwright Test Host";
 
+    const clientIp = e2eClientIp();
+    await page.route("**/api/auth/magic-link", (route) => route.continue({ headers: { ...route.request().headers(), "x-forwarded-for": clientIp } }));
     await page.goto("/register");
     await page.fill("#register-name", uniqueName);
     await page.fill("#register-email", uniqueEmail);
@@ -67,7 +76,7 @@ test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests",
 
     // The development-only E2E mail harness captures the actual one-time link without SMTP.
     const capturedLinkResponse = await request.get(
-      `/api/__e2e__/magic-link?email=${encodeURIComponent(uniqueEmail)}`,
+      `/api/e2e/magic-link?email=${encodeURIComponent(uniqueEmail)}`,
       { headers: { "x-mhaf-e2e-secret": process.env.MHAF_E2E_AUTH_HARNESS_SECRET! } }
     );
     expect(capturedLinkResponse.status()).toBe(200);
@@ -135,8 +144,11 @@ test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests",
   });
 
   test("7. Server-side validation rejects invalid booking intervals and past dates", async ({ request }) => {
+    // Use a dedicated client bucket so this validation test is independent of other flows.
+    const clientIp = e2eClientIp();
     // Test past date
     const pastRes = await request.post("/api/schedule/book", {
+      headers: { "x-forwarded-for": clientIp },
       data: {
         eventTypeId: "evt_30min_01",
         hostId: seedHostId,
@@ -152,6 +164,7 @@ test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests",
 
     // Test end time before start time
     const invalidOrderRes = await request.post("/api/schedule/book", {
+      headers: { "x-forwarded-for": clientIp },
       data: {
         eventTypeId: "evt_30min_01",
         hostId: seedHostId,
@@ -213,10 +226,11 @@ test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests",
       attendeeEmail: `attendee_b_${Date.now()}@test.com`,
     };
 
-    // Fire both requests simultaneously
+    // Fire both requests simultaneously from one dedicated IP bucket.
+    const clientIp = e2eClientIp();
     const [resA, resB] = await Promise.all([
-      request.post("/api/schedule/book", { data: bookingPayloadA }),
-      request.post("/api/schedule/book", { data: bookingPayloadB }),
+      request.post("/api/schedule/book", { data: bookingPayloadA, headers: { "x-forwarded-for": clientIp } }),
+      request.post("/api/schedule/book", { data: bookingPayloadB, headers: { "x-forwarded-for": clientIp } }),
     ]);
 
     const statuses = [resA.status(), resB.status()].sort();
@@ -228,6 +242,8 @@ test.describe("Phase 2 — Host Authentication, Scheduling & Concurrency Tests",
   });
 
   test("9. Public Booking Portal End-to-End: Attendee can view slots and complete booking to confirmation", async ({ page, request }) => {
+    const clientIp = e2eClientIp();
+    await page.route("**/api/schedule/book", (route) => route.continue({ headers: { ...route.request().headers(), "x-forwarded-for": clientIp } }));
     await page.goto(`/book/${seedHostId}/${eventSlug}`);
 
     // Wait for event title to load
