@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Keep the response identical for existing and unknown addresses.
+    // Keep the existing-account success response independent of mail delivery details.
     return NextResponse.json({
       success: true,
       message:
