@@ -147,3 +147,29 @@ This reconciliation does not:
 - switch the JSON repository to Prisma;
 - deploy to staging or production;
 - merge PR #42 or any other open pull request.
+
+
+### 8.2 Repository-wide caller scan — `master` snapshot
+
+A direct file-tree inspection was completed for the repository's tracked TypeScript source under `src/app/api`, `src/lib`, and `tests`. All API route handlers in the tree were checked for direct persistence calls, along with the shared auth/session module and persistence-related test files. The following caller groups were confirmed:
+
+| Caller area | Confirmed persistence usage |
+|---|---|
+| Auth magic-link request and verification | User lookup/creation, recent-token check, token creation/deletion and atomic token consumption |
+| Shared auth/session service | Session lookup/create/delete and user lookup/creation |
+| Auth settings | User timezone update |
+| Calendar and connection details | Meetings, bookings, event types, room expiry |
+| Schedule availability and event types | Availability read/replace, timezone update, event-type list/create |
+| Public booking flow | Booking creation with conflict lock; user/event lookup; confirmation-email status update |
+| Booking management and host workspace | Booking lookup, management token update, change-request create/read/resolve, cancellation |
+| Meeting and instant-room endpoints | Meeting create/cancel with conflict lock |
+| LiveKit webhook and connection details | Webhook event processing and room lifecycle/expiry |
+| Internal booking reminder endpoint | Due-reminder query, related user/event lookup, reminder sent marker |
+| Demo request endpoint | Separate `createDemoRequest` flow; Prisma-first with JSON fallback |
+| Demo-request unit tests | Mock Prisma client for fallback lead reconciliation; no direct tests against the main `db` singleton found in inspected test files |
+
+The route scan also found a dynamic import in the public booking route for a post-create booking lookup. It was included in the caller map; a static-import-only scan would miss it.
+
+**Limitations:** GitHub's code-search endpoint returned no indexed matches for the queried `db.*` method symbols, so it was not used as evidence of absence. The file-tree/manual scan is stronger, but it is not a proof against reflection, string-based dynamic property access, generated code, or external consumers. No direct references were observed in the inspected route handlers/tests for `recordRoomParticipantLeave` and `recordRoomParticipantJoin`; these remain part of the exported runtime contract and must not be removed without a wider usage decision. The four unresolved methods from the earlier persistence inventory remain unresolved unless their status is explicitly settled by a complete symbol-by-symbol cross-reference.
+
+**Conclusion:** the caller map is materially more complete for the current tracked TypeScript routes and test files, but the four unresolved methods are not classified as dead code. The remaining work is to reconcile every exported repository method against the full source tree and test/mocks, then add explicit contract tests for any behavior that is currently reached only indirectly.
