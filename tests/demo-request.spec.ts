@@ -300,7 +300,7 @@ test.describe("Demo Request Workflow & API", () => {
     await page.goto("/");
 
     // Open Demo Modal via landing hero button (always visible across desktop, tablet, and mobile)
-    const requestDemoBtn = page.getByRole("button", { name: "Request Enterprise Demo" }).first();
+    const requestDemoBtn = page.getByRole("button", { name: /discuss your use case|discuter de votre besoin/i }).first();
     await requestDemoBtn.scrollIntoViewIfNeeded();
     await requestDemoBtn.click();
 
