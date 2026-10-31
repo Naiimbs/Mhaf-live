@@ -1,9 +1,20 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { extractClientIp } from "@/lib/client-ip";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { createHash, randomBytes } from "node:crypto";
 import { createBooking } from "@/lib/scheduling/booking";
 import { resolveLiveKitSettings } from "@/lib/livekit/config";
 
 export async function POST(request: Request) {
+  const clientIp = extractClientIp(request as NextRequest);
+  const rateLimit = checkRateLimit(`public-booking:${clientIp}`, 5, 60_000);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Too many booking attempts. Please wait before trying again." },
+      { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } }
+    );
+  }
+
   try {
     const liveKitConfig = resolveLiveKitSettings(process.env);
     if (!liveKitConfig.ok) {
