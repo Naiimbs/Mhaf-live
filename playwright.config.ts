@@ -60,11 +60,11 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "bun run dev",
+    command: "npm run dev",
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 60000,
     // Isolate test records from developer and production data. PostgreSQL is not required in this phase.
-    env: { ...e2eLiveKitEnv, ...e2eAuthEnv, MHAF_DATA_DIR: e2eDataDir, DATABASE_URL: "" },
+    env: { ...e2eLiveKitEnv, ...e2eAuthEnv, MHAF_DATA_DIR: e2eDataDir, DATABASE_URL: "", INITIAL_HOST_EMAIL: "", INITIAL_HOST_PASSWORD: "", INITIAL_HOST_NAME: "", SEED_DEMO_HOST: "true" },
   },
 });
