@@ -8,14 +8,20 @@ export async function GET(request: NextRequest) {
   const configuredSecret = process.env.MHAF_E2E_AUTH_HARNESS_SECRET;
   const suppliedSecret = request.headers.get("x-mhaf-e2e-secret") || "";
 
-  if (process.env.NODE_ENV !== "development" || !configuredSecret) {
-    return new NextResponse(null, { status: 404 });
+  if (process.env.NODE_ENV !== "development") {
+    return NextResponse.json({ error: "The E2E harness is disabled outside development." }, { status: 404 });
+  }
+  if (!configuredSecret) {
+    return NextResponse.json({ error: "The E2E harness secret is not configured on the server." }, { status: 503 });
+  }
+  if (!suppliedSecret) {
+    return NextResponse.json({ error: "The E2E harness secret header is missing." }, { status: 401 });
   }
 
   const expected = Buffer.from(configuredSecret);
   const supplied = Buffer.from(suppliedSecret);
   if (expected.length !== supplied.length || !timingSafeEqual(expected, supplied)) {
-    return new NextResponse(null, { status: 404 });
+    return NextResponse.json({ error: "The E2E harness secret does not match." }, { status: 403 });
   }
 
   const email = request.nextUrl.searchParams.get("email") || "";
