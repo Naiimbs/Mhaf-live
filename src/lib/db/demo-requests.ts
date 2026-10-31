@@ -5,17 +5,17 @@ import path from "path";
 
 export const DemoRequestInputSchema = z.object({
   fullName: z
-    .string({ required_error: "Full name is required." })
+    .string({ error: "Full name is required." })
     .trim()
     .min(2, "Full name must be at least 2 characters.")
     .max(100, "Full name cannot exceed 100 characters."),
   email: z
-    .string({ required_error: "Work email is required." })
+    .string({ error: "Work email is required." })
     .trim()
     .email("Please provide a valid work email address.")
     .max(120, "Email address cannot exceed 120 characters."),
   organization: z
-    .string({ required_error: "Organization name is required." })
+    .string({ error: "Organization name is required." })
     .trim()
     .min(2, "Organization name must be at least 2 characters.")
     .max(120, "Organization name cannot exceed 120 characters."),
