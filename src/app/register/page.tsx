@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Mail, User, Globe, ArrowRight, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand-logo";
@@ -25,7 +24,6 @@ const COMMON_TIMEZONES = [
 ];
 
 export default function RegisterPage() {
-  const router = useRouter();
   const { isFr } = useLanguage();
   const [name, setName] = React.useState("");
   const [email, setEmail] = React.useState("");
