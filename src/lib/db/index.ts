@@ -30,7 +30,7 @@ interface DatabaseSchema {
   processedLiveKitWebhookEvents: string[];
 }
 
-const DATA_DIR = path.join(process.cwd(), "data");
+const DATA_DIR = process.env.MHAF_DATA_DIR?.trim() || path.join(process.cwd(), "data");
 const DB_FILE = path.join(DATA_DIR, "mhaf_live_db.json");
 
 // In-memory Mutex Lock to guarantee atomic operations under concurrent load
