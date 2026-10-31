@@ -36,6 +36,7 @@ test.describe("LiveKit rooms and meeting lifecycle", () => {
       expect(openSlot).not.toBeNull();
 
       const bookingResponse = await api.post("/api/schedule/book", {
+        headers: { "x-forwarded-for": `198.51.100.${Math.floor(Math.random() * 254) + 1}` },
         data: {
           hostId: testHostId,
           eventTypeId: openSlot!.eventTypeId,
