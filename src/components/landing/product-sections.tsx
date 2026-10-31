@@ -71,6 +71,47 @@ export function ProductSections() {
         </div>
       </section>
 
+      <section id="after-meeting" className="py-20 sm:py-24">
+        <div className="container max-w-7xl px-4 sm:px-8">
+          <div className="mx-auto max-w-2xl text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+              {isFr ? "Feuille de route" : "Product roadmap"}
+            </p>
+            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+              {isFr ? "Ne perdez pas le fil après la réunion." : "Keep the context after the meeting."}
+            </h2>
+            <p className="mt-4 text-sm leading-6 text-muted-foreground sm:text-base">
+              {isFr
+                ? "Les outils de suivi et d’intelligence après réunion font partie des prochaines étapes du produit. Ils ne sont pas encore disponibles."
+                : "Meeting history, participation insights, and post-meeting intelligence are planned capabilities. They are not available yet."}
+            </p>
+          </div>
+          <div className="mt-12 grid gap-4 md:grid-cols-3">
+            <article className="rounded-2xl border border-border bg-card p-6">
+              <div className="text-xs font-mono text-primary">{isFr ? "À venir · 01" : "Planned · 01"}</div>
+              <h3 className="mt-4 text-lg font-semibold">{isFr ? "Historique des réunions" : "Meeting history"}</h3>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                {isFr ? "Retrouvez les réunions passées, leurs horaires, leur durée et les informations de session." : "Find past meetings with their dates, durations, and session details in one place."}
+              </p>
+            </article>
+            <article className="rounded-2xl border border-border bg-card p-6">
+              <div className="text-xs font-mono text-primary">{isFr ? "À venir · 02" : "Planned · 02"}</div>
+              <h3 className="mt-4 text-lg font-semibold">{isFr ? "Carte de participation" : "Participant timeline & map"}</h3>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                {isFr ? "Visualisez les arrivées, départs, reconnexions et périodes de présence de chaque participant." : "Understand who joined, left, reconnected, and how long each participant stayed."}
+              </p>
+            </article>
+            <article className="rounded-2xl border border-border bg-card p-6">
+              <div className="text-xs font-mono text-primary">{isFr ? "À venir · 03" : "Planned · 03"}</div>
+              <h3 className="mt-4 text-lg font-semibold">{isFr ? "Intelligence après réunion" : "Post-meeting intelligence"}</h3>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                {isFr ? "Transcription, résumé, sujets clés et actions à suivre, après activation du pipeline audio et IA." : "Transcripts, summaries, key topics, and follow-up actions once the recording and AI pipeline is implemented."}
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
       <section className="py-20 sm:py-24">
         <div className="container max-w-7xl px-4 sm:px-8">
           <div className="grid items-center gap-10 rounded-3xl border border-border bg-card p-7 shadow-sm sm:p-10 lg:grid-cols-[1fr_auto] lg:p-12">
