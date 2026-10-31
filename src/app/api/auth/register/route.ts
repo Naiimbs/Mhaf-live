@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     if (name.length < 2 || name.length > 120) {
       return NextResponse.json({ error: "Enter a valid name." }, { status: 400 });
     }
-    if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\\.[^\s@]+$/.test(email)) {
+    if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
     }
     try {
