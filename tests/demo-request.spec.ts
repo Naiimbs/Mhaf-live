@@ -315,7 +315,7 @@ test.describe("Demo Request Workflow & API", () => {
     await page.fill("#demo-org", "Rostova Security Labs");
 
     // Submit
-    const submitBtn = page.getByRole("button", { name: /Submit Demo Request/i });
+    const submitBtn = page.getByRole("button", { name: /Send request/i });
     await submitBtn.click();
 
     // Verify confirmation
