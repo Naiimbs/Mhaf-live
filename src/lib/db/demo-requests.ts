@@ -111,7 +111,7 @@ export function checkRateLimit(
   };
 }
 
-const DATA_DIR = path.join(process.cwd(), "data");
+const DATA_DIR = process.env.MHAF_DATA_DIR?.trim() || path.join(process.cwd(), "data");
 const FALLBACK_FILE = path.join(DATA_DIR, "demo_requests_fallback.json");
 
 export function getFallbackDemoRequests(filePath?: string): DemoRequestRecord[] {
