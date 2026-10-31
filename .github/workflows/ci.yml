@@ -28,3 +28,24 @@ jobs:
         run: npx tsc --noEmit -p tsconfig.app.json
       - name: Run unit tests
         run: npm run test:unit
+
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Microsoft Edge for Playwright
+        run: npx playwright install --with-deps msedge
+      - name: Run end-to-end tests
+        run: npm run test:e2e
+        env:
+          CI: "true"
