@@ -2,7 +2,7 @@ import nodemailer from "nodemailer";
 import { createHash, randomBytes } from "node:crypto";
 import path from "node:path";
 import fs from "node:fs";
-import { getE2EAuthHarnessSecret } from "@/lib/e2e-auth";
+import { getE2EAuthHarnessSecret } from "../e2e-auth";
 
 interface SendConfirmationEmailParams {
   to: string;
