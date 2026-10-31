@@ -66,11 +66,14 @@ export function Navbar({ onRequestDemo }: NavbarProps) {
               </a>
             ))}
             <div className="mt-3 grid grid-cols-2 gap-2 border-t border-border pt-4">
-              <Button variant="outline" className="min-h-11" onClick={() => { setMobileMenuOpen(false); onRequestDemo(); }}>
-                {isFr ? "Demander une démo" : "Request demo"}
+              <Button variant="ghost" className="min-h-11" asChild>
+                <Link href="/login" onClick={() => setMobileMenuOpen(false)}>{t("nav.signIn")}</Link>
               </Button>
               <Button asChild className="min-h-11">
                 <Link href="/register" onClick={() => setMobileMenuOpen(false)}>{isFr ? "Commencer" : "Get started"}</Link>
+              </Button>
+              <Button variant="outline" className="min-h-11 col-span-2" onClick={() => { setMobileMenuOpen(false); onRequestDemo(); }}>
+                {isFr ? "Demander une démo" : "Request demo"}
               </Button>
             </div>
           </nav>
