@@ -13,6 +13,8 @@ The intended architecture is PostgreSQL + Prisma as the durable application data
 - A process-local `AsyncLock` serializes operations only inside one Node.js process. It does not provide cross-process or multi-replica transaction safety.
 - Demo requests are written through Prisma/PostgreSQL, with a JSON fallback when PostgreSQL is unavailable.
 - `prisma/schema.prisma` currently models User, Session, EventType, Availability, Booking, AuditLog, and DemoRequest. It does not yet model all of the entities used by the JSON store or the full meeting lifecycle described in the approved data model.
+- The JSON loader catches file-read/parse errors and falls back to an empty in-memory database. In production this could conceal a corrupted or unreadable data file and make the app appear to have no records. Migration work must preserve the source and make corruption/read failures explicit rather than silently initializing empty state.
+- The JSON store also seeds a default host, event type, and availability when its user collection is empty. This bootstrap behavior must be deliberately replaced with a safe, one-time PostgreSQL bootstrap path; it must not accidentally create demo credentials or duplicate seed records during migration/restarts.
 
 This means the application is not yet ready to rely on PostgreSQL as the single source of truth or to scale horizontally.
 
@@ -56,6 +58,8 @@ Use an additive, reversible migration sequence:
    - Enumerate every `db.*` operation and its callers.
    - Identify JSON data files in each environment and decide whether they contain data that must be preserved.
    - Take a timestamped backup before any import or cutover.
+   - Add a regression test proving a missing or malformed production JSON store cannot silently be treated as a valid empty database; retain/quarantine the original file for recovery.
+   - Document the existing default-host bootstrap behavior and design a one-time, idempotent replacement before disabling the JSON store.
 
 2. **Schema completion**
    - Add the missing domain models and relations through Prisma migrations.
@@ -120,6 +124,8 @@ The full attendance, transcript, and AI-summary models can be introduced in stag
 - [ ] Conflicting booking concurrency test passes across independent processes.
 - [ ] Webhook idempotency is backed by a PostgreSQL unique constraint.
 - [ ] DemoRequest fallback is consolidated or explicitly retained only as a temporary migration tool.
+- [ ] JSON corruption/read failure behavior is explicit and recoverable.
+- [ ] Host bootstrap is one-time, idempotent, and safe for production.
 - [ ] Backup/restore and import dry-run are verified.
 - [ ] Full CI passes against the PostgreSQL-backed implementation.
 - [ ] Maintainer approves any production data migration or deployment separately.
