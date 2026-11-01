@@ -119,11 +119,7 @@ jobs:
             echo "Checking VPS container storage before pulling the deployment image..."
             df -h /var/lib/containerd || true
             docker system df || true
-            echo "Pruning only Docker images not referenced by any container..."
-            if ! docker image prune --all --force; then
-              echo "Could not prune unused Docker images; aborting before replacing the current container."
-              return 1
-            fi
+            echo "Skipping global Docker image pruning to protect other services on this VPS."
             for attempt in $(seq 1 "$max_attempts"); do
               echo "Pulling image $target (attempt $attempt of $max_attempts)..."
               if docker pull "$target"; then
@@ -260,14 +256,7 @@ jobs:
 
           # The bind-mounted JSON store must be readable and writable by the app's
           # non-root user (UID/GID 1001), not just by the SSH/deploy account.
-          echo "Aligning persistent application data ownership with container UID 1001..."
-          if ! docker run --rm --user 0:0 \
-            -v "$DATA_DIR:/app/data" \
-            --entrypoint sh "$IMAGE" \
-            -c 'chown -R 1001:1001 /app/data && chmod 0700 /app/data'; then
-            echo "Could not set application data directory ownership; aborting before stopping the current container."
-            exit 1
-          fi
+          echo "Preserving existing JSON data ownership; verifying access without changing file owners or permissions."
           echo "Verifying JSON storage write access as the application user..."
           if ! docker run --rm --user 1001:1001 \
             -v "$DATA_DIR:/app/data" \
