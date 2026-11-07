@@ -31,7 +31,7 @@ export function HeroSection({ onRequestDemo }: HeroSectionProps) {
             <p className="mt-6 max-w-lg text-base leading-7 text-muted-foreground sm:text-lg">{t("landing.heroSubtitle")}</p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button size="lg" asChild className="gap-2 shadow-sm">
-                <Link href="/register">{t("landing.ctaStart")} <ArrowRight className="h-4 w-4" /></Link>
+                <Link href="/register">{t("nav.getStarted")} <ArrowRight className="h-4 w-4" /></Link>
               </Button>
               <Button size="lg" variant="outline" onClick={onRequestDemo}>
                 {isFr ? "Discuter de votre besoin" : "Discuss your use case"}
