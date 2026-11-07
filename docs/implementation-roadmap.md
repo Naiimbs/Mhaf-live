@@ -27,6 +27,33 @@
 
 Ces vérifications ne démontrent ni l’unicité des créneaux entre plusieurs processus/réplicas ni la disponibilité du service LiveKit sur l’environnement de production.
 
+## Roadmap proposée avant lancement public
+
+Les éléments ci-dessous sont des propositions, pas des fonctionnalités déjà livrées. Les priorités P0 sont des prérequis si des utilisateurs externes peuvent créer des comptes, réserver ou tenir de vraies réunions. Les critères indiquent comment vérifier chaque élément avant de le déclarer terminé.
+
+### P0 — Fiabilité, sécurité et confiance
+
+- **Persistance transactionnelle des réservations et réunions.** Migrer le magasin JSON actif vers PostgreSQL avec contraintes d’unicité et transactions; préserver les identifiants et liens existants via un import idempotent. *Acceptation :* deux demandes concurrentes pour le même créneau ne peuvent pas toutes deux réussir, y compris avec plusieurs instances; migration, sauvegarde et restauration sont testées.
+- **Limites d’abus et durcissement des parcours publics.** Vérifier les limites de débit et les réponses d’erreur pour l’inscription, la connexion, les liens magiques, les demandes de démo et la réservation; ajouter une protection anti-robot adaptée si les abus le justifient. *Acceptation :* tests automatisés couvrant les limites, l’expiration des jetons et l’absence de fuite d’informations sensibles dans les réponses et journaux.
+- **Cycle de vie des données personnelles.** Documenter les données collectées, leur durée de conservation et les fournisseurs qui les traitent; fournir une procédure de suppression du compte et des données associées, ainsi qu’un moyen de traiter une demande de suppression. *Acceptation :* parcours et politique de confidentialité cohérents avec le comportement réel; tests de suppression couvrant les données liées et les exceptions de conservation.
+- **Accessibilité des parcours essentiels.** Auditer l’inscription, le calendrier, la réservation, le pré-join et la salle au clavier et avec un lecteur d’écran; corriger le contraste, les libellés, le focus visible et le respect de `prefers-reduced-motion`. *Acceptation :* les parcours principaux sont réalisables sans souris et les problèmes bloquants de WCAG 2.2 AA sont corrigés ou consignés avec une justification.
+- **Préparation opérationnelle.** Ajouter des vérifications de santé utiles, une journalisation sans secrets ni données personnelles superflues, une alerte sur les erreurs critiques et des procédures de sauvegarde/restauration et de rollback. *Acceptation :* restauration réalisée sur un environnement de test et procédure de release répétée sur staging avant production.
+- **Vérification de production de bout en bout.** Valider les domaines, HTTPS, cookies de session, secrets, SMTP, LiveKit, créneaux, invitations et contrôles d’accès dans un staging proche de la production. *Acceptation :* checklist signée, tests smoke réussis et aucune clé de démonstration ou donnée de test exposée.
+
+### P1 — Parcours plus complets pour les hôtes et invités
+
+- **Invitations de calendrier.** Générer des invitations `.ics` pour les confirmations et changements de rendez-vous, avec fuseau horaire explicite et lien de réunion correct. *Acceptation :* événements vérifiés dans au moins deux clients de calendrier et tests autour des transitions d’heure d’été.
+- **Annulation et replanification en libre-service.** Permettre à un invité de confirmer ou d’annuler une demande de modification sans exposer les réservations d’autres personnes; aligner les statuts, courriels et disponibilités après chaque changement. *Acceptation :* jetons de gestion à usage limité ou révocables, tests d’expiration et aucun créneau fantôme après annulation.
+- **Récupération après incident réseau.** Rendre les états de connexion, permission caméra/micro, reconnexion et échec LiveKit compréhensibles; proposer une reprise sans créer une seconde réunion involontaire. *Acceptation :* tests manuels et automatisés des permissions refusées, coupure réseau et reconnexion.
+- **Aperçu public fidèle aux capacités.** Séparer nettement les fonctions disponibles, les prototypes et les éléments planifiés; proposer une démo sans données réelles si elle peut être isolée en sécurité. *Acceptation :* aucun créneau d’exemple n’est présenté comme disponibilité réelle et les actions de la démo n’écrivent pas dans les données de production.
+- **Préférences et paramètres du compte.** Ajouter la gestion du fuseau horaire, de la langue et des notifications depuis l’espace hôte. *Acceptation :* préférences conservées entre sessions et affichage cohérent dans le calendrier, les courriels et les invitations.
+
+### P2 — Évolutions après stabilisation
+
+- **Historique et présence des réunions.** Construire ces fonctions uniquement à partir d’événements LiveKit signés et persistés, avec règles de rétention explicites.
+- **Enregistrement, transcription et résumés.** Ne lancer qu’après choix du fournisseur, consentement clair de tous les participants, indicateur visible d’enregistrement, contrôle d’accès, suppression et politique de conservation testés.
+- **Intégrations calendaires et indicateurs d’usage.** Évaluer la synchronisation externe et les analytics après stabilisation de la persistance, du modèle de consentement et des besoins des utilisateurs.
+
 ## Étapes recommandées avant release
 
 1. Revue de la PR et validation des décisions de contenu encore ouvertes, notamment la présence éventuelle d’un CTA « Request a demo ».
