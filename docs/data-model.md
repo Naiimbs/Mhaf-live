@@ -1,44 +1,44 @@
-# MHAF Live — modèle de données actif
+# MHAF Live — Active Data Model
 
-**État :** décrit le magasin JSON utilisé par les parcours de réservation et de réunion.
-**Important :** `prisma/schema.prisma` n’est pas le magasin faisant autorité pour ces opérations dans l’application actuelle.
+**Status:** describes the JSON store used by booking and meeting flows.
+**Important:** `prisma/schema.prisma` is not the authoritative store for these operations in the current application.
 
-## Stockage et compatibilité
+## Storage and compatibility
 
-`src/lib/db/` charge et persiste `data/mhaf_live_db.json`. Les champs Date sont sérialisés sous forme de chaînes ISO et reconstitués en objets `Date` au chargement. Les anciennes données sans clé `meetings` sont chargées avec une collection de réunions vide afin de préserver la compatibilité.
+`src/lib/db/` loads and persists `data/mhaf_live_db.json`. Date fields are serialized as ISO strings and reconstructed as `Date` objects on load. Legacy data without a `meetings` key is loaded with an empty meeting collection to preserve compatibility.
 
-Le magasin garde les collections `users`, `sessions`, `eventTypes`, `availabilities`, `bookings`, `meetings` et `auditLogs`.
+The store maintains the collections `users`, `sessions`, `eventTypes`, `availabilities`, `bookings`, `meetings`, and `auditLogs`.
 
-## Entités actives
+## Active entities
 
 ### Booking
 
-Une réservation représente le créneau confirmé d’un invité pour un type de rendez-vous. Elle comprend `id`, `uid`, `eventTypeId`, `hostId`, `attendeeName`, `attendeeEmail`, `attendeeNotes`, `startTime`, `endTime`, `status`, `createdAt` et `updatedAt`.
+A booking represents a guest's confirmed slot for an event type. It includes `id`, `uid`, `eventTypeId`, `hostId`, `attendeeName`, `attendeeEmail`, `attendeeNotes`, `startTime`, `endTime`, `status`, `createdAt`, and `updatedAt`.
 
-États de réservation : `PENDING`, `CONFIRMED`, `CANCELLED`, `COMPLETED`. Une réservation publique acceptée conserve son identifiant de salle historique (`uid`) pour maintenir la compatibilité des liens existants.
+Booking states are `PENDING`, `CONFIRMED`, `CANCELLED`, and `COMPLETED`. An accepted public booking preserves its historical room identifier (`uid`) so existing links remain compatible.
 
 ### Meeting
 
-Une réunion est l’événement qui apparaît dans le calendrier et qui résout un lien de salle. Elle comprend `id`, `uid`, `hostId`, `title`, `source`, `bookingId`, `attendeeName`, `attendeeEmail`, `startTime`, `endTime`, `status`, `createdAt` et `updatedAt`.
+A meeting is the event shown on the calendar and used to resolve a room link. It includes `id`, `uid`, `hostId`, `title`, `source`, `bookingId`, `attendeeName`, `attendeeEmail`, `startTime`, `endTime`, `status`, `createdAt`, and `updatedAt`.
 
-- `source`: `BOOKING`, `MANUAL` ou `INSTANT`.
-- `status`: `SCHEDULED`, `LIVE`, `CANCELLED` ou `COMPLETED`.
-- `bookingId`: identifiant de la réservation associée, ou `null` pour une réunion sans réservation.
-- Pour une réservation publique, le `Meeting` lié partage l’UID de la réservation; les identifiants `Booking` historiques continuent donc à fonctionner.
-- Les réunions manuelles et instantanées possèdent leur propre UID et n’ajoutent pas de ligne artificielle dans `bookings`.
+- `source`: `BOOKING`, `MANUAL`, or `INSTANT`.
+- `status`: `SCHEDULED`, `LIVE`, `CANCELLED`, or `COMPLETED`.
+- `bookingId`: the related booking ID, or `null` for a meeting without a booking.
+- For a public booking, the linked `Meeting` shares the booking UID, so historical `Booking` links continue to work.
+- Manual and instant meetings have their own UID and do not create an artificial row in `bookings`.
 
-### Autres collections
+### Other collections
 
-`User` porte notamment le rôle et le fuseau horaire IANA de l’hôte. `EventType` définit la durée et les marges avant/après. `Availability` stocke les plages hebdomadaires et leur fuseau. `Session` et `AuditLog` sont conservés dans le magasin existant.
+`User` includes, among other fields, the host role and IANA time zone. `EventType` defines duration and before/after buffers. `Availability` stores weekly hours and their time zone. `Session` and `AuditLog` remain in the existing store.
 
-## Relations et conflits
+## Relationships and conflicts
 
-Un `Booking` peut être représenté par un `Meeting` de source `BOOKING`; `bookingId` est la relation explicite. Le calendrier agrège les réunions puis ajoute les réservations historiques qui n’ont pas de réunion liée, ce qui évite les doublons tout en conservant les anciens enregistrements.
+A `Booking` may be represented by a `Meeting` with source `BOOKING`; `bookingId` is the explicit relationship. The calendar aggregates meetings and then adds legacy bookings without a linked meeting, avoiding duplicates while retaining older records.
 
-La création de réservation vérifie de nouveau côté serveur l’hôte, le type actif, la durée, le fuseau, l’avance et la disponibilité. Le chemin de mutation sous verrou vérifie les conflits avec les autres réservations et réunions puis sauvegarde les enregistrements liés. La création manuelle vérifie aussi les chevauchements; les réunions instantanées ont une durée bornée.
+Booking creation revalidates the host, active event type, duration, time zone, notice period, and availability on the server. The locked mutation path checks conflicts with other bookings and meetings before saving linked records. Manual meeting creation also checks overlaps; instant meetings have a bounded duration.
 
-**Limite opérationnelle :** le verrou est en mémoire et partagé uniquement à l’intérieur d’un processus. Le fichier JSON et ce verrou ne procurent pas de transactions ACID distribuées, de coordination entre réplicas ou de garantie de concurrence multi-processus. Une évolution vers PostgreSQL doit ajouter des contraintes/transactions et migrer les données avant toute architecture multi-écrivain.
+**Operational limitation:** the lock is in memory and shared only within a single process. The JSON file and lock do not provide distributed ACID transactions, replica coordination, or multi-process concurrency guarantees. A move to PostgreSQL must add appropriate constraints and transactions and migrate existing data before using a multi-writer architecture.
 
 ## Prisma/PostgreSQL
 
-Le schéma Prisma présent dans le dépôt est une référence séparée; il ne faut pas déduire de son existence que les bookings et meetings actifs sont écrits en PostgreSQL. Toute migration du modèle actif doit documenter la source de vérité, la compatibilité des UIDs de salle, les relations `Booking`–`Meeting`, la stratégie de migration des dates et les contraintes d’unicité/conflit.
+The Prisma schema in the repository is a separate reference; its presence does not mean active bookings and meetings are written to PostgreSQL. Any migration of the active model must document the source of truth, room UID compatibility, `Booking`–`Meeting` relationships, date migration strategy, and uniqueness/conflict constraints.

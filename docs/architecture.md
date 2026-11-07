@@ -1,47 +1,47 @@
-# MHAF Live — architecture actuelle
+# MHAF Live — Current Architecture
 
-**État :** fonctionnalité calendrier/rencontres implémentée sur `feat/calendar-workspace-flow`; revue PR et décision de mise en production restantes.
-**Source de vérité :** le code exécuté dans `src/`, pas le schéma Prisma ni les anciens diagrammes d’architecture.
+**Status:** Calendar and meeting functionality is implemented; review and production-release decisions remain separate steps.
+**Source of truth:** the running code under `src/`, not the Prisma schema or older architecture diagrams.
 
-## Vue d’ensemble
+## Overview
 
-MHAF Live est une application Next.js App Router. Le parcours public, la réservation, l’espace hôte et le client LiveKit passent par l’application Next.js. La connexion média est fournie par LiveKit; le serveur signe les jetons d’accès et ne transmet pas la clé secrète au navigateur.
+MHAF Live is a Next.js App Router application. The public experience, booking flow, host workspace, and LiveKit client are served through the Next.js application. LiveKit provides media connectivity; the server signs access tokens and does not send the signing secret to the browser.
 
-Les réservations et réunions de l’application utilisent actuellement le magasin JSON de `src/lib/db/`, persisté dans `data/mhaf_live_db.json`. Prisma/PostgreSQL est présent dans le dépôt pour d’autres usages et comme voie d’évolution, mais il n’est pas le magasin transactionnel faisant autorité pour ces flux.
+Bookings and meetings currently use the JSON store in `src/lib/db/`, persisted to `data/mhaf_live_db.json`. Prisma/PostgreSQL is present in the repository for separate uses and as a possible migration path, but it is not the authoritative transactional store for these flows.
 
-## Parcours et routes
+## User flows and routes
 
-| Parcours | Route principale | Contrôle |
+| Flow | Main route | Control |
 |---|---|---|
-| Présenter le produit | `/` | Page publique informative; aucun widget de création de réunion ou de réservation. |
-| Créer un compte / ouvrir une session | `/register`, `/login` | L’authentification hôte protège les actions de gestion. |
-| Gérer le calendrier | `/dashboard` | Semaine affichée dans le fuseau IANA de l’hôte; événements issus des réservations et réunions. |
-| Gérer le lien public | `/book/[hostSlug]/[eventSlug]` | Le serveur vérifie l’hôte, le type de rendez-vous, la disponibilité, la durée, l’avance requise et les conflits. |
-| Créer une réunion sans réservation | `POST /api/meetings` | Hôte authentifié; heure locale convertie dans son fuseau, durée et chevauchements validés. |
-| Démarrer une réunion instantanée | `POST /api/rooms/instant` | Hôte authentifié; crée une réunion à durée bornée, sans réservation fictive. |
-| Charger les événements | `GET /api/calendar` | Hôte authentifié; renvoie uniquement les événements de son compte. |
-| Rejoindre une salle | `/rooms/[slug]` et `/api/connection-details` | L’UID doit correspondre à une réservation ou réunion persistée; un UID inconnu ne crée pas de salle. |
+| Introduce the product | `/` | Informational public page; no live room or booking is created there. |
+| Register or sign in | `/register`, `/login` | Host authentication protects management actions. |
+| Manage the calendar | `/dashboard` | Week is displayed in the host's IANA time zone and aggregates bookings and meetings. |
+| Use a public booking link | `/book/[hostSlug]/[eventSlug]` | The server validates the host, event type, availability, duration, notice period, and conflicts. |
+| Create a meeting without a booking | `POST /api/meetings` | Authenticated host; local time, duration, and overlaps are validated. |
+| Start an instant meeting | `POST /api/rooms/instant` | Authenticated host; creates a time-bounded meeting without a synthetic booking. |
+| Load calendar events | `GET /api/calendar` | Authenticated host; returns only that host's events. |
+| Join a room | `/rooms/[slug]` and `/api/connection-details` | The UID must match a persisted booking or meeting; an unknown UID does not create a room. |
 
-Une réservation publique acceptée produit un `Booking` et un `Meeting` lié de source `BOOKING`. Une réunion manuelle ou instantanée produit un `Meeting` sans `Booking`. Ces ressources ne sont pas interchangeables.
+An accepted public booking creates a `Booking` and a linked `Meeting` with source `BOOKING`. A manual or instant meeting creates a `Meeting` without a `Booking`. These resources are not interchangeable.
 
-## Persistance et garanties de concurrence
+## Persistence and concurrency guarantees
 
-Le magasin JSON garde les dates en ISO sur disque et les reconstitue en `Date` en mémoire. Les mutations critiques passent par un verrou asynchrone en mémoire; création d’une réservation et de sa réunion liée, création de réunion, annulation et persistance sont regroupées dans ce chemin protégé.
+The JSON store keeps dates as ISO strings on disk and restores them as `Date` objects in memory. Critical mutations use an in-memory asynchronous lock; booking creation and its linked meeting, meeting creation, cancellation, and persistence are handled in that protected path.
 
-**Limite importante :** ce verrou ne coordonne que les requêtes d’un même processus Node.js. Il ne garantit pas l’unicité face à plusieurs processus ou réplicas et ne remplace pas une transaction PostgreSQL. Ne pas annoncer une garantie ACID inter-réplicas ni déployer plusieurs écrivains avec ce magasin.
+**Important limitation:** the lock coordinates requests only within one Node.js process. It does not guarantee uniqueness across multiple processes or replicas and is not a replacement for a PostgreSQL transaction. Do not claim cross-replica ACID guarantees or deploy multiple writers with this store.
 
-## Sécurité des salles et des créneaux
+## Room and slot security
 
-- Les API de calendrier et de création exigent une session hôte; les identifiants reçus du navigateur ne suffisent pas à établir la propriété.
-- Les jetons LiveKit sont émis par le serveur après résolution de la réservation/réunion, de son état et du rôle du demandeur.
-- Une réunion programmée ne peut être rejointe avant la fenêtre définie par la configuration serveur `ENFORCE_MEETING_TIME_WINDOW`; les paramètres de requête ou de corps envoyés par le navigateur ne peuvent pas désactiver cette règle.
-- Les créneaux sont calculés avec le fuseau IANA de l’hôte et affichés dans le fuseau du visiteur; les heures inexistantes lors du passage à l’heure d’été sont rejetées.
-- Les pages n’affirment « connecté » qu’après la connexion LiveKit; les états d’échec et de reconnexion restent visibles.
+- Calendar and creation APIs require a host session; IDs supplied by the browser alone do not establish ownership.
+- The server issues LiveKit tokens after resolving the booking or meeting, its status, and the requester's role.
+- A scheduled meeting cannot be joined before the window defined by the server-side `ENFORCE_MEETING_TIME_WINDOW` setting. Browser query or body parameters cannot disable this rule.
+- Slots are calculated using the host's IANA time zone and displayed in the visitor's time zone; nonexistent local times during daylight-saving transitions are rejected.
+- The interface reports a participant as connected only after LiveKit connects; failure and reconnect states remain visible.
 
-## Portée implémentée et non implémentée
+## Implemented and unimplemented scope
 
-Le calendrier, les réservations, les réunions manuelles et instantanées, l’autorisation d’accès aux salles et le client LiveKit sont présents dans le code. Les webhooks d’assiduité, les tableaux de présence, l’enregistrement/archivage, les transcriptions et les résumés IA décrits dans certains documents historiques ne sont pas livrés par cette fonctionnalité et ne doivent pas être présentés comme disponibles.
+The calendar, bookings, manual and instant meetings, room access authorization, and LiveKit client are present in the code. Attendance webhooks, attendance dashboards, recording/archival, transcripts, and AI summaries described in some historical documents are not delivered and must not be presented as available features.
 
-## Vérification locale
+## Local verification
 
-La branche a été vérifiée avec `npm run build`, cinq tests unitaires de fuseau horaire et 23 tests Playwright ciblant la landing page, le calendrier, les réservations, l’authentification et les salles. Les tests utilisent des données locales; ils ne prouvent pas une garantie de concurrence multi-processus ni la disponibilité de l’infrastructure LiveKit en production.
+The branch was checked with `npm run build`, five time-zone unit tests, and 23 targeted Playwright tests covering the landing page, calendar workspace, bookings, authentication, and rooms. Tests use local data; they do not prove multi-process concurrency guarantees or production LiveKit availability.

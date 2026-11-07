@@ -1,70 +1,70 @@
-# MHAF Live — état d’implémentation et prochaines étapes
+# MHAF Live — Implementation Status and Next Steps
 
-**État documentaire :** mis à jour pour `feat/calendar-workspace-flow`.
-**Déploiement de production :** non effectué dans le cadre de cette branche; toute mise en production reste une étape de release séparée après revue et vérification des secrets/configurations.
+**Documentation status:** reflects the calendar and meeting implementation currently in the repository.
+**Production deployment:** a release is a separate step and requires review and verification of environment settings and secrets.
 
-## État vérifié dans le dépôt
+## Verified repository status
 
-| Domaine | État dans cette branche | Vérification / limite |
+| Area | Status in this codebase | Verification / limitation |
 |---|---|---|
-| Application Next.js, pages d’authentification | Implémenté | Build de production réussi. |
-| Landing page publique | Page de présentation, sans création de salle/réservation | Tests Playwright ciblés. |
-| Réservations publiques | Flux avec validation serveur et conversion IANA | Tests ciblés; persistance JSON, pas de transaction distribuée. |
-| Calendrier hôte hebdomadaire | Implémenté sur `/dashboard`; agrège réservations et réunions | Test de workspace; affiche le fuseau de l’hôte et les événements hors plage par défaut. |
-| Réunions manuelles et instantanées | Implémentées comme enregistrements `Meeting` distincts | Routes authentifiées et conflits protégés au niveau du processus. |
-| Salle vidéo LiveKit | Client et émission serveur de jeton présents | Tests de route/unitaires E2E ciblés; dépendent des credentials et du service LiveKit à l’exécution. |
-| Contrôle d’accès à une réunion programmée | Fenêtre gérée côté serveur | Tests GET et POST vérifiant qu’un paramètre client ne la désactive pas. |
-| Fuseaux horaires | Conversion basée sur l’IANA et gestion des transitions DST | Cinq tests unitaires passent. |
-| Persistance des réservations/réunions | Fichier JSON actif (`data/mhaf_live_db.json`) | Limité à un processus; le schéma Prisma n’est pas la source de vérité de ces flux. |
-| Webhooks, analytics d’assiduité, enregistrements, transcriptions et résumés IA | Non implémentés par cette branche | Ne pas annoncer comme fonctionnalités disponibles. |
+| Next.js application and authentication pages | Implemented | Production build succeeds. |
+| Public landing page | Informational page; does not create rooms or bookings | Targeted Playwright coverage. |
+| Public bookings | Server validation and IANA time-zone conversion | Targeted tests; JSON persistence, not distributed transactions. |
+| Host weekly calendar | Implemented on `/dashboard`; aggregates bookings and meetings | Workspace test; displays the host time zone and out-of-range events by default. |
+| Manual and instant meetings | Implemented as distinct `Meeting` records | Authenticated routes and conflicts protected within one process. |
+| LiveKit video room | Client and server token issuance are present | Targeted route/unit and E2E tests; runtime requires configured credentials and a LiveKit service. |
+| Scheduled-meeting access control | Enforced on the server | GET and POST tests confirm a client parameter cannot disable it. |
+| Time zones | IANA-based conversion and daylight-saving transition handling | Five unit tests pass. |
+| Booking/meeting persistence | Active JSON file (`data/mhaf_live_db.json`) | Single-process limitation; Prisma is not the source of truth for these flows. |
+| Attendance webhooks/analytics, recording, transcripts, and AI summaries | Not implemented in this codebase | Do not advertise as available features. |
 
-## Vérifications locales réalisées
+## Local checks recorded
 
-- `npm run build` — réussi.
-- `node --experimental-strip-types --test tests/unit/timezone.test.ts` — 5 tests réussis.
-- Playwright ciblé — 23 tests réussis sur les parcours landing page, workspace calendrier, authentification, réservations, concurrence dans un processus et salles.
-- Les E2E ont utilisé une base de données locale fraîche et un transport SMTP redirigé vers localhost. Aucun test n’a visé une base de production.
+- `npm run build` — succeeded.
+- `node --experimental-strip-types --test tests/unit/timezone.test.ts` — 5 tests passed.
+- Targeted Playwright suite — 23 tests passed across the landing page, calendar workspace, authentication, bookings, in-process conflict handling, and rooms.
+- E2E tests used a fresh local database and SMTP redirected to localhost. No tests targeted a production database.
 
-Ces vérifications ne démontrent ni l’unicité des créneaux entre plusieurs processus/réplicas ni la disponibilité du service LiveKit sur l’environnement de production.
+These checks do not establish slot uniqueness across multiple processes/replicas or production LiveKit availability.
 
-## Roadmap proposée avant lancement public
+## Proposed roadmap before public launch
 
-Les éléments ci-dessous sont des propositions, pas des fonctionnalités déjà livrées. Les priorités P0 sont des prérequis si des utilisateurs externes peuvent créer des comptes, réserver ou tenir de vraies réunions. Les critères indiquent comment vérifier chaque élément avant de le déclarer terminé.
+The items below are proposals, not delivered features. P0 items are prerequisites if external users can create accounts, book slots, or hold real meetings. Acceptance criteria describe how to verify completion.
 
-### P0 — Fiabilité, sécurité et confiance
+### P0 — Reliability, security, and trust
 
-- **Persistance transactionnelle des réservations et réunions.** Migrer le magasin JSON actif vers PostgreSQL avec contraintes d’unicité et transactions; préserver les identifiants et liens existants via un import idempotent. *Acceptation :* deux demandes concurrentes pour le même créneau ne peuvent pas toutes deux réussir, y compris avec plusieurs instances; migration, sauvegarde et restauration sont testées.
-- **Limites d’abus et durcissement des parcours publics.** Vérifier les limites de débit et les réponses d’erreur pour l’inscription, la connexion, les liens magiques, les demandes de démo et la réservation; ajouter une protection anti-robot adaptée si les abus le justifient. *Acceptation :* tests automatisés couvrant les limites, l’expiration des jetons et l’absence de fuite d’informations sensibles dans les réponses et journaux.
-- **Cycle de vie des données personnelles.** Documenter les données collectées, leur durée de conservation et les fournisseurs qui les traitent; fournir une procédure de suppression du compte et des données associées, ainsi qu’un moyen de traiter une demande de suppression. *Acceptation :* parcours et politique de confidentialité cohérents avec le comportement réel; tests de suppression couvrant les données liées et les exceptions de conservation.
-- **Accessibilité des parcours essentiels.** Auditer l’inscription, le calendrier, la réservation, le pré-join et la salle au clavier et avec un lecteur d’écran; corriger le contraste, les libellés, le focus visible et le respect de `prefers-reduced-motion`. *Acceptation :* les parcours principaux sont réalisables sans souris et les problèmes bloquants de WCAG 2.2 AA sont corrigés ou consignés avec une justification.
-- **Préparation opérationnelle.** Ajouter des vérifications de santé utiles, une journalisation sans secrets ni données personnelles superflues, une alerte sur les erreurs critiques et des procédures de sauvegarde/restauration et de rollback. *Acceptation :* restauration réalisée sur un environnement de test et procédure de release répétée sur staging avant production.
-- **Vérification de production de bout en bout.** Valider les domaines, HTTPS, cookies de session, secrets, SMTP, LiveKit, créneaux, invitations et contrôles d’accès dans un staging proche de la production. *Acceptation :* checklist signée, tests smoke réussis et aucune clé de démonstration ou donnée de test exposée.
+- **Transactional booking and meeting persistence.** Migrate the active JSON store to PostgreSQL with uniqueness constraints and transactions; preserve IDs and existing links with an idempotent import. *Acceptance:* two concurrent requests for the same slot cannot both succeed, including across instances; migration, backup, and restore are tested.
+- **Abuse limits and public-flow hardening.** Review rate limits and error responses for registration, sign-in, magic links, demo requests, and booking; add proportionate bot protection if needed. *Acceptance:* automated tests cover limits and token expiry, and sensitive information is not leaked in responses or logs.
+- **Personal-data lifecycle.** Document collected data, retention periods, and processing providers; provide an account/data deletion process and a way to handle deletion requests. *Acceptance:* user flows and privacy policy match actual behavior; deletion tests cover related records and retention exceptions.
+- **Accessibility of essential flows.** Audit registration, calendar, booking, pre-join, and room flows with keyboard and screen-reader use; address contrast, labels, visible focus, and `prefers-reduced-motion`. *Acceptance:* core flows work without a mouse, and blocking WCAG 2.2 AA issues are fixed or documented with rationale.
+- **Operational readiness.** Add useful health checks, logging that avoids secrets and unnecessary personal data, alerts for critical errors, and backup/restore and rollback procedures. *Acceptance:* restore is rehearsed in a test environment and the release process is repeated on staging before production.
+- **End-to-end production verification.** Validate domains, HTTPS, session cookies, secrets, SMTP, LiveKit, slots, invitations, and access controls in production-like staging. *Acceptance:* checklist completed, smoke tests pass, and no demo keys or test data are exposed.
 
-### P1 — Parcours plus complets pour les hôtes et invités
+### P1 — More complete host and guest journeys
 
-- **Invitations de calendrier.** Générer des invitations `.ics` pour les confirmations et changements de rendez-vous, avec fuseau horaire explicite et lien de réunion correct. *Acceptation :* événements vérifiés dans au moins deux clients de calendrier et tests autour des transitions d’heure d’été.
-- **Annulation et replanification en libre-service.** Permettre à un invité de confirmer ou d’annuler une demande de modification sans exposer les réservations d’autres personnes; aligner les statuts, courriels et disponibilités après chaque changement. *Acceptation :* jetons de gestion à usage limité ou révocables, tests d’expiration et aucun créneau fantôme après annulation.
-- **Récupération après incident réseau.** Rendre les états de connexion, permission caméra/micro, reconnexion et échec LiveKit compréhensibles; proposer une reprise sans créer une seconde réunion involontaire. *Acceptation :* tests manuels et automatisés des permissions refusées, coupure réseau et reconnexion.
-- **Aperçu public fidèle aux capacités.** Séparer nettement les fonctions disponibles, les prototypes et les éléments planifiés; proposer une démo sans données réelles si elle peut être isolée en sécurité. *Acceptation :* aucun créneau d’exemple n’est présenté comme disponibilité réelle et les actions de la démo n’écrivent pas dans les données de production.
-- **Préférences et paramètres du compte.** Ajouter la gestion du fuseau horaire, de la langue et des notifications depuis l’espace hôte. *Acceptation :* préférences conservées entre sessions et affichage cohérent dans le calendrier, les courriels et les invitations.
+- **Calendar invitations.** Generate `.ics` invitations for booking confirmations and changes, with explicit time-zone information and the correct meeting link. *Acceptance:* events are checked in at least two calendar clients and daylight-saving transitions are tested.
+- **Self-service cancellation and rescheduling.** Let guests confirm or request booking changes without exposing other guests' bookings; keep statuses, email, and availability aligned after each change. *Acceptance:* management tokens are limited or revocable, expiry is tested, and cancellation does not leave phantom slots.
+- **Network recovery.** Make connection, camera/microphone permission, reconnection, and LiveKit failure states understandable; allow recovery without accidentally creating a duplicate meeting. *Acceptance:* manual and automated tests cover denied permissions, network loss, and reconnect.
+- **Public preview that matches capabilities.** Clearly distinguish available features, prototypes, and planned work; offer a demo without real data only if it can be safely isolated. *Acceptance:* sample slots are never presented as real availability and preview actions cannot write to production data.
+- **Account preferences.** Add host-managed time zone, language, and notification preferences. *Acceptance:* preferences persist across sessions and display consistently in the calendar, email, and invitations.
 
-### P2 — Évolutions après stabilisation
+### P2 — Improvements after stabilization
 
-- **Historique et présence des réunions.** Construire ces fonctions uniquement à partir d’événements LiveKit signés et persistés, avec règles de rétention explicites.
-- **Enregistrement, transcription et résumés.** Ne lancer qu’après choix du fournisseur, consentement clair de tous les participants, indicateur visible d’enregistrement, contrôle d’accès, suppression et politique de conservation testés.
-- **Intégrations calendaires et indicateurs d’usage.** Évaluer la synchronisation externe et les analytics après stabilisation de la persistance, du modèle de consentement et des besoins des utilisateurs.
+- **Meeting history and attendance.** Build only from signed and persisted LiveKit events, with explicit retention rules.
+- **Recording, transcription, and summaries.** Start only after selecting a provider and testing clear participant consent, visible recording indicators, access controls, deletion, and retention policy.
+- **Calendar integrations and usage insights.** Evaluate external calendar synchronization and analytics after persistence, consent, and user needs are established.
 
-## Étapes recommandées avant release
+## Recommended release steps
 
-1. Revue de la PR et validation des décisions de contenu encore ouvertes, notamment la présence éventuelle d’un CTA « Request a demo ».
-2. Le repli SMTP codé en dur a été retiré et l’ancien mot de passe de boîte exposé dans l’historique a été réinitialisé auprès du fournisseur le 28 octobre 2026. Installer le nouveau `SMTP_PASS` dans l’environnement du VPS, vérifier les paramètres SMTP, puis tester l’envoi avant la mise en production.
-3. Confirmer les variables LiveKit, SMTP, URL publique et politique de fenêtre d’accès dans l’environnement cible sans publier leurs valeurs.
-4. Décider si le déploiement reste strictement mono-processus ou migrer réservations/réunions vers une base avec transactions/contraintes adaptées avant d’ajouter des réplicas.
-5. Exécuter les tests smoke de staging sur des données non sensibles, puis suivre la procédure de release et de rollback documentée dans `deploy-vps.md`.
+1. Review the pull request and settle remaining content decisions, including whether to keep a “Request a demo” CTA.
+2. The hard-coded SMTP fallback was removed, and the mailbox password previously exposed in repository history was rotated with the provider on October 28, 2026. Install the new `SMTP_PASS` in the VPS environment, verify SMTP settings, and test delivery before production.
+3. Confirm LiveKit, SMTP, public URL, and meeting-window settings in the target environment without publishing their values.
+4. Decide whether deployment remains strictly single-process or migrate bookings/meetings to a transactional database before adding replicas.
+5. Run staging smoke tests with non-sensitive data, then follow the release and rollback procedure in `deploy-vps.md`.
 
-## Travaux ultérieurs
+## Further work
 
-- Migrer le magasin JSON vers PostgreSQL avec import idempotent, stratégie de compatibilité des liens d’invitation et transactions de réservation.
-- Ajouter des webhooks LiveKit signés et un modèle de session/participant avant de construire des analytics d’assiduité.
-- N’ajouter l’archivage, la transcription ou les résumés IA qu’après choix d’un fournisseur, configuration du stockage, consentement, rétention et tests de bout en bout.
-- Maintenir les tests couvrant les erreurs de fuseau, annulations, conflits, permissions d’hôte et compatibilité des anciens UIDs.
+- Migrate the JSON store to PostgreSQL with an idempotent import, invitation-link compatibility strategy, and transactional booking.
+- Add signed LiveKit webhooks and a session/participant model before building attendance analytics.
+- Add archival, transcription, or AI summaries only after choosing a provider and configuring storage, consent, retention, and end-to-end tests.
+- Maintain tests for time-zone edge cases, cancellations, conflicts, host permissions, and historical UID compatibility.

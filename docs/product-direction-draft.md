@@ -1,191 +1,191 @@
-# MHAF Live — مسودة اتجاه المنتج وتجربة الاستخدام
+# MHAF Live — Product and UX Direction Draft
 
-**الحالة:** اتجاه المنتج للتنفيذ معتمد؛ هذه المذكرة مرجعية للمراجعة التفصيلية، والتنفيذ موجود على `feat/calendar-workspace-flow`
-**تاريخ الإعداد:** 27 أكتوبر 2026
-**النطاق:** توثيق للاتجاه والقرارات؛ التغييرات البرمجية موجودة في الفرع، ولم تُدمج أو تُنشر على الإنتاج.
+**Status:** The product direction is approved for implementation; this note is a reference for detailed review. Implementation work was originally developed on `feat/calendar-workspace-flow`.
+**Created:** October 27, 2026
+**Scope:** Records product direction and decisions. The draft captures an earlier implementation stage and should not be used as the source of truth for current behavior.
 
-> توثّق هذه المذكرة اتجاه المنتج وخريطة الاستخدام التي نُفذت على الفرع. راجع `docs/architecture.md` و`docs/data-model.md` للحالة التقنية الحالية؛ تظل التفاصيل النصية والخيارات غير المحسومة قابلة للمراجعة.
+> This note documents the product direction and user journeys designed for the calendar and meeting work. See `docs/architecture.md` and `docs/data-model.md` for the current technical state. Copy and unresolved choices remain open to review.
 
-## 1. الفكرة الأساسية المقترحة
+## 1. Core product concept
 
-نوجّه MHAF Live ليكون **تقويمًا للحجوزات والاجتماعات**. التقويم هو مركز العمل للمضيف بعد تسجيل الدخول. أمّا الـLanding Page فهي صفحة تعريف وتسويق فقط: تشرح الخدمة وتوجّه إلى تسجيل الدخول أو إنشاء حساب، ولا تنشئ غرفة أو اجتماعًا حقيقيًا.
+MHAF Live is positioned as a **calendar for bookings and meetings**. After sign-in, the calendar is the host's main workspace. The landing page is informational and directs visitors to sign in or create an account; it does not create a real room or meeting.
 
-يبقى رابط الحجز العام مسارًا منفصلًا للضيف. المضيف يضبط ساعات التوفّر وأنواع المواعيد من داخل حسابه، ثم يشارك رابط الحجز عند الحاجة. ومن داخل التقويم يستطيع إنشاء اجتماع مرتبط بحجز، أو اجتماع مجدول يدويًا بلا حجز، أو اجتماع فوري.
+The public booking link remains a separate guest flow. Hosts configure availability and event types in their account, then share a booking link when needed. From the calendar, a host can manage a meeting linked to a booking, schedule a manual meeting without a booking, or start an instant meeting.
 
-### حدود المنتج
+### Product boundaries
 
-- **Landing Page:** تعريف بالخدمة ومزايا مثبتة، تسجيل الدخول/إنشاء الحساب، وطلب عرض تجريبي اختياري. لا حجز ولا إنشاء اجتماع حقيقي.
-- **مساحة المضيف:** التقويم، الاجتماعات، الحجوزات، أنواع المواعيد، ساعات التوفّر، والإعدادات.
-- **صفحة الحجز العامة:** للضيف لاختيار فترة متاحة لنوع موعد محدد.
-- **غرفة الاجتماع:** مساحة الانضمام إلى جلسة LiveKit بعد إصدار صلاحية صحيحة من الخادم.
+- **Landing page:** explain the service and verified features, provide sign-in/registration, and optionally request a demo. No real booking or meeting creation.
+- **Host workspace:** calendar, meetings, bookings, event types, availability, and settings.
+- **Public booking page:** lets a guest select an available slot for a specific event type.
+- **Meeting room:** lets participants join a LiveKit session after the server issues valid access.
 
-## 2. لقطة baseline قبل تنفيذ هذا الفرع والاتجاه المعتمد
+## 2. Historical baseline and intended direction
 
-**الحالة قبل بدء تنفيذ `feat/calendar-workspace-flow`، حسب مراجعة الكود في هذه المهمة:**
+**Historical baseline before the calendar-workspace implementation:**
 
-- الصفحة الرئيسية `/` فيها مشغّل اجتماع (`RoomLauncher`) يوفّر بدء اجتماع فوري وجدولة سريعة عبر API. يعني الصفحة الرئيسية حاليًا ليست تعريفية فقط.
-- توجد صفحات `/login` و`/register` و`/dashboard` و`/dashboard/availability` و`/dashboard/bookings`، لكن لا توجد صفحة تقويم فعلية.
-- صفحة الحجز العامة `/book/[hostSlug]/[eventSlug]` منفصلة عن الصفحة الرئيسية. الضيف يختار تاريخًا وفترة ويقدّم بياناته.
-- غرفة الاجتماع `/rooms/[slug]` فيها شاشة ما قبل الدخول، ومسار إصدار LiveKit token واتصال عميل موجودان بالكود.
-- في التنفيذ الحالي تُستخدم سجلات `Booking` لتمثيل حجوزات الضيوف وكذلك غرف/اجتماعات فورية أو سريعة. في Prisma schema توجد نماذج `MeetingRoom` و`MeetingSession`، لكن ليس هناك كيان `Meeting` صريح يعبّر عن أحداث التقويم بكل أنواعها.
-- الحسابات والحجوزات والتوفّر في التطبيق الرئيسي تعتمد على مخزن JSON بحسب الكود ووثائق التشغيل؛ Prisma/PostgreSQL موجودان لكن استعمالهما الحالي منفصل ومحدود، مثل تخزين طلبات العرض.
-- صفحة المواصفات القديمة للـLanding تعرض أزرار بدء اجتماع وأقسامًا تفاعلية وميزات مثل التحليلات والتفريغ النصي. بعض هذه الميزات غير منفّذة أو غير مثبتة، لذلك يلزم فصل ما هو متوفر عما هو تصوّر مستقبلي.
+- The home page `/` included a `RoomLauncher` for instant meetings and quick scheduling through an API, so it was not purely informational.
+- `/login`, `/register`, `/dashboard`, `/dashboard/availability`, and `/dashboard/bookings` existed, but there was no calendar view.
+- The public booking route `/book/[hostSlug]/[eventSlug]` was separate from the home page. Guests selected a date and slot and submitted their details.
+- The meeting room `/rooms/[slug]` included a pre-join screen and code paths for LiveKit token issuance and client connection.
+- The earlier implementation used `Booking` records for guest bookings and instant/quick rooms. The Prisma schema included `MeetingRoom` and `MeetingSession`, but no explicit `Meeting` entity for all calendar event types.
+- The main application used a JSON store for accounts, bookings, and availability. Prisma/PostgreSQL was present but used separately and in a limited way, such as for demo requests.
+- Older landing-page specifications described interactive room creation and features such as analytics and transcription. Some were not implemented or verified, so available features must be distinguished from future concepts.
 
-**المستهدف المقترح:**
+**Intended direction:**
 
-- الصفحة الرئيسية لا تنشئ أي بيانات أو غرف؛ كل إنشاء حقيقي يبدأ من مساحة المضيف.
-- `/dashboard` يصبح التقويم أو يوجّه إليه.
-- الحجز والاجتماع والغرفة والجلسة كيانات/مفاهيم منفصلة، حتى عندما ترتبط.
-- لا يُمثَّل الاجتماع الفوري بحجز ثابت مدّته 24 ساعة.
+- The home page creates no records or rooms; real creation starts in the host workspace.
+- `/dashboard` becomes the calendar or redirects to it.
+- Bookings, meetings, rooms, and sessions are separate concepts, even when related.
+- An instant meeting is not represented as a fixed 24-hour booking.
 
-## 3. مصطلحات موحّدة
+## 3. Shared terminology
 
-| المصطلح | المعنى المقترح |
+| Term | Meaning |
 |---|---|
-| **نوع الموعد — Event Type** | قالب قابل للحجز مثل «استشارة 30 دقيقة»، وفيه المدة والفواصل وقواعد النشر. لا يمثّل اجتماعًا بحد ذاته. |
-| **الحجز — Booking** | تخصيص فترة زمنية لمضيف وضيف، غالبًا عبر رابط حجز عام. |
-| **الاجتماع — Meeting** | حدث على تقويم المضيف، مجدول أو فوري، وله حالة ومشاركون. يمكن أن يرتبط بحجز أو لا. |
-| **الغرفة — Room** | مورد الاتصال/رابط دخول LiveKit المرتبط باجتماع؛ ليس هو الحجز. |
-| **الجلسة — Meeting Session** | فترة اتصال حيّ فعلية داخل الغرفة، تسجّل دخول وخروج المشاركين. |
-| **التوفّر — Availability** | ساعات العمل المتكررة للمضيف في منطقة زمنية محددة؛ ليس حجزًا ولا غرفة. |
+| **Event type** | A bookable template such as “30-minute consultation,” including duration, buffers, and publication rules. It is not a meeting itself. |
+| **Booking** | A reserved time slot for a host and guest, usually created through a public booking link. |
+| **Meeting** | An event on the host calendar, scheduled or instant, with a status and participants. It may or may not be linked to a booking. |
+| **Room** | The LiveKit access resource/link associated with a meeting; it is not the booking. |
+| **Meeting session** | An actual live connection in a room, recording participant joins and leaves. |
+| **Availability** | The host's recurring working hours in a specified time zone; it is neither a booking nor a room. |
 
-**قاعدة التصميم:** قد ينشئ الحجز اجتماعًا مرتبطًا به، لكن الحجز والاجتماع يظلان سجلّين بمسؤوليات مختلفة. ليس كل اجتماع حجزًا، وليس كل اجتماع فوريًّا موعدًا عامًا.
+**Design rule:** a booking may create a linked meeting, but each record has a separate responsibility. Not every meeting is a booking, and an instant meeting is not a public appointment.
 
-## 4. خريطة الصفحات المقترحة
+## 4. Proposed page map
 
-### صفحات عامة
+### Public pages
 
 ```text
-/                              صفحة تعريفية فقط
-/login                         دخول المضيف
-/register                      إنشاء حساب مضيف
-/book/[hostSlug]/[eventSlug]   صفحة حجز عامة للضيف
-/book/confirmation/[uid]       تأكيد الحجز ورابط الاجتماع إذا أُنشئ
-/rooms/[slug]                  ما قبل الدخول ثم غرفة الاجتماع
+/                              Informational landing page
+/login                         Host sign-in
+/register                      Host registration
+/book/[hostSlug]/[eventSlug]   Public guest booking page
+/book/confirmation/[uid]       Booking confirmation and room link, if created
+/rooms/[slug]                  Pre-join screen and meeting room
 ```
 
-### صفحات داخل حساب المضيف
+### Host account pages
 
 ```text
-/dashboard                     التقويم مباشرة أو تحويل إلى /dashboard/calendar
-/dashboard/calendar            التقويم: أسبوعي كبداية، ثم يومي/شهري
-/dashboard/meetings            الاجتماعات: قادمة / جارية / سابقة
-/dashboard/bookings            الحجوزات وإدارتها
-/dashboard/event-types         أنواع المواعيد وروابط الحجز العامة
-/dashboard/availability        ساعات التوفّر والمنطقة الزمنية
-/dashboard/settings            إعدادات الحساب والاجتماعات
-/dashboard/meetings/[id]       تفاصيل اجتماع ومشاركيه ورابطه وحالته
+/dashboard                     Calendar or redirect to /dashboard/calendar
+/dashboard/calendar            Calendar: weekly first, then daily/monthly
+/dashboard/meetings            Upcoming, live, and past meetings
+/dashboard/bookings            Bookings and management
+/dashboard/event-types         Event types and public booking links
+/dashboard/availability        Availability and time zone
+/dashboard/settings            Account and meeting settings
+/dashboard/meetings/[id]       Meeting details, participants, link, and status
 ```
 
-**التنقّل المقترح للمضيف:** التقويم، الاجتماعات، الحجوزات، أنواع المواعيد، التوفّر. الحساب والإعدادات في قائمة مستقلة. على الهاتف يكون التقويم الوجهة الأولى، مع قائمة مختصرة للأقسام الأخرى.
+**Proposed host navigation:** Calendar, Meetings, Bookings, Event Types, and Availability. Account settings live in a separate menu. On mobile, the calendar is the first destination, with a compact menu for other sections.
 
-في التصميم الحالي، صفحة `/dashboard` ملخص مع روابط للحجوزات والتوفّر؛ لا نضيف مسار تقويم إلا بعد اعتماد الخريطة.
+The earlier design had `/dashboard` as a summary with links to bookings and availability. Add a separate calendar route only after the page map is approved.
 
-### الـLanding Page بعد إعادة التوجيه
+### Landing page after the redesign
 
-- Header: الشعار، نبذة عن المنتج، الدخول، إنشاء حساب.
-- Hero يشرح «تقويم وحجوزات واجتماعات» بدل بدء غرفة مباشرة.
-- أقسام مختصرة لشرح: رابط الحجز، إدارة التقويم، الاجتماعات المرئية.
-- عرض بصري توضيحي فقط، لا يرسل طلبات ولا ينشئ غرفًا.
-- CTA أساسي: «دخول» أو «إنشاء حساب». وCTA ثانوي «طلب عرض» إذا أردت الإبقاء عليه.
-- لا نعرض تسعيرًا أو ادعاءات عن التسجيل/التحليلات/التفريغ الآلي إلا إذا كانت مزايا مؤكدة ومفعّلة.
+- Header with logo, product overview, sign-in, and registration.
+- Hero that explains “calendar, bookings, and meetings” rather than starting a room directly.
+- Short sections for booking links, calendar management, and video meetings.
+- Visual preview only; it does not submit requests or create rooms.
+- Primary CTA: sign in or create an account. Optional secondary CTA: request a demo.
+- Do not show pricing or claim recording, analytics, or transcription unless those features are confirmed and enabled.
 
-## 5. زر «إنشاء» داخل التقويم
+## 5. Calendar “Create” action
 
-يظهر الإجراء داخل حساب المضيف، ويعرض ثلاثة اختيارات:
+The action appears in the host workspace and offers three choices:
 
-1. **موعد عبر الحجز:** المضيف يجهّز نوع الموعد أو يختار نوعًا موجودًا ويشارك الرابط العام؛ أو يضيف حجزًا يدويًا للفترة عند الحاجة.
-2. **اجتماع مجدول بلا حجز:** المضيف يحدد عنوانًا وتاريخًا ووقتًا ومدة، ويضيف مشاركين أو يشارك رابطًا.
-3. **اجتماع فوري:** تنشأ غرفة الآن ويحصل المضيف على رابط المشاركة.
+1. **Booking appointment:** configure or select an event type and share its public link; or add a booking manually when needed.
+2. **Scheduled meeting without a booking:** set a title, date, time, and duration, then optionally add participants or share a link.
+3. **Instant meeting:** create a room now and give the host a shareable link.
 
-لا يظهر إجراء إنشاء اجتماع حقيقي في الـLanding Page. إذا بقي فيها Widget، يكون نموذجًا بصريًا صريحًا لا يغيّر بيانات ولا يصدر رابطًا حيًا.
+Do not expose real meeting creation on the landing page. If it retains a widget, it must be clearly visual and must not modify data or issue a live link.
 
-## 6. تدفّقات الاستخدام المقترحة
+## 6. Proposed user journeys
 
-### A. ضيف يحجز من رابط عام، وينتج عنه اجتماع مرتبط
+### A. Guest books from a public link and gets a linked meeting
 
 ```mermaid
 flowchart TD
-  A[المضيف يضبط التوفّر ونوع الموعد داخل الحساب] --> B[يشارك رابط الحجز العام]
-  B --> C[الضيف يفتح صفحة الحجز المنفصلة]
-  C --> D[يختار التاريخ والمنطقة الزمنية والفترة]
-  D --> E[الخادم يحسب الفترات المتاحة]
-  E --> F[الضيف يدخل الاسم والبريد والملاحظات]
-  F --> G{الخادم يتحقق من التوفّر والمدة والتعارض}
-  G -- مرفوض --> E
-  G -- مقبول --> H[إنشاء Booking]
-  H --> I[إنشاء Meeting مرتبط به إذا كان هذا النوع يتضمن غرفة فيديو]
-  I --> J[تأكيد الحجز وإرسال رابط الغرفة عند توفره]
-  J --> K[المضيف والضيف ينضمان في الوقت المحدد]
+  A[Host configures availability and event type] --> B[Host shares public booking link]
+  B --> C[Guest opens the separate booking page]
+  C --> D[Guest selects date, time zone, and slot]
+  D --> E[Server calculates available slots]
+  E --> F[Guest enters name, email, and notes]
+  F --> G{Server validates availability, duration, and conflicts}
+  G -- Rejected --> E
+  G -- Accepted --> H[Create Booking]
+  H --> I[Create linked Meeting if this event type includes video]
+  I --> J[Confirm booking and send room link when available]
+  J --> K[Host and guest join at the scheduled time]
 ```
 
-**قاعدة مقترحة:** أنواع المواعيد المرئية تنشئ اجتماعًا مرتبطًا بالحجز بعد تأكيده. العلاقة تبقى اختيارية في نموذج البيانات حتى نقدر نضيف أنواع حجز لا تحتاج غرفة، أو حجوزات تحتاج تأكيدًا قبل إنشاء رابط الاجتماع.
+**Proposed rule:** video event types create a meeting linked to the booking after confirmation. Keep the relationship optional in the data model so non-video bookings or bookings requiring approval can be supported later.
 
-**قواعد لازم يفرضها الخادم:** نوع الموعد موجود ونشط ويتبع للمضيف؛ الفترة ضمن توفّره بعد تحويل صحيح من المنطقة الزمنية؛ المدة والفواصل مطابقة؛ الإشعار المسبق صحيح؛ ما فماش تعارض مع حجز أو اجتماع مجدول؛ والحفظ ذري حتى لا يُقبل طلبان للفترة نفسها.
+**Server-enforced rules:** the event type exists, is active, and belongs to the host; the slot falls within availability after correct time-zone conversion; duration and buffers match; the notice period is respected; no booking or scheduled meeting conflicts; and the save is atomic so two requests cannot claim the same slot.
 
-### B. المضيف ينشئ اجتماعًا مجدولًا بلا حجز
+### B. Host creates a scheduled meeting without a booking
 
 ```mermaid
 flowchart TD
-  A[المضيف يفتح التقويم] --> B[يختار فترة أو يضغط إنشاء]
-  B --> C[اجتماع مجدول بلا حجز]
-  C --> D[يدخل العنوان والتوقيت والمدة والمشاركين الاختياريين]
-  D --> E{الخادم يتحقق من الصلاحية والتوقيت والتعارض}
-  E -- مرفوض --> B
-  E -- مقبول --> F[إنشاء Meeting دون Booking]
-  F --> G[إنشاء/ربط غرفة الاجتماع]
-  G --> H[إظهار الرابط وإرسال دعوة عند اختيار المضيف]
-  H --> I[يظهر الاجتماع في التقويم]
+  A[Host opens calendar] --> B[Selects a slot or Create]
+  B --> C[Chooses scheduled meeting without booking]
+  C --> D[Enters title, time, duration, and optional participants]
+  D --> E{Server validates permission, time, and conflicts}
+  E -- Rejected --> B
+  E -- Accepted --> F[Create Meeting without Booking]
+  F --> G[Create or associate meeting room]
+  G --> H[Show link and send invitation if requested]
+  H --> I[Meeting appears on calendar]
 ```
 
-الاجتماع اليدوي يشغل وقته في التقويم ويجب أن يمنع حجز الفترة نفسها من رابط عام. لا ننشئ سجل Booking مصطنعًا لمجرد أن الاجتماع يحتاج توقيتًا.
+A manual meeting occupies its calendar time and must prevent a public booking for the same slot. Do not create a synthetic `Booking` record simply because the meeting has a time.
 
-### C. المضيف ينشئ اجتماعًا فوريًا
+### C. Host starts an instant meeting
 
 ```mermaid
 flowchart TD
-  A[من مساحة المضيف: إنشاء ثم اجتماع فوري] --> B[الخادم يتحقق من جلسة المضيف وينشئ Meeting]
-  B --> C[إنشاء/ربط غرفة، ثم دخول المضيف]
-  C --> D[المضيف يشارك رابط دعوة للضيف]
-  D --> E[الضيف ينضم بصلاحية محدودة]
-  E --> F[تسجّل الجلسة الفعلية وتنتهي حسب سياسة الإغلاق]
+  A[Host selects Create, then Instant Meeting] --> B[Server validates host session and creates Meeting]
+  B --> C[Create or associate room, then host joins]
+  C --> D[Host shares guest invitation link]
+  D --> E[Guest joins with scoped access]
+  E --> F[Track the live session and close it according to policy]
 ```
 
-الاجتماع الفوري **لا ينشئ Booking مدته 24 ساعة** ولا يحجب يومًا كاملًا من التقويم. إذا قررنا حجب توفر المضيف أثناء المكالمة، يكون الحجب بحسب مدة الجلسة الفعلية أو سياسة معلنة.
+An instant meeting **does not create a 24-hour `Booking`** or block a full day on the calendar. If host availability should be blocked during a call, block only the actual session duration or follow a clearly stated policy.
 
-## 7. نموذج البيانات المقترح للمراجعة
+## 7. Proposed data model for review
 
-### التوصية المفاهيمية
+### Conceptual recommendation
 
-- `EventType`: قالب موعد قابل للحجز.
-- `Availability`: ساعات المضيف ومنطق المنطقة الزمنية.
-- `Booking`: فترة محجوزة وبيانات الضيف وحالة الحجز؛ رابط اختياري إلى `Meeting`.
-- `Meeting`: الحدث الذي يظهر في تقويم المضيف، وفيه المصدر `BOOKING | MANUAL | INSTANT`، المضيف، العنوان، البداية والنهاية، والحالة.
-- `Room`: بيانات دخول LiveKit المرتبطة بالاجتماع، مثل اسم الغرفة وسياسة السماح بالدخول؛ يمكن إبقاؤها حقولًا داخل `Meeting` في أول نسخة بدل جدول مستقل إذا كانت العلاقة دائمًا واحدة لواحد.
-- `MeetingSession`: اتصال حي فعلي واحد أو أكثر، مع بدايته ونهايته وأحداث المشاركين.
+- `EventType`: bookable appointment template.
+- `Availability`: host hours and time-zone logic.
+- `Booking`: reserved slot, guest details, and booking status; optional link to `Meeting`.
+- `Meeting`: event shown on the host calendar, with source `BOOKING | MANUAL | INSTANT`, host, title, start/end, and status.
+- `Room`: LiveKit access details associated with a meeting, such as room name and join policy. In an initial version these may be fields on `Meeting` rather than a separate table if the relationship is always one-to-one.
+- `MeetingSession`: one or more actual live connections, with start/end and participant events.
 
-هذا يفصل **ما حُجز** عن **ما سيجري على التقويم** عن **مورد الفيديو** عن **الاتصال الفعلي**. في schema الحالية يوجد `MeetingRoom` و`MeetingSession` وارتباط اختياري من `Booking` إلى `MeetingRoom`، لكن أسماء الحقول ومسؤولياتها تحتاج توضيحًا قبل تغييرها. اختيار إنشاء `Meeting` صريح أو ترقية `MeetingRoom` ليمثل حدث التقويم قرار هندسي لاحق؛ لا تغيير schema في هذه المسودة.
+This separates **what was booked**, **what is on the calendar**, **the video resource**, and **the actual connection**. The existing schema contains `MeetingRoom` and `MeetingSession`, plus an optional `Booking` relationship to `MeetingRoom`, but field names and responsibilities need clarification before changes. Whether to add an explicit `Meeting` or evolve `MeetingRoom` to represent the calendar event is a later engineering decision; this draft does not change the schema.
 
-## 8. تنظيم الوثائق الحالية
+## 8. Related documentation
 
-| الملف | دوره |
+| File | Purpose |
 |---|---|
-| `docs/README.md` | فهرس الوثائق ومصدر الحقيقة للحالة الحالية. |
-| `docs/product-direction-draft.md` (هذا الملف) | اتجاه المنتج وخريطة الاستخدام، مع لقطة baseline تاريخية قبل التنفيذ. |
-| `docs/landing-page-content-draft.md` | مسودة النسخ التسويقية وخيارات المحتوى التي ما زالت قابلة للمراجعة. |
-| `docs/landing-page-spec.md` | مواصفات الصفحة العامة المنفذة وحدودها. |
-| `docs/architecture.md` | بنية التطبيق الحالية وحدود الثقة والتشغيل. |
-| `docs/data-model.md` | نموذج JSON الفعلي وعلاقته بالحجوزات والاجتماعات. |
-| `docs/implementation-roadmap.md` | ما تم التحقق منه وما يلزم قبل الإصدار والأعمال المستقبلية. |
-| `docs/reference-audit.md` | تدقيق تاريخي لمشاريع المصدر؛ ليس وصفًا للحالة الحالية للمستودع. |
-| `docs/deploy-vps.md` و`docs/backup-restore.md` | إجراءات التشغيل والنشر والنسخ الاحتياطي؛ تُراجع بعد اعتماد release. |
+| `docs/README.md` | Documentation index and current-state guide. |
+| `docs/product-direction-draft.md` (this file) | Product direction and journeys, including a historical pre-implementation baseline. |
+| `docs/landing-page-content-draft.md` | Marketing copy draft and content choices still open for review. |
+| `docs/landing-page-spec.md` | Implemented public-page specification and limits. |
+| `docs/architecture.md` | Current application architecture, trust boundaries, and operations. |
+| `docs/data-model.md` | Active JSON model and its relationship to bookings and meetings. |
+| `docs/implementation-roadmap.md` | Verified work, release requirements, and future proposals. |
+| `docs/reference-audit.md` | Historical reference-project audit, not the repository's current state. |
+| `docs/deploy-vps.md` and `docs/backup-restore.md` | Operations, deployment, and backup procedures; review before a release. |
 
-المقاطع التي تصف الحالة قبل إنشاء التقويم والاجتماعات هي لقطة تاريخية وليست وصفًا للحالة الحالية. التطبيق الحالي موثق في `docs/architecture.md` و`docs/data-model.md`.
+Sections describing the state before the calendar and meeting work are historical snapshots, not descriptions of current behavior. The current implementation is documented in `docs/architecture.md` and `docs/data-model.md`.
 
-## 9. حدود التنفيذ والإصدار
+## 9. Implementation and release limits
 
-- تغييرات الكود والوثائق موجودة على `feat/calendar-workspace-flow`، ولم تُدمج أو تُنشر في الإنتاج.
-- يبقى التخزين الفعلي للحجوزات والاجتماعات ملف JSON مع قفل داخل عملية Node.js؛ لا تُستنتج منه ضمانات PostgreSQL أو تعدد النسخ.
-- لا تُعرض التسجيلات أو التحليلات أو التفريغ النصي أو ملخصات الذكاء الاصطناعي كميزات متاحة ما لم تُنفذ وتُتحقق على الخدمة.
-- قرار ترويج زر **Request a demo** لم يُعتمد ضمن هذه النسخة؛ أبقِ أزرار إنشاء الحساب وتسجيل الدخول كالإجراءات العامة الأساسية إلى حين المراجعة.
-- النشر إلى الإنتاج خطوة منفصلة بعد مراجعة PR والتحقق من إعدادات البيئة والأسرار.
+- The original implementation changes were developed on `feat/calendar-workspace-flow`; consult current source code and the current architecture document for merged behavior.
+- Active booking and meeting storage remains a JSON file with a lock inside one Node.js process; do not infer PostgreSQL or multi-replica guarantees.
+- Do not describe recording, analytics, transcription, or AI summaries as available unless implemented and verified in the service.
+- The decision to promote a **Request a demo** CTA was not part of the original implementation; keep registration and sign-in as the primary public actions unless content review decides otherwise.
+- Production deployment is a separate step after review and validation of environment configuration and secrets.

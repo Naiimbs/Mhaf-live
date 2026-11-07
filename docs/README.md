@@ -1,15 +1,15 @@
-# Documentation MHAF Live
+# MHAF Live Documentation
 
-Cette documentation distingue le comportement actuellement implémenté des références historiques et des travaux futurs. Pour l’architecture et les données, le code sous `src/` et les fichiers suivants priment sur les anciens schémas de conception :
+This documentation distinguishes verified, implemented behavior from historical references and planned work. For the current architecture and data model, the running code under `src/` and the documents below take precedence over older design drafts.
 
-- [`architecture.md`](architecture.md) — routes, frontières de confiance, persistance active et limites opérationnelles.
-- [`data-model.md`](data-model.md) — entités réellement utilisées par le magasin JSON et compatibilité avec les réservations existantes.
-- [`landing-page-spec.md`](landing-page-spec.md) — comportement public de la landing page sur la branche calendrier.
-- [`implementation-roadmap.md`](implementation-roadmap.md) — état vérifié, contrôles locaux et actions recommandées avant release.
-- [`deploy-vps.md`](deploy-vps.md) et [`backup-restore.md`](backup-restore.md) — procédures d’exploitation; vérifier les variables et les sauvegardes avant toute release.
-- [`product-direction-draft.md`](product-direction-draft.md) et [`landing-page-content-draft.md`](landing-page-content-draft.md) — documents de direction/copie conservés pour la revue de contenu.
-- [`reference-audit.md`](reference-audit.md) — audit historique des projets de référence, pas une description de l’état actuel du produit.
+- [`architecture.md`](architecture.md) — current routes, trust boundaries, persistence, and operational limits.
+- [`data-model.md`](data-model.md) — entities used by the active JSON store and compatibility with existing bookings.
+- [`landing-page-spec.md`](landing-page-spec.md) — public landing-page behavior and limits.
+- [`implementation-roadmap.md`](implementation-roadmap.md) — verified status, local checks, and proposed release work.
+- [`deploy-vps.md`](deploy-vps.md) and [`backup-restore.md`](backup-restore.md) — deployment and operations procedures; verify environment settings and backups before a release.
+- [`product-direction-draft.md`](product-direction-draft.md) and [`landing-page-content-draft.md`](landing-page-content-draft.md) — product and copy direction retained for review.
+- [`reference-audit.md`](reference-audit.md) — historical audit of reference projects, not a description of the current product.
 
-## Limite importante du stockage
+## Important storage limitation
 
-Les réservations et réunions actives sont persistées dans `data/mhaf_live_db.json`. Le verrou de concurrence est en mémoire et ne coordonne que les mutations du même processus Node.js. Ne pas traiter le schéma Prisma comme une preuve que ces opérations utilisent PostgreSQL ni déployer plusieurs écrivains sans migration transactionnelle.
+Active bookings and meetings are persisted in `data/mhaf_live_db.json`. The concurrency lock is in memory and coordinates mutations only within the same Node.js process. Do not treat the Prisma schema as proof that these operations use PostgreSQL, and do not deploy multiple writers without a transactional storage migration.
