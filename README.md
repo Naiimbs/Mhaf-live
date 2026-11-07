@@ -15,24 +15,24 @@ The codebase includes host registration and sign-in, a host calendar workspace, 
 
 Some items visible on the product site are concepts or roadmap work, not released features. Attendance analytics, recording and archival, transcription, and AI summaries are not currently implemented. Scheduling persistence currently uses a local JSON store with a single-process concurrency lock. It is not suitable for multi-instance production writes without a transactional storage migration. See [`docs/implementation-roadmap.md`](docs/implementation-roadmap.md) and [`docs/architecture.md`](docs/architecture.md) for verified scope and limitations.
 
-## Run locally
+## Quick start
 
 ### Requirements
 
-- Node.js compatible with the project scripts
+- Node.js 22 or later
 - npm
-- Optional services for full functionality: PostgreSQL, a LiveKit server, and SMTP/email configuration
+- LiveKit and SMTP/email credentials are only needed to exercise the corresponding real-time meeting and email flows.
 
 ### Setup
 
 ```bash
 git clone https://github.com/NaiimBS/Mhaf-live.git
 cd Mhaf-live
-npm install
+npm ci
 cp .env.example .env.local
 ```
 
-Review `.env.local` and replace every placeholder with suitable local values. Never use production credentials in local development or commit secret values. The example file documents the available settings; features that depend on LiveKit, email delivery, or deployment-specific services require those services to be configured.
+Review `.env.local` and replace only the settings needed for the feature you want to try. Never use production credentials in local development or commit secret values. Scheduling data currently uses the local JSON store; the Prisma schema does not make PostgreSQL the active source of truth for bookings and meetings.
 
 Start the development server:
 
@@ -63,6 +63,17 @@ End-to-end tests may require the environment and local services described in the
 
 Do not commit `.env.local`, API keys, signing secrets, SMTP credentials, or customer data. If you discover a security issue, please do not publish exploit details in a public issue; contact the project maintainer privately.
 
+## Contributing
+
+MHAF Live is currently a private project, so contributions are limited to collaborators who have repository access. If you are an invited contributor:
+
+1. Create a focused branch from `master`, using a descriptive name such as `fix/booking-timezone` or `feat/calendar-export`.
+2. Keep the change aligned with the implemented scope. Update the relevant documentation when behavior, configuration, or limitations change.
+3. Add or update tests for behavior changes. Run `npm run test:unit` and `npm run build`; run `npm run test:e2e` when the change affects a user flow and the required local services are configured.
+4. Open a pull request with a short description, test results, screenshots for visible UI changes, and any migration or configuration notes.
+
+Do not include credentials, real meeting links, personal data, or production database content in commits, screenshots, test fixtures, or pull requests. Please do not describe roadmap items as available features unless they have been implemented and verified. Once the repository is opened to outside contributions, this section should be updated with the preferred issue, review, and community guidelines.
+
 ## License
 
-No open-source license is currently provided. Unless a license is added, the source is publicly viewable but reuse and redistribution are not granted by default.
+No open-source license is currently provided. Repository access does not grant permission to reuse, modify, or redistribute the source. The repository is private, and access is limited to authorized collaborators.
