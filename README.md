@@ -12,6 +12,12 @@ MHAF Live is an early-stage product project exploring a simpler way for independ
 
 > **Project status:** actively developed prototype. The live website is a product preview, not a statement that every advertised or planned capability is production-ready. This repository is currently private and available only to authorized collaborators.
 
+## Product preview
+
+![MHAF Live interactive booking preview](docs/images/mhaf-live-booking-preview.png)
+
+*Illustrative booking preview only. Sample slots are not connected to a live host calendar or meeting room.*
+
 ## At a glance
 
 | | |
